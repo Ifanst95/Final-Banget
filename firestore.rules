@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+
+    function isValidPortalState(data) {
+      return data.keys().hasAll(['revision', 'updatedAt', 'updatedBy', 'payloadJson']) &&
+        data.keys().hasOnly(['revision', 'updatedAt', 'updatedBy', 'payloadJson']) &&
+        (data.revision is int || data.revision is number) &&
+        data.updatedAt is string && data.updatedAt.size() >= 1 && data.updatedAt.size() <= 64 &&
+        data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128 &&
+        data.payloadJson is string && data.payloadJson.size() <= 1000000;
+    }
+
+    match /portal_state/{docId} {
+      allow get: if isValidId(docId);
+      allow list: if false;
+      allow write: if isValidId(docId) && isValidPortalState(incoming());
+    }
+  }
+}
+

@@ -1,0 +1,421 @@
+import * as XLSX from 'xlsx';
+import {
+  BaksosAgenda,
+  CashTransaction,
+  ResidentHouse,
+  SiteConfig,
+} from '../types';
+import { BalanceBreakdown } from '../hooks/useStorage';
+import {
+  formatDateDDMMYYYY,
+  formatMonthYearFromDate,
+  formatMonthYearFromKey,
+  getMonthKeyFromDate,
+  getSubsequentMonthLabels,
+  isHouseVacant,
+} from './helpers';
+
+export interface FinancialExportOptions {
+  config: SiteConfig;
+  transactions: CashTransaction[];
+  residents: ResidentHouse[];
+  baksosAgendas?: BaksosAgenda[];
+  balances: BalanceBreakdown;
+  exportScope?: 'all' | 'mutasi_only' | 'per_kk_only' | 'tunggakan_only';
+}
+
+/**
+ * Export seluruh laporan keuangan (Ringkasan Saldo, Rekap Bulanan, Mutasi Keluar Masuk, Kas Per KK, & Rincian Tunggakan)
+ * ke dalam satu file Microsoft Excel (.xlsx) profesional untuk akses Admin.
+ */
+export function exportFinancialReportToExcel({
+  config,
+  transactions,
+  residents,
+  baksosAgendas = [],
+  balances,
+  exportScope = 'all',
+}: FinancialExportOptions) {
+  const wb = XLSX.utils.book_new();
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const currentPeriod = config.duesCurrentMonth || 'Oktober 2026';
+  const defaultNominal = config.duesAmountPerMonth || 50000;
+
+  const getHouseDuesNominal = (house: ResidentHouse) =>
+    house.customDuesAmount !== undefined ? house.customDuesAmount : defaultNominal;
+
+  const occupiedResidents = residents.filter((h) => h.occupancy !== 'Kosong');
+  const totalInflow = transactions
+    .filter((t) => t.type === 'masuk')
+    .reduce((sum, t) => sum + t.amount, 0);
+  const totalOutflow = transactions
+    .filter((t) => t.type === 'keluar')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const totalCurrentMonthCollected = occupiedResidents.reduce((sum, h) => {
+    const nom = getHouseDuesNominal(h);
+    if (h.duesStatus === 'Lunas' || h.duesStatus === 'Bayar Lebih') return sum + nom;
+    return sum + (h.duesPaidAmount || 0);
+  }, 0);
+
+  const totalPrepaidAdvance = occupiedResidents.reduce((sum, h) => {
+    if (h.duesStatus === 'Bayar Lebih') return sum + (h.duesPrepaidBalance || 0);
+    return sum;
+  }, 0);
+
+  // 1. SHEET: RINGKASAN SALDO & REKAP KEUANGAN
+  if (exportScope === 'all') {
+    const summaryRows = [
+      {
+        'Komponen Laporan Keuangan': 'Nama Gang / Portal',
+        'Nilai / Nominal (Rp)': config.title || 'Warga Gang Mandor Blok K2/25 - K3/24',
+        Keterangan: (config.subtitle || 'Transparansi Keuangan & Kas Gang').replace(/Lingkungan/gi, 'Gang'),
+      },
+      {
+        'Komponen Laporan Keuangan': 'Periode Bulan Berjalan',
+        'Nilai / Nominal (Rp)': currentPeriod,
+        Keterangan: `Tanggal Cetak Excel: ${formatDateDDMMYYYY(todayStr)}`,
+      },
+      {
+        'Komponen Laporan Keuangan': 'Saldo Kas Utama (Rp)',
+        'Nilai / Nominal (Rp)': balances.kasUtama,
+        Keterangan: 'Iuran bulanan warga, denda baksos & pengeluaran gang',
+      },
+      {
+        'Komponen Laporan Keuangan': 'Saldo Cashback WiFi (Rp)',
+        'Nilai / Nominal (Rp)': balances.wifiCashback,
+        Keterangan: 'Komisi / bagi hasil kemitraan provider internet gang',
+      },
+      {
+        'Komponen Laporan Keuangan': 'Saldo Cashback Sampah (Rp)',
+        'Nilai / Nominal (Rp)': balances.sampahCashback,
+        Keterangan: 'Dana pengelolaan bank sampah & daur ulang',
+      },
+      {
+        'Komponen Laporan Keuangan': 'TOTAL AKUMULASI SELURUH KAS (Rp)',
+        'Nilai / Nominal (Rp)': balances.total,
+        Keterangan: 'Total Gabungan Kas Utama + Cashback WiFi + Cashback Sampah',
+      },
+      {
+        'Komponen Laporan Keuangan': 'Total Pemasukan Tercatat (Rp)',
+        'Nilai / Nominal (Rp)': totalInflow,
+        Keterangan: `${transactions.filter((t) => t.type === 'masuk').length} transaksi uang masuk`,
+      },
+      {
+        'Komponen Laporan Keuangan': 'Total Pengeluaran Tercatat (Rp)',
+        'Nilai / Nominal (Rp)': totalOutflow,
+        Keterangan: `${transactions.filter((t) => t.type === 'keluar').length} transaksi uang keluar`,
+      },
+      {
+        'Komponen Laporan Keuangan': 'Iuran Bulan Berjalan Terkumpul (Rp)',
+        'Nilai / Nominal (Rp)': totalCurrentMonthCollected,
+        Keterangan: `${
+          occupiedResidents.filter(
+            (h) => h.duesStatus === 'Lunas' || h.duesStatus === 'Bayar Lebih'
+          ).length
+        } dari ${occupiedResidents.length} rumah wajib iuran telah lunas`,
+      },
+      {
+        'Komponen Laporan Keuangan': 'Deposit Kas Bayar Lebih >1 Bulan (Rp)',
+        'Nilai / Nominal (Rp)': totalPrepaidAdvance,
+        Keterangan: `${
+          occupiedResidents.filter((h) => h.duesStatus === 'Bayar Lebih').length
+        } rumah memiliki saldo deposit untuk bulan berikutnya`,
+      },
+    ];
+
+    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+    wsSummary['!cols'] = [{ wch: 36 }, { wch: 28 }, { wch: 52 }];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan Keuangan');
+  }
+
+  // 1B. SHEET: REKAP BULANAN IURAN KAS & KELUAR MASUK UANG
+  if (exportScope === 'all' || exportScope === 'mutasi_only') {
+    const monthBuckets: Record<
+      string,
+      {
+        monthKey: string;
+        monthLabel: string;
+        txCount: number;
+        iuranMasuk: number;
+        wifiMasuk: number;
+        sampahMasuk: number;
+        dendaMasuk: number;
+        lainMasuk: number;
+        totalMasuk: number;
+        totalKeluar: number;
+      }
+    > = {};
+
+    transactions.forEach((tx) => {
+      const mKey = getMonthKeyFromDate(tx.date);
+      if (!monthBuckets[mKey]) {
+        monthBuckets[mKey] = {
+          monthKey: mKey,
+          monthLabel: formatMonthYearFromKey(mKey),
+          txCount: 0,
+          iuranMasuk: 0,
+          wifiMasuk: 0,
+          sampahMasuk: 0,
+          dendaMasuk: 0,
+          lainMasuk: 0,
+          totalMasuk: 0,
+          totalKeluar: 0,
+        };
+      }
+      const b = monthBuckets[mKey];
+      b.txCount += 1;
+      if (tx.type === 'masuk') {
+        b.totalMasuk += tx.amount;
+        if (tx.category === 'Iuran Warga') b.iuranMasuk += tx.amount;
+        else if (tx.pool === 'Cashback WiFi' || tx.category === 'Cashback WiFi')
+          b.wifiMasuk += tx.amount;
+        else if (tx.pool === 'Cashback Sampah' || tx.category === 'Cashback Sampah')
+          b.sampahMasuk += tx.amount;
+        else if (tx.category === 'Denda Baksos') b.dendaMasuk += tx.amount;
+        else b.lainMasuk += tx.amount;
+      } else {
+        b.totalKeluar += tx.amount;
+      }
+    });
+
+    const monthlyRows = Object.values(monthBuckets)
+      .sort((a, b) => b.monthKey.localeCompare(a.monthKey))
+      .map((m, idx) => ({
+        No: idx + 1,
+        'Periode Bulan': m.monthLabel,
+        'Kode Bulan': m.monthKey,
+        'Jumlah Transaksi': m.txCount,
+        'Iuran Kas Warga Masuk (Rp)': m.iuranMasuk,
+        'Cashback WiFi Masuk (Rp)': m.wifiMasuk,
+        'Cashback Sampah Masuk (Rp)': m.sampahMasuk,
+        'Denda Baksos Masuk (Rp)': m.dendaMasuk,
+        'Pemasukan Lainnya (Rp)': m.lainMasuk,
+        'TOTAL UANG MASUK (Rp)': m.totalMasuk,
+        'TOTAL UANG KELUAR (Rp)': m.totalKeluar,
+        'SELISIH KAS BERSIH BULANAN (Rp)': m.totalMasuk - m.totalKeluar,
+      }));
+
+    const wsMonthly = XLSX.utils.json_to_sheet(monthlyRows);
+    wsMonthly['!cols'] = [
+      { wch: 5 },
+      { wch: 18 },
+      { wch: 12 },
+      { wch: 16 },
+      { wch: 24 },
+      { wch: 22 },
+      { wch: 24 },
+      { wch: 22 },
+      { wch: 20 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 26 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsMonthly, 'Rekap Bulanan Kas');
+  }
+
+  // 2. SHEET: MUTASI KELUAR MASUK KAS (LEDGER TRANSAKSI)
+  if (exportScope === 'all' || exportScope === 'mutasi_only') {
+    // Sort chronologically ascending to compute running balance accurately, then display
+    const sortedAsc = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
+    let runningTotal = 0;
+    const ledgerWithRunning = sortedAsc.map((tx) => {
+      const signedVal = tx.type === 'masuk' ? tx.amount : -tx.amount;
+      runningTotal += signedVal;
+      return {
+        ...tx,
+        runningBalance: runningTotal,
+      };
+    });
+
+    const ledgerRows = ledgerWithRunning.reverse().map((tx, idx) => ({
+      No: idx + 1,
+      'ID Transaksi': tx.id,
+      'Kelompok Bulan': formatMonthYearFromDate(tx.date),
+      Tanggal: formatDateDDMMYYYY(tx.date),
+      'Tanggal ISO': tx.date,
+      'Alokasi Pos Kas': tx.pool,
+      Kategori: tx.category,
+      'Uraian / Keterangan Transaksi': tx.description,
+      'Jenis Mutasi': tx.type === 'masuk' ? 'UANG MASUK (+)' : 'UANG KELUAR (-)',
+      'Nominal Masuk (Rp)': tx.type === 'masuk' ? tx.amount : 0,
+      'Nominal Keluar (Rp)': tx.type === 'keluar' ? tx.amount : 0,
+      'Mutasi Bersih (Rp)': tx.type === 'masuk' ? tx.amount : -tx.amount,
+      'Saldo Akumulasi Berjalan (Rp)': tx.runningBalance,
+    }));
+
+    const wsMutasi = XLSX.utils.json_to_sheet(ledgerRows);
+    wsMutasi['!cols'] = [
+      { wch: 5 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 14 },
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 48 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 24 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsMutasi, 'Mutasi Keluar Masuk Kas');
+  }
+
+  // 3. SHEET: LAPORAN KAS & IURAN PER KK
+  if (exportScope === 'all' || exportScope === 'per_kk_only') {
+    const perKKRows = residents.map((house, idx) => {
+      const isEmpty =
+        house.occupancy === 'Kosong' ||
+        house.occupancy === 'Belum Ditempati' ||
+        isHouseVacant(house);
+      const nominal = getHouseDuesNominal(house);
+      const isAdvance = house.duesStatus === 'Bayar Lebih';
+      const isLunas = house.duesStatus === 'Lunas' || isAdvance;
+      const paidMonths = isAdvance
+        ? Math.max(2, house.duesPaidMonths || 2)
+        : isLunas
+        ? 1
+        : 0;
+      const prepaidDeposit = isAdvance ? house.duesPrepaidBalance || 0 : 0;
+      const paidThisMonth = isAdvance
+        ? nominal + prepaidDeposit
+        : isLunas
+        ? nominal
+        : isEmpty
+        ? 0
+        : house.duesPaidAmount || 0;
+      const remainingThisMonth = isEmpty
+        ? 0
+        : isLunas
+        ? 0
+        : Math.max(0, nominal - (house.duesPaidAmount || 0));
+
+      const basePeriod = house.duesMonthNote || currentPeriod;
+      const coveredMonths = isLunas
+        ? getSubsequentMonthLabels(basePeriod, Math.max(1, paidMonths)).join(', ')
+        : isEmpty
+        ? 'Bebas Iuran (Kosong)'
+        : basePeriod;
+
+      return {
+        No: idx + 1,
+        'No Blok': house.blockNumber,
+        'Kepala Keluarga': house.headName,
+        'No. WhatsApp': house.phone || '-',
+        'Status Hunian': house.occupancy,
+        'Status Kepemilikan': house.ownership,
+        'Periode Bulan': basePeriod,
+        'Alokasi Bulan Tercover': coveredMonths,
+        'Wajib Iuran Rutin': isEmpty ? 'Bebas Iuran (Kosong)' : 'Wajib / Boleh Bayar',
+        'Nominal Iuran / Bulan (Rp)': isEmpty && !isLunas ? 0 : nominal,
+        'Status Pembayaran': isEmpty
+          ? isLunas
+            ? isAdvance
+              ? `Bayar Lebih (Kosong ${paidMonths} Bulan)`
+              : 'Lunas (Rumah Kosong)'
+            : 'Bebas Iuran (Kosong)'
+          : isAdvance
+          ? `Bayar Lebih (${paidMonths} Bulan)`
+          : house.duesStatus,
+        'Jumlah Bulan Dibayar': paidMonths,
+        'Total Kas Diterima (Rp)': paidThisMonth,
+        'Saldo Deposit Bulan Depan (Rp)': prepaidDeposit,
+        'Cicilan Berjalan (Rp)': !isLunas && !isEmpty ? house.duesPaidAmount || 0 : 0,
+        'Sisa Tagihan Bulan Ini (Rp)': remainingThisMonth,
+        'Tanggal Bayar': house.duesPaidDate ? formatDateDDMMYYYY(house.duesPaidDate) : '-',
+      };
+    });
+
+    const wsPerKK = XLSX.utils.json_to_sheet(perKKRows);
+    wsPerKK['!cols'] = [
+      { wch: 5 },
+      { wch: 10 },
+      { wch: 24 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 20 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 24 },
+      { wch: 18 },
+      { wch: 22 },
+      { wch: 15 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsPerKK, 'Laporan Kas Per KK');
+  }
+
+  // 4. SHEET: RINCIAN TUNGGAKAN & DENDA WARGA
+  if (exportScope === 'all' || exportScope === 'tunggakan_only') {
+    const arrearsRows = residents.map((house, idx) => {
+      const nominal = getHouseDuesNominal(house);
+      const duesArrears =
+        house.occupancy === 'Kosong'
+          ? 0
+          : house.duesStatus === 'Belum Bayar'
+          ? Math.max(0, nominal - (house.duesPaidAmount || 0))
+          : 0;
+
+      const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
+      const unpaidBaksos = baksosAgendas.filter((agenda) => {
+        const att =
+          agenda.attendance?.[house.id] ||
+          (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
+        const paid = agenda.finesPaid?.[house.id];
+        return att === 'Tidak Hadir' && !paid;
+      });
+      const baksosFineArrears = unpaidBaksos.length * 10000;
+      const previousArrears = house.previousArrears || 0;
+      const totalArrears = duesArrears + baksosFineArrears + previousArrears;
+
+      return {
+        No: idx + 1,
+        'No Blok': house.blockNumber,
+        'Kepala Keluarga': house.headName,
+        'No. WhatsApp': house.phone || '-',
+        'Status Hunian': house.occupancy,
+        'Tunggakan Iuran Bulan Ini (Rp)': duesArrears,
+        'Jumlah Absen Baksos Belum Lunas': unpaidBaksos.length,
+        'Tunggakan Denda Baksos (Rp)': baksosFineArrears,
+        'Tunggakan Bulan/Tahun Lalu (Rp)': previousArrears,
+        'Keterangan Tunggakan Lalu': house.previousArrearsNote || '-',
+        'TOTAL TUNGGAKAN (Rp)': totalArrears,
+        'Status Tagihan': totalArrears > 0 ? 'TERTUNGGAK' : 'LUNAS / BERSIH',
+      };
+    });
+
+    const wsArrears = XLSX.utils.json_to_sheet(arrearsRows);
+    wsArrears['!cols'] = [
+      { wch: 5 },
+      { wch: 10 },
+      { wch: 24 },
+      { wch: 16 },
+      { wch: 16 },
+      { wch: 26 },
+      { wch: 24 },
+      { wch: 24 },
+      { wch: 26 },
+      { wch: 32 },
+      { wch: 22 },
+      { wch: 18 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsArrears, 'Rincian Tunggakan');
+  }
+
+  const filePrefix =
+    exportScope === 'mutasi_only'
+      ? 'Laporan_Mutasi_Kas_Gang_Mandor'
+      : exportScope === 'per_kk_only'
+      ? 'Laporan_Kas_Per_KK_Gang_Mandor'
+      : exportScope === 'tunggakan_only'
+      ? 'Laporan_Tunggakan_Warga_Gang_Mandor'
+      : 'Laporan_Keuangan_Lengkap_Gang_Mandor';
+
+  XLSX.writeFile(wb, `${filePrefix}_${todayStr}.xlsx`);
+}

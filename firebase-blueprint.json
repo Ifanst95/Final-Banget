@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "PortalState": {
+      "title": "PortalState",
+      "description": "Community portal synchronized state document",
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "description": "Incremental revision number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update",
+          "maxLength": 64
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "Name or role of updater",
+          "maxLength": 128
+        },
+        "payloadJson": {
+          "type": "string",
+          "description": "Full JSON snapshot of portal state",
+          "maxLength": 1000000
+        }
+      },
+      "required": ["revision", "updatedAt", "updatedBy", "payloadJson"]
+    }
+  },
+  "firestore": {
+    "/portal_state/{docId}": {
+      "schema": "PortalState",
+      "description": "Stores portal state snapshot and runtime database"
+    }
+  }
+}

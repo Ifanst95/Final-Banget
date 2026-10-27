@@ -1,0 +1,15 @@
+{
+  "version": 5,
+  "revision": 922,
+  "isDefaultSeed": false,
+  "updatedAt": "2026-10-27T14:39:26.808Z",
+  "updatedBy": "Test",
+  "siteConfig": {
+    "gangName": "Gang Mandor"
+  },
+  "residents": [],
+  "transactions": [],
+  "baksosAgendas": [],
+  "committees": [],
+  "announcements": []
+}

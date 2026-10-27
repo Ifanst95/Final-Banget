@@ -1,0 +1,4347 @@
+{
+  "version": 5,
+  "revision": 532,
+  "isDefaultSeed": false,
+  "updatedAt": "2026-10-25T17:18:13.846Z",
+  "updatedBy": "Pengurus Gang Mandor (Online)",
+  "clientId": "client-nrcj0zta-mvo20sjf",
+  "siteConfig": {
+    "title": "Portal Informasi Warga Gang Mandor Blok K2/25 - K3/24",
+    "subtitle": "Portal Keterbukaan Informasi Warga · Gang Mandor · Blok K2/25 s/d K3/24",
+    "brandName": "Portal Warga Gang Mandor K2/25–K3/24",
+    "description": "Portal keterbukaan informasi warga Gang Mandor Blok K2/25 hingga K3/24. Mencakup pencatatan kependudukan, transparansi kas utama terintegrasi cashback WiFi & sampah, agenda bakti sosial beserta denda, serta rekapan tunggakan iuran.",
+    "cashDescription": "Laporan rincian keluar dan masuk kas utama Gang Mandor, terintegrasi langsung dengan penerimaan denda bakti sosial, iuran warga, serta akumulasi saldo cashback WiFi dan cashback sampah.",
+    "navigationMenus": [
+      {
+        "id": "pengumuman",
+        "icon": "Megaphone",
+        "label": "Pengumuman",
+        "title": "Papan Pengumuman & Agenda Warga",
+        "content": "",
+        "subMenus": [],
+        "shortLabel": "Pengumuman",
+        "colorScheme": "emerald",
+        "description": "Pemberitahuan info terkini prihal ke RT an dan Gang Mandor"
+      },
+      {
+        "id": "dashboard",
+        "icon": "Users",
+        "label": "Statistik",
+        "title": "Ringkasan Statistik & Demografi Warga",
+        "content": "",
+        "subMenus": [],
+        "shortLabel": "Statistik",
+        "colorScheme": "cyan",
+        "description": "Statistik kependudukan, distribusi kelompok usia, kepemilikan rumah, kepesertaan Rukem, dan jaringan WiFi warga."
+      },
+      {
+        "id": "kas",
+        "icon": "Wallet",
+        "label": "Laporan Keuangan",
+        "title": "Laporan Kas Utama Terpadu & Cashback Gang",
+        "content": "",
+        "subMenus": [
+          {
+            "id": "mutasi",
+            "label": "1. Buku Kas (Keluar & Masuk)",
+            "title": "Buku Kas Keluar & Masuk",
+            "targetId": "mutasi",
+            "description": "Pencatatan rincian mutasi arus kas keluar dan masuk kas gang secara transparan."
+          },
+          {
+            "id": "per_kk",
+            "label": "2. Rekap Iuran Kas Per KK",
+            "title": "Rekapitulasi Periode Bulanan Pembayaran Iuran Per KK",
+            "targetId": "per_kk",
+            "description": "Pencatatan status kelunasan dan riwayat pembayaran iuran rutin per kepala keluarga."
+          }
+        ],
+        "shortLabel": "Laporan Keuangan",
+        "colorScheme": "teal",
+        "description": "Laporan rincian keluar dan masuk kas utama Gang Mandor, terintegrasi langsung dengan penerimaan denda bakti sosial, iuran warga, serta akumulasi saldo cashback WiFi dan cashback sampah."
+      },
+      {
+        "id": "baksos",
+        "icon": "CheckCircle2",
+        "label": "Bakti Sosial",
+        "title": "Agenda Bakti Sosial & Integrasi Denda Kas",
+        "content": "",
+        "subMenus": [],
+        "shortLabel": "Baksos",
+        "colorScheme": "violet",
+        "description": "Agenda rutin gotong royong warga. Warga yang berhalangan hadir dikenakan denda Rp 10.000,- yang otomatis dialokasikan ke kas gang atau daftar tunggakan."
+      },
+      {
+        "id": "warga",
+        "icon": "FileSpreadsheet",
+        "label": "Data Warga",
+        "title": "Direktori Data Warga Gang Mandor",
+        "subMenus": [],
+        "shortLabel": "Warga",
+        "colorScheme": "amber",
+        "description": "Daftar warga per kavling blok rumah beserta rincian anggota keluarga, status hunian, kepesertaan Rukem, dan status WiFi."
+      },
+      {
+        "id": "tunggakan",
+        "icon": "Bell",
+        "label": "Tunggakan",
+        "title": "Ringkasan Rekapitulasi Daftar Tunggakan Warga",
+        "content": "",
+        "subMenus": [],
+        "shortLabel": "Tunggakan",
+        "colorScheme": "rose",
+        "description": "Data tunggakan bersumber otomatis dari integrasi belum bayar iuran kas, denda baksos, serta tunggakan bulan/tahun sebelumnya beserta keterangannya."
+      }
+    ],
+    "cashSectionTitle": "Laporan Keseluruhan Keuangan",
+    "duesCurrentMonth": "September 2026",
+    "baksosDescription": "Agenda rutin gotong royong warga. Warga yang berhalangan hadir dikenakan denda Rp 10.000,- yang otomatis dialokasikan ke kas gang atau daftar tunggakan.",
+    "baksosSectionTitle": "Agenda Bakti Sosial & Integrasi Denda Kas",
+    "duesAmountPerMonth": 40000,
+    "publicContactTitle": "Kontak Pelayanan Publik",
+    "arrearsSectionTitle": "Ringkasan Rekapitulasi Daftar Tunggakan Warga",
+    "footerCopyrightText": "Rukun Tetangga & Warga Blok K2/25 s/d K3/24",
+    "duesAvailablePeriods": [
+      "Agustus 2026",
+      "Juli 2026",
+      "Desember 2026",
+      "November 2026",
+      "Oktober 2026",
+      "September 2026",
+      "Juni 2026",
+      "Mei 2026"
+    ],
+    "dashboardSectionTitle": "Ringkasan Statistik & Demografi Warga",
+    "directorySectionTitle": "Direktori Data Warga Gang Mandor",
+    "wifiCashbackDescription": "Pencatatan pendapatan cashback wifi dari Blesnet",
+    "announcementSectionTitle": "Papan Pengumuman & Agenda Warga",
+    "publicContactDescription": "Daftar kontak pengurus dan layanan masyarakat Gang Mandor Blok K2/25 - K3/24 untuk kebutuhan administrasi, keamanan, dan kebersihan.",
+    "trashCashbackDescription": "Pencatatan pendapatan cashback sampah dari RW Bejot",
+    "arrearsSectionDescription": "Data tunggakan bersumber otomatis dari integrasi belum bayar iuran kas, denda baksos, serta tunggakan bulan/tahun sebelumnya beserta keterangannya.",
+    "announcementSectionSubtitle": "Pemberitahuan info terkini prihal ke RT an dan Gang Mandor",
+    "dashboardSectionDescription": "Statistik kependudukan, distribusi kelompok usia, kepemilikan rumah, kepesertaan Rukem, dan jaringan WiFi warga.",
+    "directorySectionDescription": "Daftar warga per kavling blok rumah beserta rincian anggota keluarga, status hunian, kepesertaan Rukem, dan status WiFi."
+  },
+  "residents": [
+    {
+      "id": "warga-k2-25",
+      "phone": "085353728193",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K2/25-1-1792646454399",
+          "name": "Budi Santoso",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1976-11-04",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/25-2-1792646454399",
+          "name": "Ririn Rosmanah",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1984-05-18",
+          "birthPlace": "Brebes",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/25-3-1792646454399",
+          "name": "Nurluthfiyah Salma Ramadhaani",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2004-11-11",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/25-4-1792646454399",
+          "name": "Muhammad Daffa Arsyad",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2010-08-07",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/25-5-1792646454399",
+          "name": "Sarah Aulia Oktaviani",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2012-10-14",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        }
+      ],
+      "headName": "Budi Santoso",
+      "occupancy": "Kosong",
+      "ownership": "Milik Orang Lain",
+      "updatedAt": "2026-10-24T07:10:20.954Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/25",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-26",
+      "phone": "082123305445",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/26-1-1792646454399",
+          "name": "Ibnu Fauzi",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1998-04-21",
+          "birthPlace": "Depok",
+          "occupation": ""
+        }
+      ],
+      "headName": "Ibnu Fauzi",
+      "occupancy": "Belum Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T17:12:50.469Z",
+      "duesStatus": "Lunas",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/26",
+      "duesPaidDate": "2026-10-25",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 1,
+      "previousArrears": 0,
+      "customDuesAmount": 15000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": ""
+    },
+    {
+      "id": "warga-k2-27",
+      "phone": "085640056052",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/27-1-1792646454400",
+          "name": "Adi Dwi Juniardi",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1989-06-10",
+          "birthPlace": "Semarang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/27-2-1792646454400",
+          "name": "Nurhasana",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1988-01-30",
+          "birthPlace": "Palembang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/27-3-1792646454400",
+          "name": "Muhammad Rafa Adiputra",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2017-07-03",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/27-4-1792646454400",
+          "name": "Rifqi Naufal Rafif",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2019-02-27",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/27-5-1792646454400",
+          "name": "Hartati",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1965-09-30",
+          "birthPlace": "Palembang",
+          "occupation": ""
+        }
+      ],
+      "headName": "Adi Dwi Juniardi",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:42:55.900Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/27",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": ""
+    },
+    {
+      "id": "warga-k2-28",
+      "phone": "0895412295712",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/28-1-1792646454400",
+          "name": "Andri Setiawan",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1995-02-07",
+          "birthPlace": "Pemalang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/28-2-1792646454400",
+          "name": "Lusi Luviana",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1996-03-27",
+          "birthPlace": "Brebes",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/28-3-1792646454400",
+          "name": "Lean Davin Alkahfi",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2021-02-22",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/28-4-1792646454400",
+          "name": "Sean Izhaar Abqory",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2025-09-30",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Andri Setiawan",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:43:10.728Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/28",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-29",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K2/29-1-1792646454401",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:26:27.166Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/29",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-30",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K2/30-1-1792646454401",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:26:38.777Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/30",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-31",
+      "phone": "089678229009",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/31-1-1792646454401",
+          "name": "Ipin Tasripin",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1990-09-07",
+          "birthPlace": "Kuningan",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/31-2-1792646454401",
+          "name": "Murnianingsih",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1992-02-07",
+          "birthPlace": "Kuningan",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/31-3-1792646454401",
+          "name": "Kenzie Syauqi Frdaus",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2017-09-28",
+          "birthPlace": "Kuningan",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/31-4-1792646454401",
+          "name": "Syamil Shaka Sulaiman",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2019-04-29",
+          "birthPlace": "Kuningan",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/31-5-1792646454401",
+          "name": "Rayyina Hannindhiya s",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2023-05-23",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Ipin Tasripin",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:43:27.416Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/31",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-32",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K2/32-1-1792646454401",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:26:10.822Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/32",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-33",
+      "phone": "081293778229",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/33-1-1792646454401",
+          "name": "Rahmat Danu W",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1992-12-18",
+          "birthPlace": "Semarang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/33-2-1792646454401",
+          "name": "Arum Dwi Yuliana",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1994-07-31",
+          "birthPlace": "Pati",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/33-3-1792646454401",
+          "name": "Mysha shaqeena",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2019-12-18",
+          "birthPlace": "Pati",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/33-4-1792646454401",
+          "name": "Yasmin Rahma Azzahra",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2026-03-09",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Rahmat Danu W",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:43:36.731Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/33",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-34",
+      "phone": "085889343792",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/34-1-1792646454401",
+          "name": "Rahmad Sanusi",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1996-10-24",
+          "birthPlace": "Klaten",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/34-2-1792646454401",
+          "name": "Agil Tri Sumarni",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1998-08-08",
+          "birthPlace": "Klaten",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/34-3-1792646454401",
+          "name": "Keenan Hafidz Rivanda",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2022-02-11",
+          "birthPlace": "Klaten",
+          "occupation": ""
+        }
+      ],
+      "headName": "Rahmad Sanusi",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:43:54.295Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/34",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-35",
+      "phone": "082258412494",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/35-1-1792646454402",
+          "name": "Wike F Leatemia",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Kristen",
+          "birthDate": "1990-03-30",
+          "birthPlace": "Ihamahu Maluku",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/35-2-1792646454402",
+          "name": "Ramona A Wattimena",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Kristen",
+          "birthDate": "1990-04-06",
+          "birthPlace": "Seri Maluku",
+          "occupation": ""
+        }
+      ],
+      "headName": "Wike F Leatemia",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:44:02.563Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/35",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-36",
+      "phone": "085710986469",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/36-1-1792646454402",
+          "name": "Bagus Adi P",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1972-04-08",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/36-2-1792646454402",
+          "name": "Dika Wahyuni",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1981-11-24",
+          "birthPlace": "Bogor",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/36-3-1792646454402",
+          "name": "Devina Setyaningrum",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2014-03-27",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Bagus Adi P",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:44:17.641Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/36",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-37",
+      "phone": "081513696641",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/37-1-1792646454402",
+          "name": "Rudin Yulianto",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1986-07-27",
+          "birthPlace": "Banyumas",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/37-2-1792646454402",
+          "name": "Ropiqoh",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1990-03-12",
+          "birthPlace": "Bogor",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/37-3-1792646454402",
+          "name": "Faqih Fazar Amirza",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2013-10-02",
+          "birthPlace": "Bogor",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/37-4-1792646454402",
+          "name": "Fika Rania Sholeha",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2019-08-31",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/37-5-1792646454402",
+          "name": "Fiko Atharizz Khalif",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2023-04-26",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Rudin Yulianto",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:44:30.991Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/37",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-38",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K2/38-1-1792646454402",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:25:58.759Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/38",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-39",
+      "phone": "085770901240",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/39-1-1792646454402",
+          "name": "Suparman",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1975-02-14",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/39-2-1792646454402",
+          "name": "Nurhasanah",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1980-09-06",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/39-3-1792646454402",
+          "name": "Fitrah Amara Surya",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2002-12-15",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/39-4-1792646454402",
+          "name": "Reynaldi Fatahillah Surya",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2004-08-28",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/39-5-1792646454402",
+          "name": "Zaky Fadillah Surya",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2008-12-31",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Suparman",
+      "occupancy": "Dikontrakan",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:44:52.544Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/39",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-39-1",
+      "phone": "081818178181",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K2/39.1-1-1792646454402",
+          "name": "Mustolih Safari",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1977-01-18",
+          "birthPlace": "Cilacap",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/39.1-2-1792646454402",
+          "name": "Bonisih",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1981-06-03",
+          "birthPlace": "Wonosobo",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/39.1-3-1792646454402",
+          "name": "Firdaus Safari Putra",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2007-12-11",
+          "birthPlace": "Cilacap",
+          "occupation": ""
+        }
+      ],
+      "headName": "Mustolih Safari",
+      "occupancy": "Kosong",
+      "ownership": "Kontrak",
+      "updatedAt": "2026-10-23T18:52:55.993Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/39.1",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "duesHeadNameOverride": "Kosong",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-40",
+      "phone": "081263218337",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/40-1-1792646454402",
+          "name": "Affrijan Sitohang",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Kristen",
+          "birthDate": "1988-11-05",
+          "birthPlace": "Baringin Tapanuli Utara",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/40-2-1792646454402",
+          "name": "Juwita Medina",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Kristen",
+          "birthDate": "1994-10-25",
+          "birthPlace": "Kedataran",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/40-3-1792646454402",
+          "name": "Gwen Sari Sitohang",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Kristen",
+          "birthDate": "2023-08-15",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/40-4-1792646454402",
+          "name": "Queen Carlina Sitohang",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Kristen",
+          "birthDate": "2026-01-20",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Affriajan Sitohang",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:45:00.397Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/40",
+      "duesPaidDate": "",
+      "wifiProvider": "Infotama",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-41",
+      "phone": "0882001365556",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/41-1-1792646454402",
+          "name": "Acim Wiratma",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1989-01-08",
+          "birthPlace": "Indramayu",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/41-2-1792646454402",
+          "name": "Siti Maryamah",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1996-03-05",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/41-3-1792646454402",
+          "name": "Ananda Reva Wiratama Putri",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2016-03-04",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        }
+      ],
+      "headName": "Acim Wiratma",
+      "occupancy": "Ditempati",
+      "ownership": "Kontrak",
+      "updatedAt": "2026-10-24T13:25:40.007Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/41",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 30000,
+      "customDuesAmount": 30000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "Tunggakan Agustus 2026",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-42",
+      "phone": "-",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K2/42-1-1792646454402",
+          "name": "Egi Tata Pradita",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "2005-04-24",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/42-2-1792646454402",
+          "name": "Dede Meidisyafitri",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "2007-04-21",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/42-3-1792646454402",
+          "name": "Khaira Kinan Zhafira",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2025-03-20",
+          "birthPlace": "Cikarang",
+          "occupation": ""
+        }
+      ],
+      "headName": "Mustolih Safari",
+      "occupancy": "Ditempati",
+      "ownership": "Kontrak",
+      "updatedAt": "2026-10-24T00:58:29.318Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/42",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 90000,
+      "customDuesAmount": 30000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "Iuran Juni 2026: Rp 30.000; Iuran Juli 2026: Rp 30.000, Agustus 2026"
+    },
+    {
+      "id": "warga-k2-43",
+      "phone": "082125255358",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/43-1-1792646454402",
+          "name": "Aditya Mulana",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1989-06-17",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/43-2-1792646454402",
+          "name": "Femi Hidayati Wulan",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1989-08-01",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/43-3-1792646454402",
+          "name": "Aina Talita Zahran",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2014-09-24",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/43-4-1792646454402",
+          "name": "Farel Atharizz Maulana",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2015-11-30",
+          "birthPlace": "Tangerang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/43-5-1792646454402",
+          "name": "Aina Zayda Kamila",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2020-10-04",
+          "birthPlace": "Tangerang",
+          "occupation": ""
+        }
+      ],
+      "headName": "Aditya Mulana",
+      "occupancy": "Belum Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T06:35:31.279Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/43",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 60000,
+      "customDuesAmount": 15000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "Iuran Mei 2026: Rp 15.000; Iuran Juni 2026: Rp 15.000; Iuran Juli 2026: Rp 15.000, Agustus 2026",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-44",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K2/44-1-1792646454402",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:25:40.208Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/44",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-45",
+      "phone": "082299220282",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/45-1-1792646454402",
+          "name": "Rian Wijaya",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Kristen",
+          "birthDate": "1986-08-28",
+          "birthPlace": "Karawang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/45-2-1792646454402",
+          "name": "Cindy Anastasia Utari",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Kristen",
+          "birthDate": "1990-09-26",
+          "birthPlace": "Karawang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/45-3-1792646454402",
+          "name": "Ivy Jocelyn Wijaya",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Kristen",
+          "birthDate": "2012-03-29",
+          "birthPlace": "Karawang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/45-4-1792646454402",
+          "name": "Viona Christa Wijaya",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Kristen",
+          "birthDate": "2015-11-23",
+          "birthPlace": "Karawang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/45-5-1792646454402",
+          "name": "Claudya Villia Natasha Wijaya",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Kristen",
+          "birthDate": "2023-12-18",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Rian Wijaya",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:45:21.643Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K2/45",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 25000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": ""
+    },
+    {
+      "id": "warga-k2-46",
+      "phone": "Kosong",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/46-1-1792646454403",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Rita Damanik",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:45:28.984Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/46",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 30000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-47",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K2/47-1-1792646454403",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:27:06.545Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/47",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k2-48",
+      "phone": "089509264006",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K2/48-1-1792646454403",
+          "name": "Mangaman Rajagukguk",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Kristen",
+          "birthDate": "1961-09-08",
+          "birthPlace": "Banjar Toba",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/48-2-1792646454403",
+          "name": "Rauli Manurung",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Kristen",
+          "birthDate": "1956-02-23",
+          "birthPlace": "Porsea Toba",
+          "occupation": ""
+        },
+        {
+          "id": "m-K2/48-3-1792646454403",
+          "name": "Novarina Rajagukguk",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Kristen",
+          "birthDate": "1991-11-20",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        }
+      ],
+      "headName": "Mangaman Rajagukguk",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:45:45.336Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K2/48",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-01",
+      "phone": "081210827016",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/01-1-1792646454403",
+          "name": "Adithya MS Dessiri",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1990-12-05",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/01-2-1792646454403",
+          "name": "Dinda Paquita Widya Putri",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1999-10-23",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/01-3-1792646454411",
+          "name": "Barsena Pradithya Demari",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2022-12-23",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/01-4-1792646454411",
+          "name": "Barceline Lavanya Annasera",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2024-04-28",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/01-5-1792646454411",
+          "name": "Barcello Mahavir Danendra",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2026-08-28",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Adithya MS Dessiri",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:45:57.785Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K3/01",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-02",
+      "phone": "081290200146",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/02-1-1792646454411",
+          "name": "Uri Sahuri",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1995-10-24",
+          "birthPlace": "Kuningan",
+          "occupation": ""
+        }
+      ],
+      "headName": "Uri Sahuri",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:46:15.353Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/02",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-03",
+      "phone": "081315556314",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/03-1-1792646454411",
+          "name": "Iwan Kurniawan",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1992-07-23",
+          "birthPlace": "Ciamis",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/03-2-1792646454411",
+          "name": "Nendah Latofah",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1994-01-17",
+          "birthPlace": "Ciamis",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/03-3-1792646454411",
+          "name": "Athaiazka shaquile Alkhalfi Kurniawan",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2022-01-30",
+          "birthPlace": "Ciamis",
+          "occupation": ""
+        }
+      ],
+      "headName": "Iwan Kurniawan",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:47:31.088Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K3/03",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-04",
+      "phone": "087887332749",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/04-1-1792646454411",
+          "name": "Muhidin",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1992-09-09",
+          "birthPlace": "Tangerang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/04-2-1792646454411",
+          "name": "Wiwi Winarsih",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1998-07-06",
+          "birthPlace": "Lebak Banten",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/04-3-1792646454411",
+          "name": "Muhammad Rafka Izatu",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2022-08-31",
+          "birthPlace": "Tangerang",
+          "occupation": ""
+        }
+      ],
+      "headName": "Muhidin",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:47:45.523Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K3/04",
+      "duesPaidDate": "",
+      "wifiProvider": "Suryanet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 25000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-05",
+      "phone": "087887332749",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/05-1-1792646454411",
+          "name": "Sandita",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "2002-08-20",
+          "birthPlace": "Lebak Banten",
+          "occupation": ""
+        }
+      ],
+      "headName": "Sandita",
+      "occupancy": "Ditempati",
+      "ownership": "Kontrak",
+      "updatedAt": "2026-10-25T16:47:55.762Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/05",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 30000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": ""
+    },
+    {
+      "id": "warga-k3-06",
+      "phone": "081285781387",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/06-1-1792646454411",
+          "name": "Yudi Sakuri",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1967-03-09",
+          "birthPlace": "Yogyakarta",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/06-2-1792646454411",
+          "name": "Erni Rahayu",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1969-01-24",
+          "birthPlace": "Cilacap",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/06-3-1792646454411",
+          "name": "Aquera Ryana",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2012-12-16",
+          "birthPlace": "Jakarta",
+          "occupation": ""
+        }
+      ],
+      "headName": "Yudi Sakuri",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:48:11.260Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K3/06",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 40000,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "Iuran Mei 2026: Rp 40.000",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-07",
+      "phone": "089634717909",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/07-1-1792646454411",
+          "name": "Ifan Setiawan",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1995-11-05",
+          "birthPlace": "Pemalang",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/07-2-1792646454411",
+          "name": "Anidia Puspa Pratiwi",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1997-10-07",
+          "birthPlace": "Bogor",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/07-3-1792646454411",
+          "name": "Hafiz Ghazy Muammar",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2022-07-14",
+          "birthPlace": "Bogor",
+          "occupation": ""
+        }
+      ],
+      "headName": "Ifan Setiawan",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:48:28.588Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K3/07",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-08",
+      "phone": "081381702126",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/08-1-1792646454411",
+          "name": "Saefulloh",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1975-01-21",
+          "birthPlace": "Tegal",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/08-2-1792646454411",
+          "name": "Pitri",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1988-09-09",
+          "birthPlace": "Sukabumi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/08-3-1792646454411",
+          "name": "Silpia",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2007-03-12",
+          "birthPlace": "Sukabumi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/08-4-1792646454411",
+          "name": "Siti Nadia",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2011-05-05",
+          "birthPlace": "Sukabumi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/08-5-1792646454411",
+          "name": "Pebi Ayu Wandira",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2016-10-29",
+          "birthPlace": "Sukabumi",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/08-6-1792646454411",
+          "name": "Daffa Zaeyan",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2024-07-29",
+          "birthPlace": "Depok",
+          "occupation": ""
+        }
+      ],
+      "headName": "Saefulloh",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:48:39.964Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K3/08",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": ""
+    },
+    {
+      "id": "warga-k3-09",
+      "phone": "085219845710",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/09-1-1792646454411",
+          "name": "Geget Yotama",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1989-09-13",
+          "birthPlace": "Laay Lampung",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/09-2-1792646454411",
+          "name": "Dini Andini",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1995-06-15",
+          "birthPlace": "Bogor",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/09-3-1792646454412",
+          "name": "Gadis Wulandari",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2018-02-26",
+          "birthPlace": "Bogor",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/09-4-1792646454412",
+          "name": "Angga Putra Yotama",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2021-09-05",
+          "birthPlace": "Bogor",
+          "occupation": ""
+        }
+      ],
+      "headName": "Geget Yotama",
+      "occupancy": "Ditempati",
+      "ownership": "Kontrak",
+      "updatedAt": "2026-10-25T16:48:55.168Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/09",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-10",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K3/10-1-1792646454412",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:27:21.035Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/10",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-11",
+      "phone": "082213844447",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/11-1-1792646454412",
+          "name": "Asep Deni Susanto",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1990-09-27",
+          "birthPlace": "Majalengka",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/11-2-1792646454412",
+          "name": "Surnawati",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1987-02-01",
+          "birthPlace": "T Betung Lampung",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/11-3-1792646454412",
+          "name": "Elvina Launa Susanto",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2021-09-04",
+          "birthPlace": "Majalengka",
+          "occupation": ""
+        }
+      ],
+      "headName": "Asep Deni Susanto",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:52:05.905Z",
+      "duesStatus": "Bayar Lebih",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K3/11",
+      "duesPaidDate": "2026-07-11",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 4,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 120000,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-12",
+      "phone": "081289284617",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/12-1-1792646454412",
+          "name": "Sunardi",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1974-07-16",
+          "birthPlace": "Kebumen",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/12-2-1792646454412",
+          "name": "Irmayani",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1978-03-10",
+          "birthPlace": "Sukabumi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Sunardi",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:49:20.390Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/12",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-13",
+      "phone": "Kosong",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/13-1-1792646454412",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Vicky Firdaus",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:49:37.126Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/13",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-14",
+      "phone": "085211863314",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/14-1-1792646454412",
+          "name": "Septiyan Dwi Wibowo",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1992-09-15",
+          "birthPlace": "Purworejo",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/14-2-1792646454412",
+          "name": "Nur Fitriyani",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1993-03-27",
+          "birthPlace": "Tegal",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/14-3-1792646454412",
+          "name": "Muhammad Devandrang",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2019-03-17",
+          "birthPlace": "Tegal",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/14-4-1792646454412",
+          "name": "Qinara Almara Saidah",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2021-09-11",
+          "birthPlace": "Tegal",
+          "occupation": ""
+        }
+      ],
+      "headName": "Septiyan Dwi Wibowo",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:49:57.805Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K3/14",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": ""
+    },
+    {
+      "id": "warga-k3-15",
+      "phone": "081289284617",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/15-1-1792646454412",
+          "name": "Hendra Dwi Nuryanto",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1997-06-14",
+          "birthPlace": "Brebes",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/15-2-1792646454412",
+          "name": "Puput Widiasari",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1999-09-29",
+          "birthPlace": "Tegal",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/15-3-1792646454412",
+          "name": "Syeina Nayaka Nitisara",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2022-11-01",
+          "birthPlace": "Tegal",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/15-4-1792646454412",
+          "name": "Nareya Alsheiraz Mahendra",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2024-10-03",
+          "birthPlace": "Bekasi",
+          "occupation": ""
+        }
+      ],
+      "headName": "Hendra Dwi Nuryanto",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:50:17.726Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K3/15",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-16",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K3/16-1-1792646454412",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:27:42.013Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/16",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-17",
+      "phone": "081284649860",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/17-1-1792646454412",
+          "name": "Heri Susanto",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1994-10-21",
+          "birthPlace": "Putra Aji Dua Lampung",
+          "occupation": ""
+        }
+      ],
+      "headName": "Heri Susanto",
+      "occupancy": "Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:50:40.585Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Pasang",
+      "blockNumber": "K3/17",
+      "duesPaidDate": "",
+      "wifiProvider": "Blessnet",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": ""
+    },
+    {
+      "id": "warga-k3-18",
+      "phone": "082297943445",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/18-1-1792646454412",
+          "name": "Deden Wahyudin",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1993-12-24",
+          "birthPlace": "Majalengka",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/18-2-1792646454412",
+          "name": "Bilqis Salsalbilah Aulia S",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "2001-09-21",
+          "birthPlace": "Gresik",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/18-3-1792646454412",
+          "name": "Myesha Maheefa Aulia W",
+          "gender": "Perempuan",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "2022-11-11",
+          "birthPlace": "Surabaya",
+          "occupation": ""
+        }
+      ],
+      "headName": "Deden Wahyudin",
+      "occupancy": "Belum Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-25T16:50:52.505Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/18",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 15000,
+      "customDuesAmount": 15000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "Tunggakan Agustus 2026",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-19",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K3/19-1-1792646454412",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:25:28.300Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/19",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-20",
+      "phone": "087886860466",
+      "rukem": "Ikut Rukem",
+      "members": [
+        {
+          "id": "m-K3/20-1-1792646454412",
+          "name": "Denny Putu Sanjaya",
+          "gender": "Laki-laki",
+          "relation": "Kepala Keluarga",
+          "religion": "Islam",
+          "birthDate": "1983-10-27",
+          "birthPlace": "Samarinda",
+          "occupation": ""
+        },
+        {
+          "id": "m-K3/20-2-1792646454412",
+          "name": "Nia Kurniati",
+          "gender": "Perempuan",
+          "relation": "Istri",
+          "religion": "Islam",
+          "birthDate": "1983-10-06",
+          "birthPlace": "Cianjur",
+          "occupation": ""
+        }
+      ],
+      "headName": "Denny Putu Sanjaya",
+      "occupancy": "Belum Ditempati",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T13:33:16.915Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/20",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 40000,
+      "customDuesAmount": 40000,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "Tunggakan Agustus 2026",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-21",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K3/21-1-1792646454412",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:27:55.540Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/21",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-22",
+      "blockNumber": "K3/22",
+      "headName": "Saudara Om Wike",
+      "phone": "082299220282",
+      "ownership": "Kontrak",
+      "occupancy": "Ditempati",
+      "rukem": "Tidak Ikut",
+      "wifiStatus": "Tidak Pasang",
+      "wifiProvider": "-",
+      "duesStatus": "Belum Bayar",
+      "customDuesAmount": 30000,
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "duesPrepaidBalance": 0,
+      "duesPaidDate": "",
+      "duesMonthNote": "September 2026",
+      "previousArrears": 0,
+      "previousArrearsNote": "",
+      "members": [
+        {
+          "id": "m-K3/22-1-1792646454412",
+          "name": "Rita Damanik",
+          "gender": "Perempuan",
+          "relation": "Orang Tua",
+          "religion": "Kristen",
+          "birthDate": "1966-01-17",
+          "birthPlace": "Pematangsiantar",
+          "occupation": ""
+        }
+      ],
+      "updatedAt": "2026-10-25T16:51:11.544Z",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-23",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K3/23-1-1792646454412",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:28:20.266Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/23",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    },
+    {
+      "id": "warga-k3-24",
+      "phone": "Kosong",
+      "rukem": "Tidak Ikut",
+      "members": [
+        {
+          "id": "m-K3/24-1-1792646454412",
+          "name": "Kosong",
+          "gender": "Laki-laki",
+          "relation": "Anak",
+          "religion": "Islam",
+          "birthDate": "1990-01-01",
+          "birthPlace": "Kosong",
+          "occupation": ""
+        }
+      ],
+      "headName": "Kosong",
+      "occupancy": "Kosong",
+      "ownership": "Milik Sendiri",
+      "updatedAt": "2026-10-24T07:28:30.588Z",
+      "duesStatus": "Belum Bayar",
+      "wifiStatus": "Tidak Pasang",
+      "blockNumber": "K3/24",
+      "duesPaidDate": "",
+      "wifiProvider": "-",
+      "duesMonthNote": "September 2026",
+      "duesPaidAmount": 0,
+      "duesPaidMonths": 0,
+      "previousArrears": 0,
+      "customDuesAmount": 0,
+      "duesPrepaidBalance": 0,
+      "previousArrearsNote": "",
+      "customBaksosFineAmount": 0
+    }
+  ],
+  "transactions": [
+    {
+      "date": "2026-08-07",
+      "type": "masuk",
+      "pool": "Cashback Sampah",
+      "category": "Cashback Sampah",
+      "description": "Cashback",
+      "amount": 100000,
+      "id": "tx-1792947947044-9hu0"
+    },
+    {
+      "householdId": "warga-k2-33",
+      "paymentPeriod": "2026-07",
+      "date": "2026-07-13",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Denda Baksos Blok K2/33 (Rahmat Danu W)",
+      "amount": 10000,
+      "id": "tx-1792947797670-dfaw"
+    },
+    {
+      "date": "2026-08-09",
+      "type": "keluar",
+      "pool": "Kas Utama",
+      "category": "Pengeluaran Gang",
+      "description": "Konsumsi Baksos",
+      "amount": 100000,
+      "id": "tx-1792947665689-sn3k"
+    },
+    {
+      "date": "2026-08-07",
+      "type": "keluar",
+      "pool": "Kas Utama",
+      "category": "Pengeluaran Gang",
+      "description": "Tambahan Hadiah Anak-Anak Agustusan",
+      "amount": 350000,
+      "id": "tx-1792947499367-4llc"
+    },
+    {
+      "date": "2026-08-07",
+      "type": "keluar",
+      "pool": "Kas Utama",
+      "category": "Pengeluaran Gang",
+      "description": "Pembayaran Iuran Sampah",
+      "amount": 700000,
+      "id": "tx-1792947414512-kvsb"
+    },
+    {
+      "date": "2026-08-05",
+      "type": "keluar",
+      "pool": "Kas Utama",
+      "category": "Pengeluaran Gang",
+      "description": "Pembayaran Rukem Dan Kas RT",
+      "amount": 203000,
+      "id": "tx-1792947350276-sh8p"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "keluar",
+      "pool": "Kas Utama",
+      "category": "Pengeluaran Gang",
+      "description": "Konsumsi Pembuatan Gapura",
+      "amount": 47000,
+      "id": "tx-1792947313400-039n"
+    },
+    {
+      "householdId": "warga-k3-14",
+      "paymentPeriod": "2026-08",
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Denda Baksos Blok K3/14 (Septiyan Dwi Wibowo)",
+      "amount": 10000,
+      "id": "tx-1792947265566-z9n4"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K3/11 (Asep Deni Susanto)",
+      "amount": 10000,
+      "id": "tx-1792947125901-2qc4"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/22 (Saudara Om Wike)",
+      "amount": 30000,
+      "id": "tx-1792947071540-nley"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K3/17 (Heri Susanto) (Iuran Juli 2026: Rp 40.000)",
+      "amount": 40000,
+      "id": "tx-1792947040579-jogm"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/17 (Heri Susanto)",
+      "amount": 40000,
+      "id": "tx-1792947040576-idc2"
+    },
+    {
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K3/15 (Hendra Dwi Nuryanto) (Iuran Juli 2026: Rp 40.000)",
+      "amount": 40000,
+      "id": "tx-1792947017721-rchg"
+    },
+    {
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/15 (Hendra Dwi Nuryanto)",
+      "amount": 40000,
+      "id": "tx-1792947017716-qv0k"
+    },
+    {
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/14 (Septiyan Dwi Wibowo)",
+      "amount": 40000,
+      "id": "tx-1792946997801-nut9"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/13 (Vicky Firdaus)",
+      "amount": 40000,
+      "id": "tx-1792946977122-o3mu"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/12 (Sunardi)",
+      "amount": 40000,
+      "id": "tx-1792946960387-mj6z"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/09 (Geget Yotama)",
+      "amount": 40000,
+      "id": "tx-1792946935163-5839"
+    },
+    {
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K3/08 (Saefulloh) (Iuran Juli 2026: Rp 40.000)",
+      "amount": 40000,
+      "id": "tx-1792946919961-9ht5"
+    },
+    {
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/08 (Saefulloh)",
+      "amount": 40000,
+      "id": "tx-1792946919955-4aen"
+    },
+    {
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/07 (Ifan Setiawan)",
+      "amount": 40000,
+      "id": "tx-1792946908585-r864"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/06 (Yudi Sakuri)",
+      "amount": 40000,
+      "id": "tx-1792946891256-tb3y"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/05 (Sandita)",
+      "amount": 30000,
+      "id": "tx-1792946875759-6giv"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/04 (Muhidin)",
+      "amount": 25000,
+      "id": "tx-1792946865519-vo20"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K3/03 (Iwan Kurniawan)",
+      "amount": 20000,
+      "id": "tx-1792946851085-gsey"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/03 (Iwan Kurniawan)",
+      "amount": 40000,
+      "id": "tx-1792946851081-5mpu"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/02 (Uri Sahuri)",
+      "amount": 40000,
+      "id": "tx-1792946775350-icx9"
+    },
+    {
+      "date": "2026-08-06",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K3/01 (Adithya MS Dessiri) (Iuran Juli 2026: Rp 40.000)",
+      "amount": 40000,
+      "id": "tx-1792946757782-ozes"
+    },
+    {
+      "date": "2026-08-06",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K3/01 (Adithya MS Dessiri)",
+      "amount": 20000,
+      "id": "tx-1792946757779-v8vm"
+    },
+    {
+      "date": "2026-08-06",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/01 (Adithya MS Dessiri)",
+      "amount": 40000,
+      "id": "tx-1792946757776-xun6"
+    },
+    {
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/48 (Mangaman Rajagukguk)",
+      "amount": 40000,
+      "id": "tx-1792946745333-5glw"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/46 (Rita Damanik)",
+      "amount": 30000,
+      "id": "tx-1792946728981-zrxy"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/45 (Rian Wijaya)",
+      "amount": 25000,
+      "id": "tx-1792946721640-lqy0"
+    },
+    {
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/40 (Affriajan Sitohang)",
+      "amount": 40000,
+      "id": "tx-1792946700391-q1ei"
+    },
+    {
+      "date": "2026-08-04",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/39 (Suparman)",
+      "amount": 40000,
+      "id": "tx-1792946692541-bdww"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K2/37 (Rudin Yulianto)",
+      "amount": 10000,
+      "id": "tx-1792946670986-uw6k"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/37 (Rudin Yulianto)",
+      "amount": 40000,
+      "id": "tx-1792946670983-8vxy"
+    },
+    {
+      "date": "2026-08-04",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/36 (Bagus Adi P)",
+      "amount": 40000,
+      "id": "tx-1792946657639-m358"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/35 (Wike F Leatemia) (Iuran Juli 2026: Rp 40.000)",
+      "amount": 40000,
+      "id": "tx-1792946642560-q1xk"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K2/35 (Wike F Leatemia)",
+      "amount": 30000,
+      "id": "tx-1792946642557-pxn2"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/35 (Wike F Leatemia)",
+      "amount": 40000,
+      "id": "tx-1792946642554-xktl"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/34 (Rahmad Sanusi) (Iuran Juni 2026: Rp 40.000; Iuran Juli 2026: Rp 40.000)",
+      "amount": 80000,
+      "id": "tx-1792946634292-rnpf"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K2/34 (Rahmad Sanusi)",
+      "amount": 30000,
+      "id": "tx-1792946634288-vf60"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/34 (Rahmad Sanusi)",
+      "amount": 40000,
+      "id": "tx-1792946634286-tisp"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/33 (Rahmat Danu W)",
+      "amount": 40000,
+      "id": "tx-1792946616727-bzhg"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K2/31 (Ipin Tasripin)",
+      "amount": 10000,
+      "id": "tx-1792946607413-85rk"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/31 (Ipin Tasripin)",
+      "amount": 40000,
+      "id": "tx-1792946607410-aosq"
+    },
+    {
+      "date": "2026-08-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/28 (Andri Setiawan)",
+      "amount": 40000,
+      "id": "tx-1792946590725-ggo5"
+    },
+    {
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/27 (Adi Dwi Juniardi)",
+      "amount": 40000,
+      "id": "tx-1792946575897-a6df"
+    },
+    {
+      "id": "tx-1792946196689-9mcy",
+      "date": "2026-06-17",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Pembayaran Tunggakan",
+      "description": "Pembayaran Tunggakan (Mei) Blok K2/33 (Rahmat Danu W)",
+      "householdId": "warga-k2-33"
+    },
+    {
+      "id": "tx-1792946141688-lcil",
+      "date": "2026-06-17",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Denda Baksos Blok K2/33 (Rahmat Danu W)",
+      "householdId": "warga-k2-33",
+      "paymentPeriod": "2026-06"
+    },
+    {
+      "id": "tx-1792914335528-djm4",
+      "date": "2026-07-15",
+      "pool": "Cashback Sampah",
+      "type": "masuk",
+      "amount": 100000,
+      "category": "Cashback Sampah",
+      "description": "Cashback"
+    },
+    {
+      "id": "tx-1792914290432-qh56",
+      "date": "2026-07-23",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 59000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembelian Kuas Dan Tambang"
+    },
+    {
+      "id": "tx-1792914253551-xu7t",
+      "date": "2026-07-16",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 100000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembelian Bambu (Untuk Agustusan) "
+    },
+    {
+      "id": "tx-1792914208244-0g71",
+      "date": "2026-07-15",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 150000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembelian Cat (Untuk Agustusan) "
+    },
+    {
+      "id": "tx-1792914150023-ccdp",
+      "date": "2026-07-15",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 100000,
+      "category": "Pengeluaran Gang",
+      "description": "Konsumsi Baksos"
+    },
+    {
+      "id": "tx-1792914096865-k3wn",
+      "date": "2026-07-15",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 203000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembayaran Rukem Dan Kas RT"
+    },
+    {
+      "id": "tx-1792851167998-l65v",
+      "date": "2026-07-15",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 700000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembayaran Iuran Sampah"
+    },
+    {
+      "id": "tx-1792849069588-ypmi",
+      "date": "2026-07-03",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Juli 2026) Warga Blok K2/28 (Andri Setiawan)"
+    },
+    {
+      "id": "tx-1792848796911-5myw",
+      "date": "2026-07-05",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 80000,
+      "category": "Iuran Warga",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K3/20 (Denny Putu Sanjaya) (Iuran Mei 2026: Rp 40.000; Iuran Juni 2026: Rp 40.000)"
+    },
+    {
+      "id": "tx-1792848796908-ec3g",
+      "date": "2026-07-05",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/20 (Denny Putu Sanjaya)"
+    },
+    {
+      "id": "tx-1792848744376-bpq4",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/18 (Deden Wahyudin)"
+    },
+    {
+      "id": "tx-1792848705596-qtsq",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/14 (Septiyan Dwi Wibowo)"
+    },
+    {
+      "id": "tx-1792848679372-b86w",
+      "date": "2026-07-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/13 (Vicky Firdaus)"
+    },
+    {
+      "id": "tx-1792848664344-ej3s",
+      "date": "2026-07-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/12 (Sunardi)"
+    },
+    {
+      "id": "tx-1792848637540-w7sb",
+      "date": "2026-07-11",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 240000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan Lebih dari 1 Bulan (Juli 2026 - Desember 2026 (6 Bulan)) Blok K3/11 (Asep Deni Susanto)"
+    },
+    {
+      "id": "tx-1792848606405-1h4e",
+      "date": "2026-07-03",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/09 (Geget Yotama)"
+    },
+    {
+      "id": "tx-1792848583660-or4k",
+      "date": "2026-07-14",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/07 (Ifan Setiawan)"
+    },
+    {
+      "id": "tx-1792848556494-qxjg",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juli 2026) Blok K3/06 (Yudi Sakuri)"
+    },
+    {
+      "id": "tx-1792848556490-f5m0",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/06 (Yudi Sakuri)"
+    },
+    {
+      "id": "tx-1792848521850-6rr0",
+      "date": "2026-07-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 30000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/05 (Sandita)"
+    },
+    {
+      "id": "tx-1792848508981-9ahg",
+      "date": "2026-07-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juli 2026) Blok K3/04 (Muhidin)"
+    },
+    {
+      "id": "tx-1792848508978-xdqt",
+      "date": "2026-07-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/04 (Muhidin)"
+    },
+    {
+      "id": "tx-1792848481874-2w5r",
+      "date": "2026-07-02",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/03 (Iwan Kurniawan)"
+    },
+    {
+      "id": "tx-1792848448337-jdcp",
+      "date": "2026-07-14",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juli 2026) Blok K3/02 (Uri Sahuri)"
+    },
+    {
+      "id": "tx-1792848448333-kqnx",
+      "date": "2026-07-14",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/02 (Uri Sahuri)"
+    },
+    {
+      "id": "tx-1792848425062-5rrp",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/48 (Mangaman Rajagukguk)"
+    },
+    {
+      "id": "tx-1792848396847-r64x",
+      "date": "2026-07-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 30000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/46 (Rita Damanik)"
+    },
+    {
+      "id": "tx-1792848375689-o0tk",
+      "date": "2026-07-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/45 (Rian Wijaya)"
+    },
+    {
+      "id": "tx-1792848340002-ryt4",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 30000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/41 (Acim Wiratma)"
+    },
+    {
+      "id": "tx-1792848317316-k3vs",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/40 (Affriajan Sitohang) (Iuran Juni 2026: Rp 40.000)"
+    },
+    {
+      "id": "tx-1792848317308-u1cn",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/40 (Affriajan Sitohang)"
+    },
+    {
+      "id": "tx-1792848293063-3yxn",
+      "date": "2026-07-12",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/39 (Suparman)"
+    },
+    {
+      "id": "tx-1792848269858-qt0s",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/37 (Rudin Yulianto)"
+    },
+    {
+      "id": "tx-1792848228319-fmmf",
+      "date": "2026-07-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juli 2026) Blok K2/36 (Bagus Adi P)"
+    },
+    {
+      "id": "tx-1792848228315-1j8k",
+      "date": "2026-07-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/36 (Bagus Adi P)"
+    },
+    {
+      "id": "tx-1792848138800-wqad",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/33 (Rahmat Danu W)"
+    },
+    {
+      "id": "tx-1792848120630-jm9y",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juli 2026) Blok K2/31 (Ipin Tasripin)"
+    },
+    {
+      "id": "tx-1792848120627-gfmx",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/31 (Ipin Tasripin)"
+    },
+    {
+      "id": "tx-1792848025259-2g6v",
+      "date": "2026-07-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/27 (Adi Dwi Juniardi)"
+    },
+    {
+      "id": "tx-1792847653245-3cvf",
+      "date": "2026-07-06",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 90000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan Lebih dari 1 Bulan (Juli 2026 - Desember 2026 (6 Bulan)) Blok K2/26 (Ibnu Fauzi)"
+    },
+    {
+      "id": "tx-1792847539948-hn1a",
+      "date": "2026-06-26",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 125000,
+      "category": "Pengeluaran Gang",
+      "description": "Konsumsi Rapat Bapak-Bapak"
+    },
+    {
+      "id": "tx-1792847492923-tljr",
+      "date": "2026-06-19",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 203000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembayaran Iuran Rukem Dan Kas RT"
+    },
+    {
+      "id": "tx-1792847450130-0s79",
+      "date": "2026-06-14",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 10000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembelian Gelas Plastik (Baksos) "
+    },
+    {
+      "id": "tx-1792847395043-rpty",
+      "date": "2026-06-14",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 100000,
+      "category": "Pengeluaran Gang",
+      "description": "Konsumsi Baksos"
+    },
+    {
+      "id": "tx-1792847322496-id2s",
+      "date": "2026-06-13",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 20000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembelian Bensin Mesin Potong"
+    },
+    {
+      "id": "tx-1792840898125-6oc2",
+      "date": "2026-06-30",
+      "pool": "Cashback Sampah",
+      "type": "keluar",
+      "amount": 931000,
+      "category": "Pengeluaran Cashback Sampah",
+      "description": "Pembelian Mesin Potong Rumput Dan Alat Kebersihan Gang"
+    },
+    {
+      "id": "tx-1792833782528-ueee",
+      "date": "2026-06-25",
+      "pool": "Cashback WiFi",
+      "type": "masuk",
+      "amount": 280000,
+      "category": "Cashback WiFi",
+      "description": "Cashback"
+    },
+    {
+      "id": "tx-1792833705551-9a1y",
+      "date": "2026-06-11",
+      "pool": "Cashback Sampah",
+      "type": "masuk",
+      "amount": 100000,
+      "category": "Cashback Sampah",
+      "description": "Cashback"
+    },
+    {
+      "id": "tx-1792833673340-iuhm",
+      "date": "2026-06-11",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 700000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembayaran Iuran Sampah"
+    },
+    {
+      "id": "tx-1792833559444-pww4",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/18 (Deden Wahyudin)"
+    },
+    {
+      "id": "tx-1792833535376-7373",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/17 (Heri Susanto)"
+    },
+    {
+      "id": "tx-1792833517565-aqoj",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juni 2026) Blok K3/15 (Hendra Dwi Nuryanto)"
+    },
+    {
+      "id": "tx-1792833517562-hf2n",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/15 (Hendra Dwi Nuryanto)"
+    },
+    {
+      "id": "tx-1792833502682-syd2",
+      "date": "2026-06-09",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/14 (Septiyan Dwi Wibowo)"
+    },
+    {
+      "id": "tx-1792833477930-ywsx",
+      "date": "2026-06-02",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/13 (Vicky Firdaus)"
+    },
+    {
+      "id": "tx-1792833460318-3z2m",
+      "date": "2026-06-04",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juni 2026) Blok K3/12 (Sunardi)"
+    },
+    {
+      "id": "tx-1792833460315-ii8d",
+      "date": "2026-06-04",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/12 (Sunardi)"
+    },
+    {
+      "id": "tx-1792833435091-m478",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/11 (Asep Deni Susanto)"
+    },
+    {
+      "id": "tx-1792833412545-39uw",
+      "date": "2026-06-05",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/09 (Geget Yotama)"
+    },
+    {
+      "id": "tx-1792833393206-h1gf",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/08 (Saefulloh)"
+    },
+    {
+      "id": "tx-1792833370463-4hlw",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/07 (Ifan Setiawan)"
+    },
+    {
+      "id": "tx-1792833352792-lmru",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/06 (Yudi Sakuri)"
+    },
+    {
+      "id": "tx-1792833323143-75bg",
+      "date": "2026-06-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 30000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/05 (Sandita)"
+    },
+    {
+      "id": "tx-1792833314161-akyo",
+      "date": "2026-06-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/04 (Muhidin)"
+    },
+    {
+      "id": "tx-1792833296805-ile5",
+      "date": "2026-06-02",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/03 (Iwan Kurniawan)"
+    },
+    {
+      "id": "tx-1792833277723-n3py",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/02 (Uri Sahuri)"
+    },
+    {
+      "id": "tx-1792833256016-h9ps",
+      "date": "2026-06-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juni 2026) Blok K3/01 (Adithya MS Dessiri)"
+    },
+    {
+      "id": "tx-1792833256013-znlf",
+      "date": "2026-06-13",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/01 (Adithya MS Dessiri)"
+    },
+    {
+      "id": "tx-1792833247097-ugzr",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/48 (Mangaman Rajagukguk)"
+    },
+    {
+      "id": "tx-1792833142481-qjla",
+      "date": "2026-06-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 30000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/46 (Rita Damanik)"
+    },
+    {
+      "id": "tx-1792833131572-nrof",
+      "date": "2026-06-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/45 (Rian Wijaya)"
+    },
+    {
+      "id": "tx-1792833107635-7nz5",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 30000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/41 (Acim Wiratma)"
+    },
+    {
+      "id": "tx-1792833064505-fh0a",
+      "date": "2026-06-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juni 2026) Blok K2/39 (Suparman)"
+    },
+    {
+      "id": "tx-1792833064501-wbz7",
+      "date": "2026-06-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/39 (Suparman)"
+    },
+    {
+      "id": "tx-1792833038059-llz2",
+      "date": "2026-06-09",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juni 2026) Blok K2/37 (Rudin Yulianto)"
+    },
+    {
+      "id": "tx-1792833038052-ioye",
+      "date": "2026-06-09",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/37 (Rudin Yulianto)"
+    },
+    {
+      "id": "tx-1792833020809-6irt",
+      "date": "2026-06-03",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Juni 2026) Blok K2/36 (Bagus Adi P)"
+    },
+    {
+      "id": "tx-1792833020806-4mp9",
+      "date": "2026-06-03",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/36 (Bagus Adi P)"
+    },
+    {
+      "id": "tx-1792832998364-0xwt",
+      "date": "2026-06-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/35 (Wike F Leatemia)"
+    },
+    {
+      "id": "tx-1792832968014-g1y9",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/33 (Rahmat Danu W)"
+    },
+    {
+      "id": "tx-1792832951615-kucp",
+      "date": "2026-06-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/31 (Ipin Tasripin)"
+    },
+    {
+      "id": "tx-1792831465575-vi1q",
+      "date": "2026-06-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/28 (Andri Setiawan)"
+    },
+    {
+      "id": "tx-1792831451844-0rck",
+      "date": "2026-06-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K2/27 (Adi Dwi Juniardi)"
+    },
+    {
+      "id": "tx-1792830786206-if6r",
+      "date": "2026-05-21",
+      "pool": "Cashback Sampah",
+      "type": "masuk",
+      "amount": 100000,
+      "category": "Cashback Sampah",
+      "description": "Cashback"
+    },
+    {
+      "id": "tx-1792830675386-vby6",
+      "date": "2026-05-01",
+      "pool": "Cashback Sampah",
+      "type": "masuk",
+      "amount": 1265000,
+      "category": "Cashback Sampah",
+      "description": "Cashback Sampah Pengurus Sebelumnya"
+    },
+    {
+      "id": "tx-1792830574310-uw6g",
+      "date": "2026-05-28",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 50000,
+      "category": "Pengeluaran Gang",
+      "description": "Tambahan Acara Bakar-Bakar"
+    },
+    {
+      "id": "tx-1792830538807-19i1",
+      "date": "2026-05-25",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 50000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembelian Lampu"
+    },
+    {
+      "id": "tx-1792830507630-ktss",
+      "date": "2026-05-23",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 203000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembayaran Rukem Dan Kas RT"
+    },
+    {
+      "id": "tx-1792830465180-8vrx",
+      "date": "2026-05-21",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 700000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembayaran Iuran Sampah"
+    },
+    {
+      "id": "tx-1792830408702-kikz",
+      "date": "2026-05-17",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 10000,
+      "category": "Pengeluaran Gang",
+      "description": "Beli Gelas Plastik (Baksos) "
+    },
+    {
+      "id": "tx-1792830368688-9wyv",
+      "date": "2026-05-17",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 20000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembelian Bambu (Perbaikan Alat Penarikan Got) "
+    },
+    {
+      "id": "tx-1792830291222-f9ah",
+      "date": "2026-05-17",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 100000,
+      "category": "Pengeluaran Gang",
+      "description": "Konsumsi Kerja Bakti"
+    },
+    {
+      "id": "tx-1792830240490-849m",
+      "date": "2026-05-07",
+      "pool": "Kas Utama",
+      "type": "keluar",
+      "amount": 45000,
+      "category": "Pengeluaran Gang",
+      "description": "Pembelian Ban Dalam (Perbaikan Alat Penarikan Got) "
+    },
+    {
+      "id": "tx-adj-1792829892034-huzw",
+      "date": "2026-05-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 275000,
+      "category": "Kas Utama",
+      "description": "Penyesuaian Saldo Kas Utama: Koreksi saldo akhir Mei 2026"
+    },
+    {
+      "id": "tx-1792828171717-3wye",
+      "date": "2026-05-02",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 200000,
+      "category": "Kas Utama",
+      "description": "Donasi (Aditya Ms Dessiri K3/01) "
+    },
+    {
+      "id": "tx-1792813346109-k743",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/18 (Deden Wahyudin)"
+    },
+    {
+      "id": "tx-1792813195216-8agh",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/17 (Heri Susanto)"
+    },
+    {
+      "id": "tx-1792813173662-a6b3",
+      "date": "2026-05-04",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/13 (Vicky Firdaus)"
+    },
+    {
+      "id": "tx-1792812928013-5k8m",
+      "date": "2026-05-04",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/15 (Hendra Dwi Nuryanto)"
+    },
+    {
+      "id": "tx-1792812879128-1les",
+      "date": "2026-05-02",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/12 (Sunardi)"
+    },
+    {
+      "id": "tx-1792812801156-f10x",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/14 (Septiyan Dwi Wibowo)"
+    },
+    {
+      "id": "tx-1792812759991-naaw",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/11 (Asep Deni Susanto)"
+    },
+    {
+      "id": "tx-1792812728934-qx9g",
+      "date": "2026-05-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/09 (Geget Yotama)"
+    },
+    {
+      "id": "tx-1792812711577-ns2n",
+      "date": "2026-05-02",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/08 (Saefulloh)"
+    },
+    {
+      "id": "tx-1792812646525-x9c4",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/07 (Ifan Setiawan)"
+    },
+    {
+      "id": "tx-1792812605180-xlmv",
+      "date": "2026-05-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 30000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/05 (Sandita)"
+    },
+    {
+      "id": "tx-1792812586847-jz8i",
+      "date": "2026-05-01",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/04 (Muhidin)"
+    },
+    {
+      "id": "tx-1792812534929-rgi0",
+      "date": "2026-05-07",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/03 (Iwan Kurniawan)"
+    },
+    {
+      "id": "tx-1792812520556-wk04",
+      "date": "2026-05-08",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/02 (Uri Sahuri)"
+    },
+    {
+      "id": "tx-1792812495128-heq7",
+      "date": "2026-05-17",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Mei 2026) Blok K3/01 (Adithya MS Dessiri)"
+    },
+    {
+      "id": "tx-1792812495121-740q",
+      "date": "2026-05-17",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/01 (Adithya MS Dessiri)"
+    },
+    {
+      "id": "tx-1792812460113-ac3v",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/48 (Mangaman Rajagukguk)"
+    },
+    {
+      "id": "tx-1792812460106-76hm",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/48 (Mangaman Rajagukguk)"
+    },
+    {
+      "id": "tx-1792803760588-5pq1",
+      "date": "2026-05-28",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 30000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/46 (Rita Damanik)"
+    },
+    {
+      "id": "tx-1792803747368-oprd",
+      "date": "2026-05-28",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 25000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/45 (Rian Wijaya)"
+    },
+    {
+      "id": "tx-1792803509316-vszh",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 30000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/42 (Mustolih Safari)"
+    },
+    {
+      "id": "tx-1792803423410-vv7k",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 80000,
+      "category": "Iuran Warga",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/40 (Affriajan Sitohang) (Iuran Bulan Maret, April)"
+    },
+    {
+      "id": "tx-1792803423407-lefi",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/40 (Affriajan Sitohang)"
+    },
+    {
+      "id": "tx-1792802897995-tqoe",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/39 (Suparman)"
+    },
+    {
+      "id": "tx-1792802862647-t9ng",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/37 (Rudin Yulianto)"
+    },
+    {
+      "id": "tx-1792802811708-kted",
+      "date": "2026-05-04",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Mei 2026) Blok K2/36 (Bagus Adi P)"
+    },
+    {
+      "id": "tx-1792802811691-mobd",
+      "date": "2026-05-04",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/36 (Bagus Adi P)"
+    },
+    {
+      "id": "tx-1792802763553-ygrf",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/35 (Wike F Leatemia)"
+    },
+    {
+      "id": "tx-1792802728770-4d05",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/34 (Rahmad Sanusi)"
+    },
+    {
+      "id": "tx-1792802690560-hi6a",
+      "date": "2026-05-10",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/31 (Ipin Tasripin)"
+    },
+    {
+      "id": "tx-1792802598840-4de8",
+      "date": "2026-05-02",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 10000,
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Mei 2026) Blok K2/28 (Andri Setiawan)"
+    },
+    {
+      "id": "tx-1792802598837-0i5p",
+      "date": "2026-05-02",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/28 (Andri Setiawan)"
+    },
+    {
+      "id": "tx-1792797322947-y34l",
+      "date": "2026-05-02",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 40000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/27 (Adi Dwi Juniardi)"
+    },
+    {
+      "id": "tx-1792797246728-3yvs",
+      "date": "2026-05-02",
+      "pool": "Kas Utama",
+      "type": "masuk",
+      "amount": 30000,
+      "category": "Iuran Warga",
+      "description": "Penarikan Iuran Bulanan Lebih dari 1 Bulan (Mei 2026 - Juni 2026 (2 Bulan)) Blok K2/26 (Ibnu Fauzi)"
+    }
+  ],
+  "baksosAgendas": [
+    {
+      "id": "baksos-1",
+      "date": "2026-10-04",
+      "title": "Kerja Bakti Rutin Pembersihan Saluran Air & Selokan Blok K2/25 - K3/24",
+      "location": "Sepanjang Saluran Gang Mandor K2/25 s/d K3/24",
+      "finesPaid": {
+        "warga-5": false
+      },
+      "attendance": {
+        "warga-1": "Hadir",
+        "warga-2": "Hadir",
+        "warga-3": "Tidak Wajib",
+        "warga-4": "Hadir",
+        "warga-5": "Tidak Hadir",
+        "warga-6": "Kosong",
+        "warga-7": "Hadir",
+        "warga-8": "Tidak Wajib",
+        "warga-9": "Hadir",
+        "warga-10": "Tidak Wajib",
+        "warga-11": "Tidak Wajib",
+        "warga-k3-22": "Tidak Wajib",
+        "warga-k2-39": "Tidak Wajib",
+        "warga-k3-05": "Tidak Wajib",
+        "warga-k3-09": "Tidak Wajib"
+      },
+      "fineAmount": 10000,
+      "description": "Gotong royong membersihkan sedimentasi lumpur menjelang musim hujan. Kehadiran dicek per kepala keluarga. Yang tidak hadir dikenakan denda Rp 10.000."
+    },
+    {
+      "id": "baksos-2",
+      "date": "2026-09-20",
+      "title": "Pengecatan Gapura & Pemasangan Umbul-Umbul Gang",
+      "location": "Pos Gang Mandor & Gapura Depan",
+      "finesPaid": {
+        "warga-5": true
+      },
+      "attendance": {
+        "warga-1": "Hadir",
+        "warga-2": "Hadir",
+        "warga-3": "Tidak Wajib",
+        "warga-4": "Hadir",
+        "warga-5": "Tidak Hadir",
+        "warga-6": "Kosong",
+        "warga-7": "Hadir",
+        "warga-8": "Tidak Wajib",
+        "warga-9": "Hadir",
+        "warga-10": "Tidak Wajib",
+        "warga-11": "Tidak Wajib",
+        "warga-k3-22": "Tidak Wajib",
+        "warga-k2-39": "Tidak Wajib",
+        "warga-k3-05": "Tidak Wajib",
+        "warga-k3-09": "Tidak Wajib"
+      },
+      "fineAmount": 10000,
+      "description": "Peremajaan tampilan gerbang gang dan penataan tanaman pot warga."
+    }
+  ],
+  "committees": [
+    {
+      "id": "kom-1",
+      "name": "Bpk. Amin Mustakim",
+      "role": "Ketua RW 018",
+      "phone": "+6281808288964"
+    },
+    {
+      "id": "kom-2",
+      "name": "Bpk. Giarno",
+      "role": "Ketua RT",
+      "phone": "+6285890797670"
+    },
+    {
+      "id": "kom-4",
+      "name": "Bpk. Ifan Setiawan",
+      "role": "Ketua Gang",
+      "phone": "089634717909"
+    },
+    {
+      "id": "kom-5",
+      "name": "Bpk. Rian Wijaya",
+      "role": "Wakil / Sekertaris Gang",
+      "phone": "+6282299220282"
+    },
+    {
+      "id": "kom-1792780358822",
+      "name": "Bpk. Muhidin Akbar",
+      "role": "Bendahara Gang",
+      "phone": "+6287887332749"
+    },
+    {
+      "id": "kom-1792780836986",
+      "name": "Admin Blesnett",
+      "role": "Koordinator Keluhan Wifi",
+      "phone": "081953698389"
+    }
+  ],
+  "announcements": [
+    {
+      "id": "ann-1792781335774",
+      "date": "2026-10-23",
+      "title": "PENARIKAN KAS GANG",
+      "content": "📢 PENGUMUMAN PENARIKAN KAS GANG \n\nAssalamu’alaikum warahmatullahi wabarakatuh.\n\nYth. Bapak/Ibu Warga Gang Perumahan,\n\nDalam rangka memenuhi kebutuhan bersama dan mendukung kegiatan gang, kami informasikan bahwa penarikan iuran kas gang akan dilaksanakan dengan ketentuan sebagai berikut:\n\n1. Pengurus akan melakukan penarikan door to door sebelum tanggal 15 di setiap bulannya. \n2. Pembayaran paling lambat tgl 15 setiap bulannya. Jika sudah lewat tanggal 15, maka warga bisa langsung antarkan ke rumah bendahara atau bisa via transfer. \n3.Jika sudah melewati tanggal 15 data yang belum membayar akan masuk kedalam data tunggakan. \n\n💳 Pembayaran: Transfer rekening atau tunai kepada bendahara gang.\n🏦 REKENING TUJUAN\n\n- Bank: BCA\n- Nomor Rekening: 7130889411\n- Atas Nama: Muhidin Akbar\n- Berita Transfer: Kas Gang – Nama Blok/Nomor Rumah\n\nMohon Bapak/Ibu dapat melakukan pembayaran sebelum batas waktu yang telah ditentukan. Bagi warga yang sudah membayar, kami ucapkan terima kasih atas partisipasinya.\n\nDana kas akan digunakan untuk kebutuhan dan kepentingan bersama, seperti kebersihan gang, perawatan fasilitas gang, serta kegiatan warga sesuai kesepakatan bersama.\n\nMari kita tingkatkan kepedulian dan kebersamaan demi gang yang bersih, aman, nyaman, dan harmonis.\n\nTerima kasih atas perhatian dan kerja sama seluruh warga. 🙏\n\nHormat kami,\nPengurus Gang Mandor",
+      "priority": "penting"
+    },
+    {
+      "id": "ann-1792780895302",
+      "date": "2026-10-23",
+      "title": "GERAKAN SEDEKAH SAMPAH BOTOL PLASTIK",
+      "content": "📢 PENGUMUMAN WARGA\n♻️ GERAKAN SEDEKAH SAMPAH BOTOL PLASTIK ♻️\n\nAssalamu’alaikum warahmatullahi wabarakatuh.\n\nYth. Bapak/Ibu Warga,\n\nMari kita bersama-sama melakukan kebaikan melalui SEDEKAH SAMPAH BOTOL PLASTIK sebagai bentuk kepedulian terhadap gang sekaligus menambah-nambah pemasukan kas gang guna keperluan kita bersama.\n\n🌱 Sampah yang Dapat Disedekahkan:\n✅ Botol plastik bekas minuman\n✅ Gelas plastik bekas\n✅ Botol plastik bekas oli\n✅ Jerigen plastik\n\n⚠️ Mohon diperhatikan:\n\nKosongkan isi botol atau wadah terlebih dahulu.\n\nPastikan sampah plastik tidak berisi cairan atau sisa bahan lainnya.\n\nMasukkan sampah ke tempat pengumpulan yang telah disediakan (Disamping Warung Faqih)\n\nBotol Yakult tidak termasuk dalam pengumpulan ini.\n\n💚 Mengapa Kita Ikut Berpartisipasi?\n♻️ Mengurangi sampah plastik dan menjaga kebersihan gang.\n🤝 Menumbuhkan semangat gotong royong dan kepedulian sosial.\n❤️ Menjadikan barang bekas lebih bermanfaat melalui sedekah.\n\nMari kita mulai dari hal kecil, dari rumah kita sendiri. Semoga setiap botol plastik yang kita sedekahkan menjadi amal kebaikan dan membawa manfaat bagi gang kita bersama.\n\nSatu botol dari kita, manfaat untuk sesama!\n\nTerima kasih atas partisipasi seluruh warga.\n\nWassalamu’alaikum warahmatullahi wabarakatuh.\n\nSalam peduli gang, salam gotong royong! 🌿",
+      "priority": "normal"
+    }
+  ]
+}

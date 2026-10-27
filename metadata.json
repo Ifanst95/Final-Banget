@@ -1,0 +1,8 @@
+{
+  "name": "Remix Papan Informasi Warga Gang Mandor Blok K2/25 - K3/24",
+  "description": "Portal informasi warga, laporan kas terpadu, data kependudukan, iuran, bakti sosial, dan rekapan tunggakan warga Gang Mandor Blok K2/25 - K3/24.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
