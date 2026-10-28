@@ -916,9 +916,26 @@ export function useStorage() {
   const calculatedBalances: BalanceBreakdown = transactions.reduce(
     (acc, tx) => {
       const val = tx.type === 'masuk' ? tx.amount : -tx.amount;
-      if (tx.pool === 'Cashback WiFi') {
+      const cat = tx.category || '';
+      const isWifi =
+        cat === 'Cashback WiFi' ||
+        cat === 'Pengeluaran Cashback WiFi' ||
+        (tx.pool === 'Cashback WiFi' &&
+          cat !== 'Pengeluaran Gang' &&
+          cat !== 'Pengeluaran Lingkungan' &&
+          cat !== 'Kas Utama');
+
+      const isSampah =
+        cat === 'Cashback Sampah' ||
+        cat === 'Pengeluaran Cashback Sampah' ||
+        (tx.pool === 'Cashback Sampah' &&
+          cat !== 'Pengeluaran Gang' &&
+          cat !== 'Pengeluaran Lingkungan' &&
+          cat !== 'Kas Utama');
+
+      if (isWifi) {
         acc.wifiCashback += val;
-      } else if (tx.pool === 'Cashback Sampah') {
+      } else if (isSampah) {
         acc.sampahCashback += val;
       } else {
         acc.kasUtama += val;

@@ -676,7 +676,7 @@ export const INITIAL_TRANSACTIONS: CashTransaction[] = [
     id: 'tx-6',
     date: '2026-09-28',
     type: 'keluar',
-    pool: 'Cashback Sampah',
+    pool: 'Kas Utama',
     category: 'Pengeluaran Gang',
     description: 'Pengadaan Karung Sampah Jumbo & Sarung Tangan Petugas Gerobak',
     amount: 45000,

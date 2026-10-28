@@ -245,21 +245,43 @@ export async function parseCashbookExcelFile(file: File): Promise<ParseCashbookE
             pool = 'Kas Utama';
           }
 
-          // Category parsing
+          // Category & Pool parsing
           const catStr = String(rawCategory).trim().toLowerCase();
           let category: TransactionCategory = 'Kas Utama';
-          if (catStr.includes('iuran')) {
-            category = 'Iuran Warga';
-          } else if (catStr.includes('denda') || catStr.includes('baksos')) {
-            category = 'Denda Baksos';
-          } else if (catStr.includes('wifi')) {
-            category = 'Cashback WiFi';
-          } else if (catStr.includes('sampah')) {
-            category = 'Cashback Sampah';
-          } else if (catStr.includes('keluar') || catStr.includes('gang') || type === 'keluar') {
-            category = 'Pengeluaran Gang';
+
+          if (type === 'keluar') {
+            if (catStr.includes('wifi')) {
+              category = 'Pengeluaran Cashback WiFi';
+              pool = 'Cashback WiFi';
+            } else if (catStr.includes('sampah') && (poolStr.includes('sampah') || catStr.includes('cashback'))) {
+              category = 'Pengeluaran Cashback Sampah';
+              pool = 'Cashback Sampah';
+            } else if (catStr.includes('lingkungan')) {
+              category = 'Pengeluaran Lingkungan';
+              pool = 'Kas Utama';
+            } else {
+              category = 'Pengeluaran Gang';
+              pool = 'Kas Utama';
+            }
           } else {
-            category = pool === 'Kas Utama' ? 'Kas Utama' : (pool as any);
+            if (catStr.includes('tunggakan')) {
+              category = 'Pembayaran Tunggakan';
+              pool = 'Kas Utama';
+            } else if (catStr.includes('denda') || catStr.includes('baksos')) {
+              category = 'Denda Baksos';
+              pool = 'Kas Utama';
+            } else if (catStr.includes('wifi')) {
+              category = 'Cashback WiFi';
+              pool = 'Cashback WiFi';
+            } else if (catStr.includes('sampah')) {
+              category = 'Cashback Sampah';
+              pool = 'Cashback Sampah';
+            } else if (catStr.includes('iuran')) {
+              category = 'Iuran Warga';
+              pool = 'Kas Utama';
+            } else {
+              category = pool === 'Kas Utama' ? 'Kas Utama' : (pool as any);
+            }
           }
 
           const description = String(rawDesc).trim();

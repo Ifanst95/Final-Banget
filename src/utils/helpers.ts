@@ -640,10 +640,23 @@ export function calculatePreviousMonthBalanceSummary(
     const txKey = getMonthKeyFromDate(tx.date);
     if (!txKey || txKey === '0000-00') return;
 
-    const catLower = (tx.category || '').toLowerCase();
-    const descLower = (tx.description || '').toLowerCase();
-    const isWifi = tx.pool === 'Cashback WiFi' || catLower.includes('wifi') || descLower.includes('wifi');
-    const isSampah = tx.pool === 'Cashback Sampah' || catLower.includes('sampah') || descLower.includes('sampah');
+    const cat = tx.category || '';
+    const isWifi =
+      cat === 'Cashback WiFi' ||
+      cat === 'Pengeluaran Cashback WiFi' ||
+      (tx.pool === 'Cashback WiFi' &&
+        cat !== 'Pengeluaran Gang' &&
+        cat !== 'Pengeluaran Lingkungan' &&
+        cat !== 'Kas Utama');
+
+    const isSampah =
+      cat === 'Cashback Sampah' ||
+      cat === 'Pengeluaran Cashback Sampah' ||
+      (tx.pool === 'Cashback Sampah' &&
+        cat !== 'Pengeluaran Gang' &&
+        cat !== 'Pengeluaran Lingkungan' &&
+        cat !== 'Kas Utama');
+
     const signedVal = tx.type === 'masuk' ? tx.amount : -tx.amount;
 
     // Cumulative balance up to the end of the previous month (<= prevMonthKey)

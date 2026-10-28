@@ -336,14 +336,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
   // Helper to test if a transaction is related to Iuran or Tunggakan
   const isIuranOrTunggakanTx = (tx: CashTransaction) => {
-    const cat = (tx.category || '').toLowerCase();
-    const desc = (tx.description || '').toLowerCase();
+    if (tx.type !== 'masuk') return false;
     return (
       tx.category === 'Iuran Warga' ||
-      cat.includes('iuran') ||
-      cat.includes('tunggakan') ||
-      desc.includes('iuran') ||
-      desc.includes('tunggakan')
+      tx.category === 'Pembayaran Tunggakan' ||
+      (tx.category !== 'Pengeluaran Gang' &&
+        tx.category !== 'Pengeluaran Lingkungan' &&
+        (tx.category || '').toLowerCase().includes('iuran'))
     );
   };
 
@@ -369,15 +368,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       }
       const g = map[mKey];
       g.transactions.push(tx);
+      const cat = tx.category || '';
       if (tx.type === 'masuk') {
         g.totalInflow += tx.amount;
-        if (isIuranOrTunggakanTx(tx)) {
+        if (cat === 'Iuran Warga' || cat === 'Pembayaran Tunggakan') {
           g.iuranInflow += tx.amount;
-        } else if (tx.pool === 'Cashback WiFi' || tx.category === 'Cashback WiFi') {
+        } else if (
+          cat === 'Cashback WiFi' ||
+          (tx.pool === 'Cashback WiFi' && cat !== 'Pengeluaran Gang' && cat !== 'Pengeluaran Lingkungan')
+        ) {
           g.wifiInflow += tx.amount;
-        } else if (tx.pool === 'Cashback Sampah' || tx.category === 'Cashback Sampah') {
+        } else if (
+          cat === 'Cashback Sampah' ||
+          (tx.pool === 'Cashback Sampah' && cat !== 'Pengeluaran Gang' && cat !== 'Pengeluaran Lingkungan')
+        ) {
           g.sampahInflow += tx.amount;
-        } else if (tx.category === 'Denda Baksos' || tx.description.toLowerCase().includes('denda')) {
+        } else if (cat === 'Denda Baksos') {
           g.dendaInflow += tx.amount;
         } else {
           g.otherInflow += tx.amount;
@@ -413,9 +419,32 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const filteredTransactions = useMemo(() => {
     return transactions
       .filter((tx) => {
-        const isIuran = isIuranOrTunggakanTx(tx);
-        const isDenda = tx.category === 'Denda Baksos' || tx.description.toLowerCase().includes('denda');
-        const isCashbackPool = tx.pool === 'Cashback WiFi' || tx.pool === 'Cashback Sampah';
+        const cat = tx.category || '';
+        const isIuran = tx.type === 'masuk' && (cat === 'Iuran Warga' || cat === 'Pembayaran Tunggakan');
+        const isDenda = tx.type === 'masuk' && cat === 'Denda Baksos';
+        const isWifiPool =
+          cat === 'Cashback WiFi' ||
+          cat === 'Pengeluaran Cashback WiFi' ||
+          (tx.pool === 'Cashback WiFi' &&
+            cat !== 'Pengeluaran Gang' &&
+            cat !== 'Pengeluaran Lingkungan' &&
+            cat !== 'Kas Utama');
+        const isSampahPool =
+          cat === 'Cashback Sampah' ||
+          cat === 'Pengeluaran Cashback Sampah' ||
+          (tx.pool === 'Cashback Sampah' &&
+            cat !== 'Pengeluaran Gang' &&
+            cat !== 'Pengeluaran Lingkungan' &&
+            cat !== 'Kas Utama');
+        const isCashbackPool = isWifiPool || isSampahPool;
+
+        const isKasUtamaCategory =
+          cat === 'Kas Utama' ||
+          cat === 'Pengeluaran Gang' ||
+          cat === 'Pengeluaran Lingkungan' ||
+          cat === 'Iuran Warga' ||
+          cat === 'Denda Baksos' ||
+          cat === 'Pembayaran Tunggakan';
 
         const matchPool =
           filterPool === 'semua'
@@ -428,12 +457,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             ? isIuran
             : filterPool === 'Denda Baksos'
             ? isDenda
+            : filterPool === 'Pengeluaran Gang'
+            ? cat === 'Pengeluaran Gang'
+            : filterPool === 'Pengeluaran Lingkungan'
+            ? cat === 'Pengeluaran Lingkungan'
             : filterPool === 'Kas Utama'
-            ? tx.pool === 'Kas Utama'
+            ? (isKasUtamaCategory || tx.pool === 'Kas Utama' || !isCashbackPool)
             : filterPool === 'Cashback WiFi'
-            ? tx.pool === 'Cashback WiFi'
+            ? isWifiPool
             : filterPool === 'Cashback Sampah'
-            ? tx.pool === 'Cashback Sampah'
+            ? isSampahPool
             : filterPool === 'Cashback'
             ? isCashbackPool
             : tx.pool === filterPool;
@@ -473,15 +506,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     let otherInflow = 0;
 
     filteredTransactions.forEach((tx) => {
+      const cat = tx.category || '';
       if (tx.type === 'masuk') {
         totalInflow += tx.amount;
-        if (isIuranOrTunggakanTx(tx)) {
+        if (cat === 'Iuran Warga' || cat === 'Pembayaran Tunggakan') {
           iuranInflow += tx.amount;
-        } else if (tx.pool === 'Cashback WiFi' || tx.category === 'Cashback WiFi') {
+        } else if (
+          cat === 'Cashback WiFi' ||
+          (tx.pool === 'Cashback WiFi' && cat !== 'Pengeluaran Gang' && cat !== 'Pengeluaran Lingkungan')
+        ) {
           wifiInflow += tx.amount;
-        } else if (tx.pool === 'Cashback Sampah' || tx.category === 'Cashback Sampah') {
+        } else if (
+          cat === 'Cashback Sampah' ||
+          (tx.pool === 'Cashback Sampah' && cat !== 'Pengeluaran Gang' && cat !== 'Pengeluaran Lingkungan')
+        ) {
           sampahInflow += tx.amount;
-        } else if (tx.category === 'Denda Baksos' || tx.description.toLowerCase().includes('denda')) {
+        } else if (cat === 'Denda Baksos') {
           dendaInflow += tx.amount;
         } else {
           otherInflow += tx.amount;
@@ -518,7 +558,17 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     let cashbackOut = 0;
 
     filteredTransactions.forEach((tx) => {
-      const isCashback = tx.pool === 'Cashback WiFi' || tx.pool === 'Cashback Sampah';
+      const cat = tx.category || '';
+      const isCashback =
+        cat === 'Cashback WiFi' ||
+        cat === 'Cashback Sampah' ||
+        cat === 'Pengeluaran Cashback WiFi' ||
+        cat === 'Pengeluaran Cashback Sampah' ||
+        ((tx.pool === 'Cashback WiFi' || tx.pool === 'Cashback Sampah') &&
+          cat !== 'Pengeluaran Gang' &&
+          cat !== 'Pengeluaran Lingkungan' &&
+          cat !== 'Kas Utama');
+
       if (tx.type === 'masuk') {
         if (isCashback) {
           cashbackIn += tx.amount;
@@ -556,32 +606,40 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
     return filteredTransactions.map((tx, idx) => {
       const isMasuk = tx.type === 'masuk';
-      const descLower = tx.description.toLowerCase();
-      const catLower = (tx.category || '').toLowerCase();
+      const cat = tx.category || '';
 
       // Check if it's Tunggakan
-      const isTunggakan =
-        tx.category === 'Pembayaran Tunggakan' ||
-        descLower.includes('tunggakan') ||
-        catLower.includes('tunggakan');
+      const isTunggakan = isMasuk && cat === 'Pembayaran Tunggakan';
 
       // Check if it's Denda Baksos
-      const isDenda =
-        !isTunggakan && (tx.category === 'Denda Baksos' || descLower.includes('denda') || catLower.includes('denda'));
+      const isDenda = isMasuk && cat === 'Denda Baksos';
 
       // Check if it's Iuran Warga
-      const isIuran = !isTunggakan && !isDenda && isIuranOrTunggakanTx(tx);
+      const isIuran =
+        isMasuk &&
+        (cat === 'Iuran Warga' ||
+          (!isTunggakan &&
+            !isDenda &&
+            cat !== 'Pengeluaran Gang' &&
+            cat !== 'Pengeluaran Lingkungan' &&
+            cat.toLowerCase().includes('iuran')));
 
       // Check WiFi vs Sampah
       const isWifi =
-        tx.pool === 'Cashback WiFi' ||
-        catLower.includes('wifi') ||
-        descLower.includes('wifi');
+        cat === 'Cashback WiFi' ||
+        cat === 'Pengeluaran Cashback WiFi' ||
+        (tx.pool === 'Cashback WiFi' &&
+          cat !== 'Pengeluaran Gang' &&
+          cat !== 'Pengeluaran Lingkungan' &&
+          cat !== 'Kas Utama');
 
       const isSampah =
-        tx.pool === 'Cashback Sampah' ||
-        catLower.includes('sampah') ||
-        descLower.includes('sampah');
+        cat === 'Cashback Sampah' ||
+        cat === 'Pengeluaran Cashback Sampah' ||
+        (tx.pool === 'Cashback Sampah' &&
+          cat !== 'Pengeluaran Gang' &&
+          cat !== 'Pengeluaran Lingkungan' &&
+          cat !== 'Kas Utama');
 
       let masukIuran = 0;
       let masukDenda = 0;
@@ -595,11 +653,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       let subCategoryLabel = '';
 
       if (isMasuk) {
-        if (isWifi && !isIuran && !isDenda && !isTunggakan) {
+        if (isWifi) {
           masukWifi = tx.amount;
           runningWifi += tx.amount;
           subCategoryLabel = 'Cashback WiFi';
-        } else if (isSampah && !isIuran && !isDenda && !isTunggakan) {
+        } else if (isSampah) {
           masukSampah = tx.amount;
           runningSampah += tx.amount;
           subCategoryLabel = 'Cashback Sampah';
@@ -618,22 +676,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         } else {
           masukKasLain = tx.amount;
           runningKasUtama += tx.amount;
-          subCategoryLabel = 'Kas Utama';
+          subCategoryLabel = cat || 'Kas Utama';
         }
         runningTotal += tx.amount;
       } else {
         if (isWifi) {
           keluarWifi = tx.amount;
           runningWifi -= tx.amount;
-          subCategoryLabel = 'Pengeluaran WiFi';
+          subCategoryLabel = 'Pengeluaran Cashback WiFi';
         } else if (isSampah) {
           keluarSampah = tx.amount;
           runningSampah -= tx.amount;
-          subCategoryLabel = 'Pengeluaran Sampah';
+          subCategoryLabel = 'Pengeluaran Cashback Sampah';
         } else {
           keluarKasUtama = tx.amount;
           runningKasUtama -= tx.amount;
-          subCategoryLabel = 'Pengeluaran Kas Utama';
+          subCategoryLabel = cat || 'Pengeluaran Gang';
         }
         runningTotal -= tx.amount;
       }
@@ -2205,7 +2263,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     Cashback Sampah
                   </th>
                   <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
-                    Kas Utama
+                    Kas Utama / Gang
                   </th>
                   <th className="py-2 px-2 text-center text-blue-950 bg-blue-100/90 border border-slate-300">
                     Cashback WiFi
@@ -2342,12 +2400,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   ? 'bg-blue-100 text-blue-800 border border-blue-200'
                                   : isSampah
                                   ? 'bg-cyan-100 text-cyan-800 border border-cyan-200'
+                                  : tx.category === 'Pengeluaran Gang'
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                  : tx.category === 'Pengeluaran Lingkungan'
+                                  ? 'bg-teal-100 text-teal-900 border border-teal-300'
                                   : 'bg-slate-100 text-slate-700'
                               }`}
                             >
-                              {subCategoryLabel || tx.pool}
+                              {subCategoryLabel || tx.category || tx.pool}
                             </span>
-                            {tx.category && tx.category !== tx.pool && (
+                            {tx.category && tx.category !== tx.pool && tx.category !== subCategoryLabel && (
                               <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600">
                                 {tx.category}
                               </span>
@@ -3094,7 +3156,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         } else if (txPool === 'Cashback Sampah') {
                           setTxCategory('Pengeluaran Cashback Sampah');
                         } else {
-                          setTxCategory('Kas Utama');
+                          setTxCategory('Pengeluaran Gang');
                         }
                       } else {
                         if (txPool === 'Cashback WiFi') {
@@ -3127,7 +3189,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         } else if (newPool === 'Cashback Sampah') {
                           setTxCategory('Pengeluaran Cashback Sampah');
                         } else {
-                          setTxCategory('Kas Utama');
+                          setTxCategory('Pengeluaran Gang');
                         }
                       } else {
                         if (newPool === 'Cashback WiFi') {
@@ -3174,9 +3236,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       } else if (cat === 'Pengeluaran Cashback Sampah') {
                         setTxType('keluar');
                         setTxPool('Cashback Sampah');
+                      } else if (cat === 'Pengeluaran Gang' || cat === 'Pengeluaran Lingkungan') {
+                        setTxType('keluar');
+                        setTxPool('Kas Utama');
                       } else if (cat === 'Cashback WiFi') {
+                        setTxType('masuk');
                         setTxPool('Cashback WiFi');
                       } else if (cat === 'Cashback Sampah') {
+                        setTxType('masuk');
                         setTxPool('Cashback Sampah');
                       } else if (cat === 'Pembayaran Tunggakan' || cat === 'Iuran Warga' || cat === 'Denda Baksos') {
                         setTxPool('Kas Utama');
@@ -3196,11 +3263,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       </>
                     ) : (
                       <>
-                        <option value="Kas Utama">Pengeluaran Kas Utama</option>
+                        <option value="Pengeluaran Gang">Pengeluaran Gang (misal: Pembayaran Iuran Sampah, Operasional Gang)</option>
+                        <option value="Pengeluaran Lingkungan">Pengeluaran Lingkungan</option>
+                        <option value="Kas Utama">Pengeluaran Kas Utama (Lainnya)</option>
                         <option value="Pengeluaran Cashback WiFi">Pengeluaran Cashback WiFi</option>
                         <option value="Pengeluaran Cashback Sampah">Pengeluaran Cashback Sampah</option>
-                        <option value="Pengeluaran Gang">Pengeluaran Gang</option>
-                        <option value="Pengeluaran Lingkungan">Pengeluaran Lingkungan</option>
                       </>
                     )}
                   </select>
@@ -3256,7 +3323,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="Misal: Iuran bulanan warga Blok K2/25 atau Pembelian lampu jalan"
+                  placeholder="Misal: Pembayaran Iuran Sampah, Pembelian Lampu Jalan, dll"
                   value={txDescription}
                   onChange={(e) => setTxDescription(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
