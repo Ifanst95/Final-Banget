@@ -217,7 +217,13 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
 
       return {
         house,
-        displayName: house.duesHeadNameOverride || house.headName,
+        displayName: isVacant
+          ? house.duesHeadNameOverride && house.duesHeadNameOverride !== house.headName
+            ? house.duesHeadNameOverride
+            : 'Rumah Kosong'
+          : isUnoccupied
+          ? house.duesHeadNameOverride || 'Belum Ditempati'
+          : house.duesHeadNameOverride || house.headName,
         isVacant,
         isUnoccupied,
         isContract,
@@ -275,8 +281,17 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
 
     const bItem = billingList.find((b) => b.house.id === house.id);
 
+    const isUnoccupied = house.occupancy === 'Belum Ditempati';
+    const initialName = isVacant
+      ? house.duesHeadNameOverride && house.duesHeadNameOverride !== house.headName
+        ? house.duesHeadNameOverride
+        : 'Rumah Kosong'
+      : isUnoccupied
+      ? house.duesHeadNameOverride || 'Belum Ditempati'
+      : house.duesHeadNameOverride || house.headName;
+
     setEditingHouse(house);
-    setEditHeadName(house.duesHeadNameOverride || house.headName);
+    setEditHeadName(initialName);
     setEditOccupancy(house.occupancy);
     setEditNominal(nominal);
     setEditBaksosFine(bItem ? bItem.baksosFineAmount : 0);
@@ -289,15 +304,23 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
     if (!editingHouse) return;
 
     const isVacant = editOccupancy === 'Kosong';
+    const isUnoccupied = editOccupancy === 'Belum Ditempati';
     const finalNominal = isVacant ? 0 : Math.max(0, editNominal);
     const trimmedHead = editHeadName.trim();
-    const finalHeadOverride =
-      trimmedHead && trimmedHead !== editingHouse.headName ? trimmedHead : undefined;
+    const finalHeadOverride = isVacant
+      ? trimmedHead && trimmedHead !== 'Rumah Kosong' ? trimmedHead : 'Rumah Kosong'
+      : isUnoccupied
+      ? trimmedHead && trimmedHead !== 'Belum Ditempati' ? trimmedHead : 'Belum Ditempati'
+      : trimmedHead && trimmedHead !== editingHouse.headName ? trimmedHead : undefined;
 
     const updated: ResidentHouse = {
       ...editingHouse,
       occupancy: editOccupancy,
-      headName: trimmedHead || editingHouse.headName,
+      headName: isVacant
+        ? (trimmedHead || 'Rumah Kosong')
+        : isUnoccupied
+        ? (trimmedHead || 'Belum Ditempati')
+        : (trimmedHead || editingHouse.headName),
       duesHeadNameOverride: finalHeadOverride,
       customDuesAmount: finalNominal,
       customBaksosFineAmount: isVacant ? 0 : Math.max(0, editBaksosFine),
@@ -1005,7 +1028,7 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
 
         {/* 2. Deskripsi Halaman di Bawahnya */}
         <p className="text-xs sm:text-sm text-emerald-100 max-w-3xl leading-relaxed">
-          Pengurus dapat mengedit <strong>Kepala Keluarga</strong>, <strong>Status Rumah</strong>, <strong>Jumlah Iuran</strong>, <strong>Denda Baksos</strong>, dan <strong>Tunggakan Lalu</strong>. Data dari input penarikan ini otomatis tersimpan ke <strong>Tabel Rekap Pembayaran Iuran Per KK</strong> dengan pewarnaan sel/baris otomatis (hijau seluruhnya untuk lunas, merah seluruhnya untuk menunggak, hitam seluruhnya untuk rumah kosong, dan biru muda seluruhnya untuk bayar &gt; 1 bulan).
+          Pengurus dapat mengedit <strong>Kepala Keluarga</strong>, <strong>Status Rumah</strong>, <strong>Jumlah Iuran</strong>, <strong>Denda Baksos</strong>, dan <strong>Tunggakan Lalu</strong>. Data dari input penarikan ini otomatis tersimpan ke <strong>Tabel Rekap Pembayaran Iuran Per KK</strong> dengan pewarnaan sel/baris otomatis (hijau seluruhnya untuk lunas, merah seluruhnya untuk menunggak, abu-abu netral untuk rumah belum ditempati/kosong, dan biru muda seluruhnya untuk bayar &gt; 1 bulan).
         </p>
 
         {/* 3. Menu-menu Lainnya di Bawahnya Lagi */}
@@ -1205,11 +1228,6 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                                 </span>
                               )}
                             </div>
-                            {house.duesHeadNameOverride && (
-                              <span className="text-[11px] text-slate-500">
-                                Buku Induk: {house.headName}
-                              </span>
-                            )}
                           </div>
                           <button
                             type="button"
@@ -1487,9 +1505,6 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                     </span>
                   )}
                 </h4>
-                <p className="text-xs text-emerald-100 mt-0.5">
-                  Buku Induk Asli: {editingHouse.headName} ({editingHouse.occupancy})
-                </p>
               </div>
               <button
                 type="button"
@@ -1516,7 +1531,7 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                   required
                   value={editHeadName}
                   onChange={(e) => setEditHeadName(e.target.value)}
-                  placeholder={editingHouse.headName}
+                  placeholder="Nama Kepala Keluarga / Rumah Kosong"
                   className="w-full px-3 py-2 text-xs bg-white border border-emerald-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
                 />
                 <p className="text-[10px] text-slate-500">
@@ -1541,6 +1556,9 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                     setEditOccupancy(newOcc);
                     if (newOcc === 'Kosong') {
                       setEditNominal(0);
+                      setEditHeadName('Rumah Kosong');
+                    } else if (newOcc === 'Belum Ditempati') {
+                      if (editHeadName === 'Rumah Kosong') setEditHeadName('Belum Ditempati');
                     } else if (editNominal === 0) {
                       setEditNominal(defaultNominal);
                     }

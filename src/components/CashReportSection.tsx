@@ -27,6 +27,8 @@ import {
   Wallet,
   Wifi,
   X,
+  Save,
+  Coins,
 } from 'lucide-react';
 import {
   BaksosAgenda,
@@ -87,6 +89,12 @@ interface CashReportSectionProps {
     periodLabel?: string,
     setPeriodActive?: boolean
   ) => void;
+  onSaveAprilInitialBalance?: (
+    kasAmount: number,
+    wifiAmount: number,
+    sampahAmount: number,
+    note?: string
+  ) => void;
 }
 
 export interface PerKKRecapItem {
@@ -142,9 +150,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   onCreatePeriod,
   onDeletePeriod,
   onBatchImportDues,
+  onSaveAprilInitialBalance,
 }) => {
   // Modal upload Excel Iuran
   const [isUploadDuesModalOpen, setIsUploadDuesModalOpen] = useState<boolean>(false);
+  // Modal Edit Saldo Bulan Sebelumnya Periode April
+  const [isAprilBalanceModalOpen, setIsAprilBalanceModalOpen] = useState(false);
+  const [editAprilKas, setEditAprilKas] = useState<number>(0);
+  const [editAprilWifi, setEditAprilWifi] = useState<number>(0);
+  const [editAprilSampah, setEditAprilSampah] = useState<number>(0);
+  const [editAprilNote, setEditAprilNote] = useState<string>('Saldo Awal Inputan Periode April');
 
   // Unified Sub-tab selection: 'mutasi' (Buku Kas) or 'per_kk' (Iuran Per KK)
   const [currentSubTab, setCurrentSubTab] = useState<'mutasi' | 'per_kk'>(
@@ -226,6 +241,51 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [waRecapMode, setWaRecapMode] = useState<'keluar_masuk' | 'iuran_kk'>('keluar_masuk');
   const [copiedWaText, setCopiedWaText] = useState<boolean>(false);
   const [waCustomText, setWaCustomText] = useState<string>('');
+
+  const handleOpenAprilBalanceModal = () => {
+    const aprilKasTx = transactions.find(
+      (t) =>
+        t.id === 'tx-init-april-kas' ||
+        (t.date === '2026-03-31' && t.pool === 'Kas Utama' && t.description.toLowerCase().includes('april'))
+    );
+    const aprilWifiTx = transactions.find(
+      (t) =>
+        t.id === 'tx-init-april-wifi' ||
+        (t.date === '2026-03-31' && t.pool === 'Cashback WiFi' && t.description.toLowerCase().includes('april'))
+    );
+    const aprilSampahTx = transactions.find(
+      (t) =>
+        t.id === 'tx-init-april-sampah' ||
+        (t.date === '2026-03-31' && t.pool === 'Cashback Sampah' && t.description.toLowerCase().includes('april'))
+    );
+
+    setEditAprilKas(aprilKasTx ? (aprilKasTx.type === 'masuk' ? aprilKasTx.amount : -aprilKasTx.amount) : prevMonthSummary.kasUtama || 0);
+    setEditAprilWifi(aprilWifiTx ? (aprilWifiTx.type === 'masuk' ? aprilWifiTx.amount : -aprilWifiTx.amount) : prevMonthSummary.wifiCashback || 0);
+    setEditAprilSampah(aprilSampahTx ? (aprilSampahTx.type === 'masuk' ? aprilSampahTx.amount : -aprilSampahTx.amount) : prevMonthSummary.sampahCashback || 0);
+    setEditAprilNote(aprilKasTx?.description || 'Saldo Awal Inputan Periode April');
+    setIsAprilBalanceModalOpen(true);
+  };
+
+  const handleSaveAprilInitialForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onSaveAprilInitialBalance) {
+      onSaveAprilInitialBalance(editAprilKas, editAprilWifi, editAprilSampah, editAprilNote);
+    } else {
+      // Fallback directly to onAddTransaction
+      onAddTransaction({
+        date: '2026-03-31',
+        type: editAprilKas >= 0 ? 'masuk' : 'keluar',
+        pool: 'Kas Utama',
+        category: 'Kas Utama',
+        description: editAprilNote || 'Saldo Awal Kas Utama Bulan Sebelumnya (Periode April)',
+        amount: Math.abs(editAprilKas),
+      });
+    }
+    try {
+      confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
+    } catch {}
+    setIsAprilBalanceModalOpen(false);
+  };
 
   const getHouseDuesNominal = (house: ResidentHouse) =>
     house.customDuesAmount !== undefined
@@ -750,17 +810,21 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       new Set([currentActiveMonth, ...rawList, ...txMonths, ...coveredByResidents])
     ).filter(Boolean);
 
-    return combined.sort((a, b) => {
-      const keyA = parseIndonesianMonthYearToKey(a) || '';
-      const keyB = parseIndonesianMonthYearToKey(b) || '';
-      return keyA.localeCompare(keyB);
-    });
+    return combined
+      .filter((p) => !p.toLowerCase().includes('april'))
+      .sort((a, b) => {
+        const keyA = parseIndonesianMonthYearToKey(a) || '';
+        const keyB = parseIndonesianMonthYearToKey(b) || '';
+        return keyA.localeCompare(keyB);
+      });
   }, [config.duesAvailablePeriods, config.duesCurrentMonth, defaultMonthLabel, transactions, residents]);
 
-  // Otomatis arahkan selectedKKPeriod ke bulan aktif penarikan keuangan saat ini
+  // Otomatis arahkan selectedKKPeriod ke bulan aktif penarikan keuangan saat ini & sembunyikan April dari Rekap KK
   React.useEffect(() => {
     const active = config.duesCurrentMonth || defaultMonthLabel || 'Oktober 2026';
-    if (selectedKKPeriod !== 'semua' && (!selectedKKPeriod || !sortedPeriods.includes(selectedKKPeriod))) {
+    if (selectedKKPeriod && selectedKKPeriod.toLowerCase().includes('april')) {
+      setSelectedKKPeriod(active);
+    } else if (selectedKKPeriod !== 'semua' && (!selectedKKPeriod || !sortedPeriods.includes(selectedKKPeriod))) {
       setSelectedKKPeriod(active);
     }
   }, [sortedPeriods, config.duesCurrentMonth, defaultMonthLabel, selectedKKPeriod]);
@@ -804,10 +868,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         return {
           status: 'Kosong' as const,
           amount: 0,
-          label: 'Bebas Iuran',
-          badgeClass: 'bg-slate-800 text-slate-300 border border-slate-700 font-semibold',
+          label: house.occupancy === 'Belum Ditempati' ? 'Belum Ditempati' : 'Bebas Iuran',
+          badgeClass: 'bg-slate-100 text-slate-800 border border-slate-300 font-semibold',
           paidDate: undefined,
-          note: 'Rumah Kosong (Tidak Wajib)',
+          note: house.occupancy === 'Belum Ditempati' ? 'Belum Ditempati (Tidak Wajib)' : 'Rumah Kosong (Tidak Wajib)',
         };
       }
       const paidPart = house.duesPaidAmount || 0;
@@ -858,10 +922,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       return {
         status: 'Kosong' as const,
         amount: 0,
-        label: 'Bebas Iuran',
-        badgeClass: 'bg-slate-800 text-slate-300 border border-slate-700 font-semibold',
+        label: house.occupancy === 'Belum Ditempati' ? 'Belum Ditempati' : 'Bebas Iuran',
+        badgeClass: 'bg-slate-100 text-slate-800 border border-slate-300 font-semibold',
         paidDate: undefined as string | undefined,
-        note: 'Rumah Kosong (Tidak Wajib)',
+        note: house.occupancy === 'Belum Ditempati' ? 'Belum Ditempati (Tidak Wajib)' : 'Rumah Kosong (Tidak Wajib)',
       };
     }
 
@@ -1869,9 +1933,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             {/* 1. Saldo Bulan Sebelumnya */}
             <div className="bg-amber-50/70 border-2 border-amber-200/90 rounded-2xl p-4 flex flex-col justify-between shadow-2xs">
               <div>
-                <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-amber-900 pb-2 border-b border-amber-200">
-                  <Clock className="w-4 h-4 text-amber-600" />
-                  <span>SALDO BULAN SEBELUMNYA</span>
+                <div className="flex items-center justify-between gap-1.5 text-xs font-extrabold text-amber-900 pb-2 border-b border-amber-200">
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    <span>SALDO BULAN SEBELUMNYA</span>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={handleOpenAprilBalanceModal}
+                      className="px-2 py-0.5 rounded-lg bg-amber-200/90 hover:bg-amber-300 text-amber-950 text-[10px] font-bold flex items-center gap-1 border border-amber-400 cursor-pointer shadow-2xs transition-all shrink-0"
+                      title="Edit Saldo Bulan Sebelumnya Periode April (Saldo Awal Inputan)"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>Edit Saldo April</span>
+                    </button>
+                  )}
                 </div>
                 <div className="text-[11px] text-amber-800 mt-1 font-medium">
                   Periode: {prevMonthSummary.prevMonthLabel}
@@ -2084,8 +2161,18 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     Awal Bulan
                   </td>
                   <td className="py-2.5 px-4 text-center border border-slate-300">
-                    <div className="font-extrabold text-amber-950">
-                      Saldo Bulan Sebelumnya ({prevMonthSummary.prevMonthLabel})
+                    <div className="font-extrabold text-amber-950 flex items-center justify-center gap-1.5">
+                      <span>Saldo Bulan Sebelumnya ({prevMonthSummary.prevMonthLabel})</span>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={handleOpenAprilBalanceModal}
+                          className="p-1 rounded text-amber-700 hover:text-amber-950 hover:bg-amber-200/80 cursor-pointer"
+                          title="Edit Saldo Bulan Sebelumnya Periode April (Saldo Awal Inputan)"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      )}
                     </div>
                     <div className="text-[10px] text-amber-800 font-normal">
                       Kas Utama: {formatRupiah(prevMonthSummary.kasUtama)} | WiFi: {formatRupiah(prevMonthSummary.wifiCashback)} | Sampah: {formatRupiah(prevMonthSummary.sampahCashback)}
@@ -2519,9 +2606,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <span className="w-2 h-2 rounded-full bg-sky-600"></span>
                   Biru Muda: Bayar &gt;1 Bln
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900 text-white border border-slate-700">
-                  <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-                  Hitam: Rumah Kosong
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-200 text-slate-800 border border-slate-300">
+                  <span className="w-2 h-2 rounded-full bg-slate-500"></span>
+                  Abu-abu: Belum Ditempati / Kosong
                 </span>
               </div>
             </div>
@@ -2628,7 +2715,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       filteredPerKKList.map((item, idx) => {
                         const { house, isLunas, isAdvancePaid, isEmptyHouse } = item;
                         const isVacant = isEmptyHouse || isHouseVacant(house);
-                        const payerName = house.duesHeadNameOverride || house.headName;
+                        const isUnoccupied = house.occupancy === 'Belum Ditempati';
+                        const payerName = isVacant
+                          ? house.duesHeadNameOverride && house.duesHeadNameOverride !== house.headName && !house.duesHeadNameOverride.toLowerCase().includes(house.headName.toLowerCase())
+                            ? house.duesHeadNameOverride
+                            : 'Rumah Kosong'
+                          : isUnoccupied
+                          ? house.duesHeadNameOverride || 'Belum Ditempati'
+                          : house.duesHeadNameOverride || house.headName;
                         const periodStr = selectedKKPeriod !== 'semua' ? selectedKKPeriod : item.periodLabel;
                         const statusInfo =
                           selectedKKPeriod !== 'semua'
@@ -2686,13 +2780,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                         const isMenunggak = !isVacant && !isBayarLebih && !isSudahBayar;
 
-                        // Pewarnaan otomatis seluruh baris & sel sesuai instruksi:
-                        // - Sudah bayar: Hijau seluruhnya
-                        // - Menunggak: Merah seluruhnya
-                        // - Rumah kosong: Hitam seluruhnya
-                        // - Bayar > 1 bulan: Biru muda seluruhnya
+                        // Pewarnaan otomatis seluruh baris & sel sesuai kriteria:
+                        // - Sudah bayar: Hijau lembut
+                        // - Menunggak: Merah lembut
+                        // - Rumah belum ditempati / kosong: Abu-abu netral (bukan hitam)
+                        // - Bayar > 1 bulan: Biru muda lembut
                         const rowCellClass = isVacant
-                          ? 'bg-slate-900 text-white border-slate-700'
+                          ? 'bg-slate-50/90 text-slate-800 border-slate-200 font-medium'
                           : isBayarLebih
                           ? 'bg-sky-50 text-sky-950 border-sky-300 font-medium'
                           : isSudahBayar
@@ -2704,16 +2798,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             key={house.id}
                             className={`transition-colors border-b ${
                               isVacant
-                                ? 'bg-slate-900 text-white border-slate-700'
+                                ? 'bg-slate-50/90 text-slate-800 border-slate-200 hover:bg-slate-100/80'
                                 : isBayarLebih
-                                ? 'bg-sky-50 text-sky-950 border-sky-300'
+                                ? 'bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100/60'
                                 : isSudahBayar
-                                ? 'bg-emerald-50 text-emerald-950 border-emerald-300'
-                                : 'bg-rose-50 text-rose-950 border-rose-300'
+                                ? 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100/60'
+                                : 'bg-rose-50 text-rose-950 border-rose-300 hover:bg-rose-100/60'
                             }`}
                           >
                             {/* 1. No */}
-                            <td className={`py-2.5 px-2 text-center font-mono border ${rowCellClass} ${isVacant ? 'text-slate-300' : 'text-slate-600'}`}>
+                            <td className={`py-2.5 px-2 text-center font-mono border ${rowCellClass} text-slate-600`}>
                               {idx + 1}
                             </td>
 
@@ -2722,7 +2816,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               <span
                                 className={`font-mono text-xs font-bold px-2 py-0.5 rounded-lg border shadow-2xs ${
                                   isVacant
-                                    ? 'bg-slate-800 text-white border-slate-600'
+                                    ? 'bg-slate-200 text-slate-800 border-slate-300'
                                     : isBayarLebih
                                     ? 'bg-sky-200/90 text-sky-950 border-sky-400'
                                     : isSudahBayar
@@ -2734,13 +2828,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               </span>
                             </td>
 
-                            {/* 3. Nama Kepala Keluarga */}
+                            {/* 3. Nama Kepala Keluarga (Bersumber dari Input Penarikan, bukan Buku Induk lama) */}
                             <td className={`py-2.5 px-4 border ${rowCellClass}`}>
                               <div className="flex items-center justify-between gap-1.5">
                                 <span
                                   className={`font-bold ${
                                     isVacant
-                                      ? 'text-white'
+                                      ? 'text-slate-800'
                                       : isBayarLebih
                                       ? 'text-sky-950'
                                       : isSudahBayar
@@ -2748,11 +2842,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       : 'text-rose-950'
                                   }`}
                                 >
-                                  {isVacant
-                                    ? payerName.toLowerCase().includes('kosong')
-                                      ? payerName
-                                      : `Rumah Kosong (${payerName})`
-                                    : payerName}
+                                  {payerName}
                                 </span>
                                 {isAdmin && (
                                   <button
@@ -2760,7 +2850,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     onClick={() => handleOpenEditHouseDues(house, false)}
                                     className={`p-1 rounded transition-colors cursor-pointer shrink-0 ${
                                       isVacant
-                                        ? 'text-slate-400 hover:text-white hover:bg-slate-800'
+                                        ? 'text-slate-400 hover:text-emerald-700 hover:bg-slate-200'
                                         : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-100/60'
                                     }`}
                                     title="Edit Iuran & Tunggakan KK"
@@ -2772,18 +2862,18 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             </td>
 
                             {/* 4. Periode Iuran */}
-                            <td className={`py-2.5 px-3 text-center font-bold border ${rowCellClass} ${isVacant ? 'text-slate-200' : ''}`}>
+                            <td className={`py-2.5 px-3 text-center font-bold border ${rowCellClass} text-slate-700`}>
                               {periodStr}
                             </td>
 
                             {/* 5. Iuran Bulanan */}
                             <td className={`py-2.5 px-3 text-right font-mono tabular-nums border ${rowCellClass}`}>
                               {iuranPaid > 0 ? (
-                                <span className={`font-bold ${isVacant ? 'text-emerald-300' : isBayarLebih ? 'text-sky-900' : isSudahBayar ? 'text-emerald-800' : 'text-slate-700'}`}>
+                                <span className={`font-bold ${isVacant ? 'text-emerald-800' : isBayarLebih ? 'text-sky-900' : isSudahBayar ? 'text-emerald-800' : 'text-slate-700'}`}>
                                   +{formatRupiah(iuranPaid)}
                                 </span>
                               ) : isVacant ? (
-                                <span className="text-slate-400 italic text-[11px]">Rumah Kosong (Rp 0)</span>
+                                <span className="text-slate-500 font-semibold italic text-[11px]">Bebas Iuran (Rp 0)</span>
                               ) : (
                                 <span className="text-rose-700 font-bold">Rp 0 (Belum Bayar)</span>
                               )}
@@ -2794,7 +2884,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               {dendaPaid > 0 ? (
                                 <span className="text-rose-600 font-black">+{formatRupiah(dendaPaid)}</span>
                               ) : (
-                                <span className={isVacant ? 'text-slate-500' : 'text-slate-400'}>-</span>
+                                <span className="text-slate-400">-</span>
                               )}
                             </td>
 
@@ -2803,12 +2893,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               {tunggakanPaid > 0 ? (
                                 <span className="text-rose-600 font-black">+{formatRupiah(tunggakanPaid)}</span>
                               ) : (
-                                <span className={isVacant ? 'text-slate-500' : 'text-slate-400'}>-</span>
+                                <span className="text-slate-400">-</span>
                               )}
                             </td>
 
                             {/* 8. Tanggal Pembayaran */}
-                            <td className={`py-2.5 px-3 text-center font-mono text-[11px] border ${rowCellClass} ${isVacant ? 'text-slate-300' : 'text-slate-700'}`}>
+                            <td className={`py-2.5 px-3 text-center font-mono text-[11px] border ${rowCellClass} text-slate-700`}>
                               {paidDate ? formatDateDDMMYYYY(paidDate) : '-'}
                             </td>
 
@@ -2817,11 +2907,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               <div className="flex flex-col items-end">
                                 {isVacant ? (
                                   <>
-                                    <span className="font-mono font-black text-white">
+                                    <span className="font-mono font-bold text-slate-800">
                                       {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
                                     </span>
-                                    <span className="text-[10px] font-sans font-bold text-slate-300">
-                                      Rumah Kosong
+                                    <span className="text-[10px] font-sans font-bold text-slate-500">
+                                      {house.occupancy === 'Belum Ditempati' ? 'Belum Ditempati' : 'Rumah Kosong (Bebas)'}
                                     </span>
                                   </>
                                 ) : isBayarLebih ? (
@@ -3690,6 +3780,141 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </div>
           </div>
         )}
+
+      {/* Modal Edit Saldo Bulan Sebelumnya Periode April (Data Awal Inputan) */}
+      {isAprilBalanceModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="px-5 py-4 bg-gradient-to-r from-amber-500 via-amber-600 to-emerald-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-xs flex items-center justify-center">
+                  <Coins className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm leading-tight">Edit Saldo Bulan Sebelumnya (Periode April)</h3>
+                  <p className="text-[11px] text-amber-100">Data awal inputan baseline kas sebelum bulan aktif</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAprilBalanceModalOpen(false)}
+                className="w-7 h-7 rounded-lg hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveAprilInitialForm} className="p-5 space-y-4">
+              <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-xs text-amber-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                  <span>ℹ️</span> Petunjuk Saldo Awal April
+                </div>
+                <p className="text-[11px] leading-relaxed text-amber-800">
+                  Saldo ini berfungsi sebagai <strong>data awal inputan</strong> yang otomatis terakumulasi ke dalam kartu <em>SALDO BULAN SEBELUMNYA</em> pada periode berjalan. Rekap Iuran Kas Per KK bulan April sengaja tidak dimunculkan karena hanya untuk inputan baseline.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Saldo Kas Utama Awal Periode April (Rp)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-semibold text-slate-400">Rp</span>
+                    <input
+                      type="number"
+                      value={editAprilKas === 0 ? '' : editAprilKas}
+                      onChange={(e) => setEditAprilKas(e.target.value === '' ? 0 : Number(e.target.value))}
+                      placeholder="0"
+                      className="w-full pl-9 pr-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
+                    {formatRupiah(editAprilKas || 0)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Cashback WiFi Awal (Rp)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-2 text-xs font-semibold text-slate-400">Rp</span>
+                      <input
+                        type="number"
+                        value={editAprilWifi === 0 ? '' : editAprilWifi}
+                        onChange={(e) => setEditAprilWifi(e.target.value === '' ? 0 : Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full pl-8 pr-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
+                      {formatRupiah(editAprilWifi || 0)}
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Cashback Sampah Awal (Rp)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-2 text-xs font-semibold text-slate-400">Rp</span>
+                      <input
+                        type="number"
+                        value={editAprilSampah === 0 ? '' : editAprilSampah}
+                        onChange={(e) => setEditAprilSampah(e.target.value === '' ? 0 : Number(e.target.value))}
+                        placeholder="0"
+                        className="w-full pl-8 pr-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
+                      {formatRupiah(editAprilSampah || 0)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700">Total Saldo Awal Gabungan:</span>
+                  <span className="text-sm font-extrabold text-emerald-700 font-mono">
+                    {formatRupiah((Number(editAprilKas) || 0) + (Number(editAprilWifi) || 0) + (Number(editAprilSampah) || 0))}
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Keterangan Transaksi Baseline
+                  </label>
+                  <input
+                    type="text"
+                    value={editAprilNote}
+                    onChange={(e) => setEditAprilNote(e.target.value)}
+                    placeholder="Contoh: Saldo Awal Inputan Periode April"
+                    className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAprilBalanceModalOpen(false)}
+                  className="px-4 py-2 text-xs text-slate-600 hover:bg-slate-100 font-medium rounded-lg cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Simpan Saldo Awal April
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal Upload Excel Iuran Warga Per KK */}
       <DuesExcelUploadModal

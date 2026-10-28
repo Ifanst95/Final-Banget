@@ -93,11 +93,19 @@ export const ResidentSelfCheckBar: React.FC<ResidentSelfCheckBarProps> = ({
               className="w-full pl-9 pr-4 py-2 text-xs font-bold bg-gradient-to-r from-amber-50 to-cyan-50 border-2 border-amber-300 rounded-xl text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300 cursor-pointer"
             >
               <option value="">— Pilih Blok Rumah Anda —</option>
-              {residents.map((h) => (
-                <option key={h.id} value={h.blockNumber}>
-                  Blok {h.blockNumber} — {h.headName}
-                </option>
-              ))}
+              {residents.map((h) => {
+                const isVac = isHouseVacant(h) || h.occupancy === 'Kosong';
+                const name = isVac
+                  ? (h.duesHeadNameOverride && h.duesHeadNameOverride.toLowerCase().includes('kosong')
+                      ? h.duesHeadNameOverride
+                      : 'Rumah Kosong')
+                  : (h.duesHeadNameOverride || h.headName);
+                return (
+                  <option key={h.id} value={h.blockNumber}>
+                    Blok {h.blockNumber} — {name}
+                  </option>
+                );
+              })}
             </select>
           </div>
           {selectedBlock && (
@@ -144,10 +152,10 @@ export const ResidentSelfCheckBar: React.FC<ResidentSelfCheckBarProps> = ({
                       </span>
                       <h4 className="text-lg font-extrabold tracking-tight mt-0.5">
                         {isVacant
-                          ? selectedHouse.headName.toLowerCase().includes('kosong')
-                            ? selectedHouse.headName
-                            : `Rumah Kosong (${selectedHouse.headName})`
-                          : selectedHouse.headName}
+                          ? (selectedHouse.duesHeadNameOverride && selectedHouse.duesHeadNameOverride.toLowerCase().includes('kosong')
+                              ? selectedHouse.duesHeadNameOverride
+                              : 'Rumah Kosong')
+                          : (selectedHouse.duesHeadNameOverride || selectedHouse.headName)}
                       </h4>
                       <p className="text-xs text-slate-200">
                         Kavling Blok {selectedHouse.blockNumber} · {selectedHouse.ownership} ·{' '}

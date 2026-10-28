@@ -388,71 +388,91 @@ export function useStorage() {
     persistSnapshotLocally(normalized);
   }, []);
 
-  // Push authoritative snapshot to online server
+  // Push authoritative snapshot to online server with automatic retries and Firestore synchronization
   const pushSnapshotToServer = useCallback(
     async (customSnapshot?: PortalDatabasePayload): Promise<boolean> => {
       const snapshotToPush = customSnapshot || dbStateRef.current;
-      try {
-        isPushingMutationRef.current = true;
-        setIsOnlineSyncing(true);
+      isPushingMutationRef.current = true;
+      setIsOnlineSyncing(true);
 
-        const payloadToSend: PortalDatabasePayload = {
-          ...snapshotToPush,
-          version: 5,
-          revision: Math.max(1, Number(snapshotToPush.revision) || 1),
-          isDefaultSeed: false,
-          updatedAt: snapshotToPush.updatedAt || new Date().toISOString(),
-          updatedBy: isAdmin ? 'Pengurus Gang Mandor (Online)' : 'Warga Gang Mandor (Online)',
-          clientId: clientIdRef.current,
-        };
+      const payloadToSend: PortalDatabasePayload = {
+        ...snapshotToPush,
+        version: 5,
+        revision: Math.max(1, Number(snapshotToPush.revision) || 1),
+        isDefaultSeed: false,
+        updatedAt: snapshotToPush.updatedAt || new Date().toISOString(),
+        updatedBy: isAdmin ? 'Pengurus Gang Mandor (Online)' : 'Warga Gang Mandor (Online)',
+        clientId: clientIdRef.current,
+      };
 
-        lastPushedRevRef.current = Number(payloadToSend.revision) || 0;
+      lastPushedRevRef.current = Number(payloadToSend.revision) || 0;
 
-        // Persist directly to Cloud Firestore as well only if quota has not been exceeded
-        if (!getIsFirestoreQuotaExceeded()) {
-          saveStateToFirestoreDirect(payloadToSend).catch(() => {});
+      // Always asynchronously backup directly to Cloud Firestore as dual redundancy
+      if (!getIsFirestoreQuotaExceeded()) {
+        saveStateToFirestoreDirect(payloadToSend).catch(() => {});
+      }
+
+      // Retry up to 3 times with exponential backoff before declaring offline
+      let lastError: any = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const res = await fetch('/api/database', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payloadToSend),
+            keepalive: true,
+          });
+
+          if (res.ok) {
+            const result = await res.json();
+            const confirmedRev = Number(result.revision) || payloadToSend.revision || 1;
+            const confirmedTime = result.updatedAt || payloadToSend.updatedAt;
+
+            // Update revision metadata if no newer local mutation happened while POST was in flight
+            if ((dbStateRef.current.revision || 0) <= confirmedRev) {
+              const updatedSnap: PortalDatabasePayload = {
+                ...dbStateRef.current,
+                revision: confirmedRev,
+                isDefaultSeed: false,
+                updatedAt: confirmedTime,
+              };
+              dbStateRef.current = updatedSnap;
+              persistSnapshotLocally(updatedSnap);
+              hasPendingPushRef.current = false;
+            }
+
+            setOnlineRevision(confirmedRev);
+            setLastOnlineSync(confirmedTime);
+            setIsOnlineConnected(true);
+            isPushingMutationRef.current = false;
+            setIsOnlineSyncing(false);
+            return true;
+          }
+        } catch (err) {
+          lastError = err;
         }
 
-        const res = await fetch('/api/database', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payloadToSend),
-          keepalive: true,
-        });
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 150 * attempt));
+        }
+      }
 
-        if (res.ok) {
-          const result = await res.json();
-          const confirmedRev = Number(result.revision) || payloadToSend.revision || 1;
-          const confirmedTime = result.updatedAt || payloadToSend.updatedAt;
-
-          // Update revision metadata if no newer local mutation happened while POST was in flight
-          if ((dbStateRef.current.revision || 0) <= confirmedRev) {
-            const updatedSnap: PortalDatabasePayload = {
-              ...dbStateRef.current,
-              revision: confirmedRev,
-              isDefaultSeed: false,
-              updatedAt: confirmedTime,
-            };
-            dbStateRef.current = updatedSnap;
-            persistSnapshotLocally(updatedSnap);
-            hasPendingPushRef.current = false;
-          }
-
-          setOnlineRevision(confirmedRev);
-          setLastOnlineSync(confirmedTime);
+      console.warn('Failed to push state to online server after 3 attempts:', lastError);
+      // Attempt emergency direct save to Cloud Firestore if server is unreachable
+      try {
+        const firestoreSuccess = await saveStateToFirestoreDirect(payloadToSend);
+        if (firestoreSuccess) {
           setIsOnlineConnected(true);
+          isPushingMutationRef.current = false;
+          setIsOnlineSyncing(false);
           return true;
         }
-        setIsOnlineConnected(false);
-        return false;
-      } catch (err) {
-        console.warn('Failed to push state to online server:', err);
-        setIsOnlineConnected(false);
-        return false;
-      } finally {
-        isPushingMutationRef.current = false;
-        setIsOnlineSyncing(false);
-      }
+      } catch {}
+
+      setIsOnlineConnected(false);
+      isPushingMutationRef.current = false;
+      setIsOnlineSyncing(false);
+      return false;
     },
     [isAdmin]
   );
@@ -510,19 +530,19 @@ export function useStorage() {
         }
       } catch {}
 
-      // 4. Ultra-responsive batch (15ms) to push to server so other devices receive SSE broadcast immediately
+      // 4. Batch debounce (80ms) to push to server cleanly without race conditions
       if (pushTimerRef.current) {
         clearTimeout(pushTimerRef.current);
       }
       pushTimerRef.current = setTimeout(() => {
         pushTimerRef.current = null;
         pushSnapshotToServer(dbStateRef.current);
-      }, 15);
+      }, 80);
     },
     [isAdmin, pushSnapshotToServer]
   );
 
-  // Pull latest database from server with strict anti-default-regression & self-healing logic
+  // Pull latest database from server with automatic retries and direct Firestore fallback
   const fetchLatestFromServer = useCallback(
     async (manualForcePull: boolean = false): Promise<boolean> => {
       if ((hasPendingPushRef.current || isPushingMutationRef.current) && !manualForcePull) {
@@ -532,72 +552,95 @@ export function useStorage() {
         return true;
       }
 
-      try {
-        setIsOnlineSyncing(true);
-        const res = await fetch(`/api/database?t=${Date.now()}`, {
-          cache: 'no-store',
-        });
-        if (!res.ok) {
-          setIsOnlineConnected(false);
-          return false;
+      setIsOnlineSyncing(true);
+
+      // Try fetching from server with up to 3 retries
+      let fetchedPayload: PortalDatabasePayload | null = null;
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const res = await fetch(`/api/database?t=${Date.now()}`, {
+            cache: 'no-store',
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json.exists && json.data) {
+              fetchedPayload = json.data as PortalDatabasePayload;
+              setIsOnlineConnected(true);
+              break;
+            }
+          }
+        } catch {}
+
+        if (attempt < 3) {
+          await new Promise((resolve) => setTimeout(resolve, 150 * attempt));
         }
-        const json = await res.json();
-        setIsOnlineConnected(true);
+      }
 
-        if (json.exists && json.data) {
-          // Do not overwrite if a local mutation occurred while the GET request was in flight
-          if (hasPendingPushRef.current && !manualForcePull) {
-            return true;
+      // If server could not be reached, try reading directly from Cloud Firestore as dual fallback
+      if (!fetchedPayload) {
+        try {
+          const cloudDirectSnap = await loadStateFromFirestoreDirect();
+          if (cloudDirectSnap && !cloudDirectSnap.isDefaultSeed) {
+            fetchedPayload = cloudDirectSnap;
+            setIsOnlineConnected(true);
           }
+        } catch {}
+      }
 
-          const remoteData = json.data as PortalDatabasePayload;
-          const remoteRev = Number(remoteData.revision) || 0;
-          const remoteIsSeed =
-            remoteData.isDefaultSeed === true ||
-            remoteRev === 0 ||
-            (remoteRev === 1 &&
-              remoteData.updatedBy === 'Server Online Gang Mandor' &&
-              !isStateDifferentFromInitial(remoteData));
-
-          const localSnap = dbStateRef.current;
-          const localRev = Number(localSnap.revision) || 0;
-          const localIsCustomized = !localSnap.isDefaultSeed && localRev >= 1;
-
-          // SELF-HEALING CASE 1: Server has reset to default seed, but client has real customized data!
-          // Never overwrite client with default seed -> push client's real data to heal the server!
-          if (remoteIsSeed && localIsCustomized) {
-            await pushSnapshotToServer(localSnap);
-            return true;
-          }
-
-          // SELF-HEALING CASE 2: Both are customized, but client has a strictly higher revision (e.g., offline edits)
-          if (!remoteIsSeed && localIsCustomized && localRev > remoteRev && !manualForcePull) {
-            await pushSnapshotToServer(localSnap);
-            return true;
-          }
-
-          // NORMAL UPDATE CASE: Server has newer revision, or local is still default seed, or user requested manual pull
-          const remoteTime = Date.parse(remoteData.updatedAt || '') || 0;
-          const localTime = Date.parse(localSnap.updatedAt || '') || 0;
-
-          if (
-            manualForcePull ||
-            (!remoteIsSeed && localSnap.isDefaultSeed) ||
-            remoteRev > localRev ||
-            (remoteRev === localRev && remoteTime > localTime)
-          ) {
-            applySnapshotToStateAndStorage(remoteData);
-          }
+      if (fetchedPayload) {
+        // Do not overwrite if a local mutation occurred while the request was in flight
+        if (hasPendingPushRef.current && !manualForcePull) {
+          setIsOnlineSyncing(false);
           return true;
         }
-        return false;
-      } catch (err) {
-        console.warn('Could not fetch online database:', err);
-        setIsOnlineConnected(false);
-        return false;
-      } finally {
+
+        const remoteData = fetchedPayload;
+        const remoteRev = Number(remoteData.revision) || 0;
+        const remoteIsSeed =
+          remoteData.isDefaultSeed === true ||
+          remoteRev === 0 ||
+          (remoteRev === 1 &&
+            remoteData.updatedBy === 'Server Online Gang Mandor' &&
+            !isStateDifferentFromInitial(remoteData));
+
+        const localSnap = dbStateRef.current;
+        const localRev = Number(localSnap.revision) || 0;
+        const localIsCustomized = !localSnap.isDefaultSeed && localRev >= 1;
+
+        // SELF-HEALING CASE 1: Server has reset to default seed, but client has real customized data!
+        // Never overwrite client with default seed -> push client's real data to heal the server!
+        if (remoteIsSeed && localIsCustomized) {
+          await pushSnapshotToServer(localSnap);
+          setIsOnlineSyncing(false);
+          return true;
+        }
+
+        // SELF-HEALING CASE 2: Both are customized, but client has a strictly higher revision (e.g., offline edits)
+        if (!remoteIsSeed && localIsCustomized && localRev > remoteRev && !manualForcePull) {
+          await pushSnapshotToServer(localSnap);
+          setIsOnlineSyncing(false);
+          return true;
+        }
+
+        // NORMAL UPDATE CASE: Server has newer revision, or local is still default seed, or user requested manual pull
+        const remoteTime = Date.parse(remoteData.updatedAt || '') || 0;
+        const localTime = Date.parse(localSnap.updatedAt || '') || 0;
+
+        if (
+          manualForcePull ||
+          (!remoteIsSeed && localSnap.isDefaultSeed) ||
+          remoteRev > localRev ||
+          (remoteRev === localRev && remoteTime > localTime)
+        ) {
+          applySnapshotToStateAndStorage(remoteData);
+        }
         setIsOnlineSyncing(false);
+        return true;
       }
+
+      setIsOnlineConnected(false);
+      setIsOnlineSyncing(false);
+      return false;
     },
     [applySnapshotToStateAndStorage, pushSnapshotToServer]
   );
@@ -1188,6 +1231,64 @@ export function useStorage() {
     }));
   };
 
+  // Fitur edit Saldo Bulan Sebelumnya periode April (Saldo Awal Inputan)
+  const saveAprilInitialBalance = (
+    kasAmount: number,
+    wifiAmount: number,
+    sampahAmount: number,
+    note?: string
+  ) => {
+    commitLocalMutation((cur) => {
+      // Bersihkan transaksi saldo awal april terdahulu jika ada
+      const remainingTxs = cur.transactions.filter(
+        (t) =>
+          t.id !== 'tx-init-april-kas' &&
+          t.id !== 'tx-init-april-wifi' &&
+          t.id !== 'tx-init-april-sampah' &&
+          !(t.date === '2026-03-31' && t.description.toLowerCase().includes('april'))
+      );
+
+      const newTxs: CashTransaction[] = [];
+      if (kasAmount !== 0) {
+        newTxs.push({
+          id: 'tx-init-april-kas',
+          date: '2026-03-31',
+          type: kasAmount >= 0 ? 'masuk' : 'keluar',
+          pool: 'Kas Utama',
+          category: 'Kas Utama',
+          description: note || 'Saldo Awal Kas Utama Bulan Sebelumnya (Periode April)',
+          amount: Math.abs(kasAmount),
+        });
+      }
+      if (wifiAmount !== 0) {
+        newTxs.push({
+          id: 'tx-init-april-wifi',
+          date: '2026-03-31',
+          type: wifiAmount >= 0 ? 'masuk' : 'keluar',
+          pool: 'Cashback WiFi',
+          category: 'Cashback WiFi',
+          description: 'Saldo Awal Cashback WiFi Bulan Sebelumnya (Periode April)',
+          amount: Math.abs(wifiAmount),
+        });
+      }
+      if (sampahAmount !== 0) {
+        newTxs.push({
+          id: 'tx-init-april-sampah',
+          date: '2026-03-31',
+          type: sampahAmount >= 0 ? 'masuk' : 'keluar',
+          pool: 'Cashback Sampah',
+          category: 'Cashback Sampah',
+          description: 'Saldo Awal Cashback Sampah Bulan Sebelumnya (Periode April)',
+          amount: Math.abs(sampahAmount),
+        });
+      }
+
+      return {
+        transactions: [...newTxs, ...remainingTxs],
+      };
+    });
+  };
+
   // CRUD for Baksos Agenda & Attendance
   const addBaksosAgenda = (agenda: Omit<BaksosAgenda, 'id'>) => {
     const newAgenda: BaksosAgenda = {
@@ -1417,6 +1518,7 @@ export function useStorage() {
     updateTransaction,
     deleteTransaction,
     adjustBalance,
+    saveAprilInitialBalance,
     addBaksosAgenda,
     updateBaksosAgenda,
     deleteBaksosAgenda,

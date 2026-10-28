@@ -479,7 +479,11 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
                                 : 'font-semibold text-slate-800'
                             }
                           >
-                            {house.headName}
+                            {isVacant
+                              ? (house.duesHeadNameOverride && house.duesHeadNameOverride.toLowerCase().includes('kosong')
+                                  ? house.duesHeadNameOverride
+                                  : 'Rumah Kosong')
+                              : (house.duesHeadNameOverride || house.headName)}
                           </div>
                           {isContract && (
                             <span className="text-[10px] font-medium text-purple-700">

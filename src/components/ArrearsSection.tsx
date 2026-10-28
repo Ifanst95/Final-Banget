@@ -717,10 +717,14 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
             </div>
           ) : (
             filteredDelinquentList.map((item, idx) => {
-              const isVacant = isHouseVacant(item.house);
+              const isVacant = isHouseVacant(item.house) || item.house.occupancy === 'Kosong';
               const hasDebt = item.totalArrears > 0;
               const paidPartialDues = item.house.duesPaidAmount || 0;
-              const payerName = item.house.duesHeadNameOverride || item.house.headName;
+              const payerName = isVacant
+                ? (item.house.duesHeadNameOverride && item.house.duesHeadNameOverride.toLowerCase().includes('kosong')
+                    ? item.house.duesHeadNameOverride
+                    : 'Rumah Kosong')
+                : (item.house.duesHeadNameOverride || item.house.headName);
 
               return (
                 <div
@@ -741,7 +745,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       </span>
                       <span
                         className={`px-2.5 py-1 rounded-lg font-mono font-black text-xs shadow-2xs ${
-                          isVacant ? 'bg-slate-500 text-white' : 'bg-emerald-600 text-white'
+                          isVacant ? 'bg-slate-400 text-white' : 'bg-emerald-600 text-white'
                         }`}
                       >
                         Blok {item.house.blockNumber}
@@ -753,14 +757,9 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                           }`}
                         >
                           <span>{payerName}</span>
-                          {item.house.duesHeadNameOverride && (
-                            <span className="text-[10px] font-normal text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300">
-                              Induk: {item.house.headName}
-                            </span>
-                          )}
                         </h4>
                         <span className="text-[11px] text-slate-500">
-                          {item.house.ownership} · {item.house.occupancy}
+                          {item.house.ownership} · {isVacant ? 'Kosong (Tanpa Penghuni)' : item.house.occupancy}
                         </span>
                       </div>
                     </div>
@@ -932,10 +931,14 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                 </tr>
               ) : (
                 filteredDelinquentList.map((item, idx) => {
-                  const isVacant = isHouseVacant(item.house);
+                  const isVacant = isHouseVacant(item.house) || item.house.occupancy === 'Kosong';
                   const hasDebt = item.totalArrears > 0;
                   const paidPartialDues = item.house.duesPaidAmount || 0;
-                  const payerName = item.house.duesHeadNameOverride || item.house.headName;
+                  const payerName = isVacant
+                    ? (item.house.duesHeadNameOverride && item.house.duesHeadNameOverride.toLowerCase().includes('kosong')
+                        ? item.house.duesHeadNameOverride
+                        : 'Rumah Kosong')
+                    : (item.house.duesHeadNameOverride || item.house.headName);
 
                   return (
                     <tr
@@ -955,7 +958,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                         <span
                           className={
                             isVacant
-                              ? 'px-2 py-0.5 rounded bg-slate-500 text-white text-xs'
+                              ? 'px-2 py-0.5 rounded bg-slate-400 text-white text-xs'
                               : 'text-emerald-800'
                           }
                         >
@@ -969,11 +972,6 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       >
                         <div className="flex flex-col">
                           <span>{payerName}</span>
-                          {item.house.duesHeadNameOverride && (
-                            <span className="text-[10px] font-normal text-amber-700">
-                              Buku Induk: {item.house.headName}
-                            </span>
-                          )}
                         </div>
                       </td>
                       <td className="py-3 px-3 text-right font-mono tabular-nums">

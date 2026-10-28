@@ -14,6 +14,7 @@ import {
   Wallet,
   CalendarDays,
   Bell,
+  AlertCircle,
 } from 'lucide-react';
 import { PortalDatabasePayload } from '../types';
 import {
@@ -50,7 +51,7 @@ export const OnlineDatabaseModal: React.FC<OnlineDatabaseModalProps> = ({
   onSyncOnlineNow,
 }) => {
   const [statusMessage, setStatusMessage] = useState<{
-    type: 'success' | 'error' | 'info';
+    type: 'success' | 'error' | 'info' | 'warning';
     text: string;
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -69,12 +70,12 @@ export const OnlineDatabaseModal: React.FC<OnlineDatabaseModalProps> = ({
     if (ok) {
       setStatusMessage({
         type: 'success',
-        text: 'Data terbaru dari server online berhasil disinkronkan ke perangkat ini!',
+        text: 'Sinkronisasi Berhasil! Data terbaru dari server online & cloud database berhasil dimuat dan diperbarui di perangkat ini.',
       });
     } else {
       setStatusMessage({
-        type: 'error',
-        text: 'Gagal mengambil data terbaru dari server online. Menggunakan data tersimpan lokal.',
+        type: 'warning',
+        text: 'Koneksi jaringan terputus sementara. Seluruh data tetap tersimpan aman di penyimpanan internal browser (IndexedDB & LocalStorage) dan akan dicoba sinkronkan ulang otomatis begitu koneksi stabil.',
       });
     }
   };
@@ -85,15 +86,15 @@ export const OnlineDatabaseModal: React.FC<OnlineDatabaseModalProps> = ({
     if (ok) {
       setStatusMessage({
         type: 'success',
-        text: 'Seluruh data berhasil disimpan ke server online dan disiarkan otomatis ke seluruh perangkat warga!',
+        text: 'Seluruh data berhasil disimpan ke server online & Cloud Firestore serta disiarkan otomatis ke seluruh perangkat warga!',
       });
       try {
         confetti({ particleCount: 50, spread: 60, origin: { y: 0.6 } });
       } catch {}
     } else {
       setStatusMessage({
-        type: 'error',
-        text: 'Pemberitahuan: Data tersimpan aman di penyimpanan internal browser Anda. Sinkronisasi online akan dicoba ulang otomatis saat koneksi stabil.',
+        type: 'warning',
+        text: 'Koneksi jaringan terputus sementara. Data perubahan Anda tetap aman di penyimpanan internal browser dan akan otomatis disiarkan ulang saat terhubung kembali.',
       });
     }
   };
@@ -204,22 +205,30 @@ export const OnlineDatabaseModal: React.FC<OnlineDatabaseModalProps> = ({
 
           {statusMessage && (
             <div
-              className={`p-3 rounded-xl border text-xs font-medium flex items-center justify-between gap-2 ${
+              className={`p-3.5 rounded-xl border text-xs font-medium flex items-center justify-between gap-2.5 shadow-2xs ${
                 statusMessage.type === 'success'
                   ? 'bg-emerald-100/90 border-emerald-300 text-emerald-900'
+                  : statusMessage.type === 'warning'
+                  ? 'bg-amber-50/95 border-amber-300 text-amber-900'
                   : statusMessage.type === 'error'
                   ? 'bg-rose-100/90 border-rose-300 text-rose-900'
                   : 'bg-sky-100/90 border-sky-300 text-sky-900'
               }`}
             >
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{statusMessage.text}</span>
+                {statusMessage.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                ) : statusMessage.type === 'warning' ? (
+                  <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                )}
+                <span className="leading-relaxed">{statusMessage.text}</span>
               </div>
               <button
                 type="button"
                 onClick={() => setStatusMessage(null)}
-                className="text-xs opacity-70 hover:opacity-100 cursor-pointer"
+                className="text-xs opacity-70 hover:opacity-100 cursor-pointer p-1"
               >
                 <X className="w-3.5 h-3.5" />
               </button>

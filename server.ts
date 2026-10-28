@@ -119,9 +119,11 @@ function readJsonFileSafe(filePath: string): RuntimeDatabasePayload | null {
   }
 }
 
+let fileWriteCounter = 0;
 function writeJsonFileAtomic(filePath: string, data: RuntimeDatabasePayload) {
   try {
-    const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}`;
+    fileWriteCounter = (fileWriteCounter + 1) % 1000000;
+    const tmpPath = `${filePath}.tmp.${process.pid}.${Date.now()}.${fileWriteCounter}`;
     fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2), 'utf-8');
     fs.renameSync(tmpPath, filePath);
   } catch {
@@ -401,65 +403,72 @@ async function startServer() {
     }
   });
 
+  // Mutex queue to serialize concurrent mutation POSTs and prevent race conditions
+  let postMutationLock: Promise<any> = Promise.resolve();
+
   // POST /api/database - Update online community database state, sync MySQL tables (.sql), & broadcast live
   app.post('/api/database', (req, res) => {
-    try {
-      const rawIncoming = req.body;
-      const incoming = normalizePayload(rawIncoming);
-      if (!incoming) {
-        return res.status(400).json({ error: 'Invalid database payload' });
-      }
+    postMutationLock = postMutationLock
+      .catch(() => {})
+      .then(async () => {
+        try {
+          const rawIncoming = req.body;
+          const incoming = normalizePayload(rawIncoming);
+          if (!incoming) {
+            return res.status(400).json({ error: 'Invalid database payload' });
+          }
 
-      const existing = ensureOnlineDatabaseInitialized();
-      const isExplicitReset = Boolean(rawIncoming.forceReset);
+          const existing = ensureOnlineDatabaseInitialized();
+          const isExplicitReset = Boolean(rawIncoming.forceReset);
 
-      // Guard against accidental overwrite of customized server data with default seed
-      if (!existing.isDefaultSeed && incoming.isDefaultSeed && !isExplicitReset) {
-        return res.json({
-          success: true,
-          ignoredStaleSeed: true,
-          revision: existing.revision,
-          isDefaultSeed: existing.isDefaultSeed,
-          updatedAt: existing.updatedAt,
-          data: existing,
-          connectedClients: sseClients.size,
-        });
-      }
+          // Guard against accidental overwrite of customized server data with default seed
+          if (!existing.isDefaultSeed && incoming.isDefaultSeed && !isExplicitReset) {
+            return res.json({
+              success: true,
+              ignoredStaleSeed: true,
+              revision: existing.revision,
+              isDefaultSeed: existing.isDefaultSeed,
+              updatedAt: existing.updatedAt,
+              data: existing,
+              connectedClients: sseClients.size,
+            });
+          }
 
-      const nextRevision = isExplicitReset
-        ? (existing.revision || 1) + 1
-        : Math.max(existing.revision || 0, incoming.revision || 0) + 1;
+          const nextRevision = isExplicitReset
+            ? (existing.revision || 1) + 1
+            : Math.max(existing.revision || 0, incoming.revision || 0) + 1;
 
-      const savedPayload: RuntimeDatabasePayload = {
-        ...incoming,
-        version: 5,
-        revision: nextRevision,
-        isDefaultSeed: false,
-        updatedAt: new Date().toISOString(),
-        updatedBy: rawIncoming.updatedBy || 'Portal Online Gang Mandor',
-        clientId: rawIncoming.clientId,
-      };
+          const savedPayload: RuntimeDatabasePayload = {
+            ...incoming,
+            version: 5,
+            revision: nextRevision,
+            isDefaultSeed: false,
+            updatedAt: new Date().toISOString(),
+            updatedBy: rawIncoming.updatedBy || 'Portal Online Gang Mandor',
+            clientId: rawIncoming.clientId,
+          };
 
-      persistStateEverywhereSync(savedPayload);
+          persistStateEverywhereSync(savedPayload);
 
-      // Asynchronously persist to Cloud Firestore so data survives container scale-to-zero / redeploys
-      saveStateToCloudFirestore(savedPayload).catch(() => {});
+          // Asynchronously persist to Cloud Firestore so data survives container scale-to-zero / redeploys
+          saveStateToCloudFirestore(savedPayload).catch(() => {});
 
-      // Broadcast instantaneously to all connected online browsers/devices
-      broadcastDatabaseUpdate(savedPayload);
+          // Broadcast instantaneously to all connected online browsers/devices
+          broadcastDatabaseUpdate(savedPayload);
 
-      return res.json({
-        success: true,
-        revision: savedPayload.revision,
-        isDefaultSeed: false,
-        updatedAt: savedPayload.updatedAt,
-        mysqlSynced: true,
-        connectedClients: sseClients.size,
+          return res.json({
+            success: true,
+            revision: savedPayload.revision,
+            isDefaultSeed: false,
+            updatedAt: savedPayload.updatedAt,
+            mysqlSynced: true,
+            connectedClients: sseClients.size,
+          });
+        } catch (err) {
+          console.error('Error saving online database:', err);
+          return res.status(500).json({ error: 'Failed to save online database' });
+        }
       });
-    } catch (err) {
-      console.error('Error saving online database:', err);
-      return res.status(500).json({ error: 'Failed to save online database' });
-    }
   });
 
 

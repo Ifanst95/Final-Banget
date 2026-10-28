@@ -43,6 +43,7 @@ export default function App() {
     updateTransaction,
     deleteTransaction,
     adjustBalance,
+    saveAprilInitialBalance,
     addBaksosAgenda,
     updateBaksosAgenda,
     deleteBaksosAgenda,
@@ -176,6 +177,7 @@ export default function App() {
               onCreatePeriod={createPeriod}
               onDeletePeriod={deletePeriod}
               onBatchImportDues={batchImportDues}
+              onSaveAprilInitialBalance={saveAprilInitialBalance}
               onOpenConfigModal={() => setIsConfigModalOpen(true)}
             />
           )}
