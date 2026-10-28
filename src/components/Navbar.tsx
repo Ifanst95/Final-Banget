@@ -22,6 +22,7 @@ import {
   RefreshCw,
   Settings,
   ShieldCheck,
+  Sliders,
   Smartphone,
   Sparkles,
   Tablet,
@@ -39,7 +40,6 @@ interface NavbarProps {
   onLogout: () => void;
   onOpenConfigModal: () => void;
   onOpenDatabaseModal: () => void;
-  onOpenManageMenusModal?: () => void;
   isOnlineSyncing?: boolean;
   isOnlineConnected?: boolean;
   lastOnlineSync?: string | null;
@@ -152,7 +152,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   onOpenConfigModal,
   onOpenDatabaseModal,
-  onOpenManageMenusModal,
   isOnlineSyncing = false,
   isOnlineConnected = true,
   lastOnlineSync,
@@ -312,25 +311,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {isAdmin ? (
               <div className="flex items-center gap-1 sm:gap-1.5">
-                {onOpenManageMenusModal && (
-                  <button
-                    type="button"
-                    onClick={onOpenManageMenusModal}
-                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap min-h-[36px]"
-                    title="Kelola Menu Utama & Sub Menu (Tambah, Edit, Hapus)"
-                  >
-                    <Menu className="w-3.5 h-3.5 text-amber-300" />
-                    <span className="hidden md:inline">Kelola Menu</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={onOpenConfigModal}
-                  className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap min-h-[36px]"
-                  title="Pengaturan Judul & Teks Web"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-amber-500 hover:from-emerald-500 hover:to-amber-400 text-white text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap min-h-[36px]"
+                  title="Kelola Menu Utama & Pengaturan Penuh Website (Judul, Deskripsi & Isi)"
                 >
-                  <Settings className="w-3.5 h-3.5 text-slate-900" />
-                  <span className="hidden md:inline">Pengaturan</span>
+                  <Sliders className="w-3.5 h-3.5 text-amber-200" />
+                  <span className="hidden md:inline">Kelola Menu & Pengaturan</span>
+                  <span className="md:hidden">Pengaturan</span>
                 </button>
                 <button
                   type="button"

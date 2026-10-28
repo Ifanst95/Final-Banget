@@ -449,6 +449,13 @@ export function useStorage() {
             setIsOnlineConnected(true);
             isPushingMutationRef.current = false;
             setIsOnlineSyncing(false);
+
+            // If a newer local mutation occurred while this push was in flight, immediately push it
+            if (hasPendingPushRef.current) {
+              setTimeout(() => {
+                pushSnapshotToServer(dbStateRef.current);
+              }, 40);
+            }
             return true;
           }
         } catch (err) {
@@ -534,14 +541,14 @@ export function useStorage() {
         }
       } catch {}
 
-      // 4. Batch debounce (80ms) to push to server cleanly without race conditions
+      // 4. Fast debounce (40ms) to automatically push changes to server & cloud database
       if (pushTimerRef.current) {
         clearTimeout(pushTimerRef.current);
       }
       pushTimerRef.current = setTimeout(() => {
         pushTimerRef.current = null;
         pushSnapshotToServer(dbStateRef.current);
-      }, 80);
+      }, 40);
     },
     [isAdmin, pushSnapshotToServer]
   );
@@ -1239,54 +1246,60 @@ export function useStorage() {
     }));
   };
 
-  // Fitur edit Saldo Bulan Sebelumnya periode April (Saldo Awal Inputan)
-  const saveAprilInitialBalance = (
+  // Fitur edit Saldo Bulan Sebelumnya periode Mei (Saldo Awal Inputan Baseline Tahun 2026)
+  const saveMayInitialBalance = (
     kasAmount: number,
     wifiAmount: number,
     sampahAmount: number,
     note?: string
   ) => {
     commitLocalMutation((cur) => {
-      // Bersihkan transaksi saldo awal april terdahulu jika ada
+      // Bersihkan transaksi saldo awal (baik Mei maupun warisan April) jika ada
       const remainingTxs = cur.transactions.filter(
         (t) =>
+          t.id !== 'tx-init-mei-kas' &&
+          t.id !== 'tx-init-mei-wifi' &&
+          t.id !== 'tx-init-mei-sampah' &&
           t.id !== 'tx-init-april-kas' &&
           t.id !== 'tx-init-april-wifi' &&
           t.id !== 'tx-init-april-sampah' &&
-          !(t.date === '2026-03-31' && t.description.toLowerCase().includes('april'))
+          !(
+            (t.date === '2026-04-30' || t.date === '2026-03-31') &&
+            (t.description.toLowerCase().includes('april') || t.description.toLowerCase().includes('mei'))
+          )
       );
 
       const newTxs: CashTransaction[] = [];
       if (kasAmount !== 0) {
         newTxs.push({
-          id: 'tx-init-april-kas',
-          date: '2026-03-31',
+          id: 'tx-init-mei-kas',
+          date: '2026-04-30',
           type: kasAmount >= 0 ? 'masuk' : 'keluar',
           pool: 'Kas Utama',
           category: 'Kas Utama',
-          description: note || 'Saldo Awal Kas Utama Bulan Sebelumnya (Periode April)',
+          description: note || 'Saldo Awal Kas Utama Bulan Sebelumnya (Periode Mei 2026)',
           amount: Math.abs(kasAmount),
         });
       }
       if (wifiAmount !== 0) {
         newTxs.push({
-          id: 'tx-init-april-wifi',
-          date: '2026-03-31',
+          id: 'tx-init-mei-wifi',
+          date: '2026-04-30',
           type: wifiAmount >= 0 ? 'masuk' : 'keluar',
           pool: 'Cashback WiFi',
           category: 'Cashback WiFi',
-          description: 'Saldo Awal Cashback WiFi Bulan Sebelumnya (Periode April)',
+          description: 'Saldo Awal Cashback WiFi Bulan Sebelumnya (Periode Mei 2026)',
           amount: Math.abs(wifiAmount),
         });
       }
       if (sampahAmount !== 0) {
         newTxs.push({
-          id: 'tx-init-april-sampah',
-          date: '2026-03-31',
+          id: 'tx-init-mei-sampah',
+          date: '2026-04-30',
           type: sampahAmount >= 0 ? 'masuk' : 'keluar',
           pool: 'Cashback Sampah',
           category: 'Cashback Sampah',
-          description: 'Saldo Awal Cashback Sampah Bulan Sebelumnya (Periode April)',
+          description: 'Saldo Awal Cashback Sampah Bulan Sebelumnya (Periode Mei 2026)',
           amount: Math.abs(sampahAmount),
         });
       }
@@ -1296,6 +1309,8 @@ export function useStorage() {
       };
     });
   };
+
+  const saveAprilInitialBalance = saveMayInitialBalance;
 
   // CRUD for Baksos Agenda & Attendance
   const addBaksosAgenda = (agenda: Omit<BaksosAgenda, 'id'>) => {
@@ -1527,6 +1542,7 @@ export function useStorage() {
     deleteTransaction,
     adjustBalance,
     saveAprilInitialBalance,
+    saveMayInitialBalance,
     addBaksosAgenda,
     updateBaksosAgenda,
     deleteBaksosAgenda,

@@ -89,6 +89,12 @@ interface CashReportSectionProps {
     periodLabel?: string,
     setPeriodActive?: boolean
   ) => void;
+  onSaveMayInitialBalance?: (
+    kasAmount: number,
+    wifiAmount: number,
+    sampahAmount: number,
+    note?: string
+  ) => void;
   onSaveAprilInitialBalance?: (
     kasAmount: number,
     wifiAmount: number,
@@ -151,15 +157,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   onDeletePeriod,
   onBatchImportDues,
   onSaveAprilInitialBalance,
+  onSaveMayInitialBalance,
 }) => {
   // Modal upload Excel Iuran
   const [isUploadDuesModalOpen, setIsUploadDuesModalOpen] = useState<boolean>(false);
-  // Modal Edit Saldo Bulan Sebelumnya Periode April
-  const [isAprilBalanceModalOpen, setIsAprilBalanceModalOpen] = useState(false);
-  const [editAprilKas, setEditAprilKas] = useState<number>(0);
-  const [editAprilWifi, setEditAprilWifi] = useState<number>(0);
-  const [editAprilSampah, setEditAprilSampah] = useState<number>(0);
-  const [editAprilNote, setEditAprilNote] = useState<string>('Saldo Awal Inputan Periode April');
+  // Modal Edit Saldo Bulan Sebelumnya Periode Mei 2026 (Saldo Awal Inputan Baseline)
+  const [isMayBalanceModalOpen, setIsMayBalanceModalOpen] = useState(false);
+  const [editMayKas, setEditMayKas] = useState<number>(0);
+  const [editMayWifi, setEditMayWifi] = useState<number>(0);
+  const [editMaySampah, setEditMaySampah] = useState<number>(0);
+  const [editMayNote, setEditMayNote] = useState<string>('Saldo Awal Inputan Periode Mei 2026');
 
   // Unified Sub-tab selection: 'mutasi' (Buku Kas) or 'per_kk' (Iuran Per KK)
   const [currentSubTab, setCurrentSubTab] = useState<'mutasi' | 'per_kk'>(
@@ -242,50 +249,82 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [copiedWaText, setCopiedWaText] = useState<boolean>(false);
   const [waCustomText, setWaCustomText] = useState<string>('');
 
-  const handleOpenAprilBalanceModal = () => {
-    const aprilKasTx = transactions.find(
+  const handleOpenMayBalanceModal = () => {
+    const mayKasTx = transactions.find(
       (t) =>
+        t.id === 'tx-init-mei-kas' ||
         t.id === 'tx-init-april-kas' ||
-        (t.date === '2026-03-31' && t.pool === 'Kas Utama' && t.description.toLowerCase().includes('april'))
+        ((t.date === '2026-04-30' || t.date === '2026-03-31') &&
+          t.pool === 'Kas Utama' &&
+          (t.description.toLowerCase().includes('mei') || t.description.toLowerCase().includes('april')))
     );
-    const aprilWifiTx = transactions.find(
+    const mayWifiTx = transactions.find(
       (t) =>
+        t.id === 'tx-init-mei-wifi' ||
         t.id === 'tx-init-april-wifi' ||
-        (t.date === '2026-03-31' && t.pool === 'Cashback WiFi' && t.description.toLowerCase().includes('april'))
+        ((t.date === '2026-04-30' || t.date === '2026-03-31') &&
+          t.pool === 'Cashback WiFi' &&
+          (t.description.toLowerCase().includes('mei') || t.description.toLowerCase().includes('april')))
     );
-    const aprilSampahTx = transactions.find(
+    const maySampahTx = transactions.find(
       (t) =>
+        t.id === 'tx-init-mei-sampah' ||
         t.id === 'tx-init-april-sampah' ||
-        (t.date === '2026-03-31' && t.pool === 'Cashback Sampah' && t.description.toLowerCase().includes('april'))
+        ((t.date === '2026-04-30' || t.date === '2026-03-31') &&
+          t.pool === 'Cashback Sampah' &&
+          (t.description.toLowerCase().includes('mei') || t.description.toLowerCase().includes('april')))
     );
 
-    setEditAprilKas(aprilKasTx ? (aprilKasTx.type === 'masuk' ? aprilKasTx.amount : -aprilKasTx.amount) : prevMonthSummary.kasUtama || 0);
-    setEditAprilWifi(aprilWifiTx ? (aprilWifiTx.type === 'masuk' ? aprilWifiTx.amount : -aprilWifiTx.amount) : prevMonthSummary.wifiCashback || 0);
-    setEditAprilSampah(aprilSampahTx ? (aprilSampahTx.type === 'masuk' ? aprilSampahTx.amount : -aprilSampahTx.amount) : prevMonthSummary.sampahCashback || 0);
-    setEditAprilNote(aprilKasTx?.description || 'Saldo Awal Inputan Periode April');
-    setIsAprilBalanceModalOpen(true);
+    setEditMayKas(
+      mayKasTx
+        ? mayKasTx.type === 'masuk'
+          ? mayKasTx.amount
+          : -mayKasTx.amount
+        : prevMonthSummary.kasUtama || 0
+    );
+    setEditMayWifi(
+      mayWifiTx
+        ? mayWifiTx.type === 'masuk'
+          ? mayWifiTx.amount
+          : -mayWifiTx.amount
+        : prevMonthSummary.wifiCashback || 0
+    );
+    setEditMaySampah(
+      maySampahTx
+        ? maySampahTx.type === 'masuk'
+          ? maySampahTx.amount
+          : -maySampahTx.amount
+        : prevMonthSummary.sampahCashback || 0
+    );
+    setEditMayNote(mayKasTx?.description || 'Saldo Awal Inputan Periode Mei 2026');
+    setIsMayBalanceModalOpen(true);
   };
 
-  const handleSaveAprilInitialForm = (e: React.FormEvent) => {
+  const handleOpenAprilBalanceModal = handleOpenMayBalanceModal;
+
+  const handleSaveMayInitialForm = (e: React.FormEvent) => {
     e.preventDefault();
-    if (onSaveAprilInitialBalance) {
-      onSaveAprilInitialBalance(editAprilKas, editAprilWifi, editAprilSampah, editAprilNote);
+    const saveFn = onSaveMayInitialBalance || onSaveAprilInitialBalance;
+    if (saveFn) {
+      saveFn(editMayKas, editMayWifi, editMaySampah, editMayNote);
     } else {
       // Fallback directly to onAddTransaction
       onAddTransaction({
-        date: '2026-03-31',
-        type: editAprilKas >= 0 ? 'masuk' : 'keluar',
+        date: '2026-04-30',
+        type: editMayKas >= 0 ? 'masuk' : 'keluar',
         pool: 'Kas Utama',
         category: 'Kas Utama',
-        description: editAprilNote || 'Saldo Awal Kas Utama Bulan Sebelumnya (Periode April)',
-        amount: Math.abs(editAprilKas),
+        description: editMayNote || 'Saldo Awal Kas Utama Bulan Sebelumnya (Periode Mei 2026)',
+        amount: Math.abs(editMayKas),
       });
     }
     try {
       confetti({ particleCount: 40, spread: 50, origin: { y: 0.6 } });
     } catch {}
-    setIsAprilBalanceModalOpen(false);
+    setIsMayBalanceModalOpen(false);
   };
+
+  const handleSaveAprilInitialForm = handleSaveMayInitialForm;
 
   const getHouseDuesNominal = (house: ResidentHouse) =>
     house.customDuesAmount !== undefined
@@ -803,29 +842,47 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       })
       .filter((label): label is string => Boolean(label));
 
-    const coveredByResidents = residents.flatMap((r) =>
-      r.duesPaidMonths && r.duesPaidMonths > 1
-        ? getSubsequentMonthLabels(r.duesMonthNote || currentActiveMonth, r.duesPaidMonths)
-        : []
-    );
+    const currentActiveKey = parseIndonesianMonthYearToKey(currentActiveMonth) || '2026-10';
 
     const combined = Array.from(
-      new Set([currentActiveMonth, ...rawList, ...txMonths, ...coveredByResidents])
+      new Set([currentActiveMonth, ...rawList, ...txMonths])
     ).filter(Boolean);
 
     return combined
-      .filter((p) => !p.toLowerCase().includes('april'))
+      .filter((p) => {
+        const key = parseIndonesianMonthYearToKey(p);
+        if (!key) return false;
+
+        // 1. Ketentuan: Hapus rekap iuran per kk yang belum masuk bulan berjalan (contoh: November, Desember 2026)
+        if (key > currentActiveKey) return false;
+
+        // 2. Ketentuan khusus tahun 2026: Jangan memunculkan rekap iuran per KK bulan April di tahun 2026 karena merupakan inputan baseline awal
+        if (key === '2026-04') return false;
+        const pLower = p.toLowerCase().trim();
+        if (pLower === 'april 2026' || pLower === 'april') return false;
+
+        return true;
+      })
       .sort((a, b) => {
         const keyA = parseIndonesianMonthYearToKey(a) || '';
         const keyB = parseIndonesianMonthYearToKey(b) || '';
         return keyA.localeCompare(keyB);
       });
-  }, [config.duesAvailablePeriods, config.duesCurrentMonth, defaultMonthLabel, transactions, residents]);
+  }, [config.duesAvailablePeriods, config.duesCurrentMonth, defaultMonthLabel, transactions]);
 
-  // Otomatis arahkan selectedKKPeriod ke bulan aktif penarikan keuangan saat ini & sembunyikan April dari Rekap KK
+  // Otomatis arahkan selectedKKPeriod ke bulan aktif penarikan keuangan saat ini & sembunyikan bulan masa depan serta April 2026 dari Rekap KK
   React.useEffect(() => {
     const active = config.duesCurrentMonth || defaultMonthLabel || 'Oktober 2026';
-    if (selectedKKPeriod && selectedKKPeriod.toLowerCase().includes('april')) {
+    const activeKey = parseIndonesianMonthYearToKey(active) || '2026-10';
+    const selKey = selectedKKPeriod ? parseIndonesianMonthYearToKey(selectedKKPeriod) : null;
+    const isFuturePeriod = selKey ? selKey > activeKey : false;
+    const isApril2026 =
+      selectedKKPeriod &&
+      (selKey === '2026-04' ||
+        selectedKKPeriod.toLowerCase().trim() === 'april 2026' ||
+        selectedKKPeriod.toLowerCase().trim() === 'april');
+
+    if (isFuturePeriod || isApril2026) {
       setSelectedKKPeriod(active);
     } else if (selectedKKPeriod !== 'semua' && (!selectedKKPeriod || !sortedPeriods.includes(selectedKKPeriod))) {
       setSelectedKKPeriod(active);
@@ -1949,12 +2006,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   {isAdmin && (
                     <button
                       type="button"
-                      onClick={handleOpenAprilBalanceModal}
+                      onClick={handleOpenMayBalanceModal}
                       className="px-2 py-0.5 rounded-lg bg-amber-200/90 hover:bg-amber-300 text-amber-950 text-[10px] font-bold flex items-center gap-1 border border-amber-400 cursor-pointer shadow-2xs transition-all shrink-0"
-                      title="Edit Saldo Bulan Sebelumnya Periode April (Saldo Awal Inputan)"
+                      title="Edit Saldo Bulan Sebelumnya Periode Mei 2026 (Saldo Awal Inputan)"
                     >
                       <Edit2 className="w-3 h-3" />
-                      <span>Edit Saldo April</span>
+                      <span>Edit Saldo Mei</span>
                     </button>
                   )}
                 </div>
@@ -2174,9 +2231,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       {isAdmin && (
                         <button
                           type="button"
-                          onClick={handleOpenAprilBalanceModal}
+                          onClick={handleOpenMayBalanceModal}
                           className="p-1 rounded text-amber-700 hover:text-amber-950 hover:bg-amber-200/80 cursor-pointer"
-                          title="Edit Saldo Bulan Sebelumnya Periode April (Saldo Awal Inputan)"
+                          title="Edit Saldo Bulan Sebelumnya Periode Mei 2026 (Saldo Awal Inputan)"
                         >
                           <Edit2 className="w-3 h-3" />
                         </button>
@@ -3807,8 +3864,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           </div>
         )}
 
-      {/* Modal Edit Saldo Bulan Sebelumnya Periode April (Data Awal Inputan) */}
-      {isAprilBalanceModalOpen && (
+      {/* Modal Edit Saldo Bulan Sebelumnya Periode Mei 2026 (Data Awal Inputan Baseline) */}
+      {isMayBalanceModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="px-5 py-4 bg-gradient-to-r from-amber-500 via-amber-600 to-emerald-600 text-white flex items-center justify-between">
@@ -3817,46 +3874,46 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <Coins className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm leading-tight">Edit Saldo Bulan Sebelumnya (Periode April)</h3>
-                  <p className="text-[11px] text-amber-100">Data awal inputan baseline kas sebelum bulan aktif</p>
+                  <h3 className="font-bold text-sm leading-tight">Edit Saldo Bulan Sebelumnya (Periode Mei 2026)</h3>
+                  <p className="text-[11px] text-amber-100">Data awal inputan baseline kas sebelum bulan aktif (Mei 2026)</p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setIsAprilBalanceModalOpen(false)}
+                onClick={() => setIsMayBalanceModalOpen(false)}
                 className="w-7 h-7 rounded-lg hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveAprilInitialForm} className="p-5 space-y-4">
+            <form onSubmit={handleSaveMayInitialForm} className="p-5 space-y-4">
               <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl text-xs text-amber-900 space-y-1">
                 <div className="font-bold flex items-center gap-1.5 text-amber-950">
-                  <span>ℹ️</span> Petunjuk Saldo Awal April
+                  <span>ℹ️</span> Petunjuk Saldo Awal Mei 2026
                 </div>
                 <p className="text-[11px] leading-relaxed text-amber-800">
-                  Saldo ini berfungsi sebagai <strong>data awal inputan</strong> yang otomatis terakumulasi ke dalam kartu <em>SALDO BULAN SEBELUMNYA</em> pada periode berjalan. Rekap Iuran Kas Per KK bulan April sengaja tidak dimunculkan karena hanya untuk inputan baseline.
+                  Saldo ini berfungsi sebagai <strong>data awal inputan</strong> yang otomatis terakumulasi ke dalam kartu <em>SALDO BULAN SEBELUMNYA</em> pada periode berjalan. Rekap Iuran Kas Per KK bulan April 2026 sengaja tidak dimunculkan karena pencatatan dimulai dari inputan awal Mei 2026.
                 </p>
               </div>
 
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Saldo Kas Utama Awal Periode April (Rp)
+                    Saldo Kas Utama Awal Periode Mei (Rp)
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2.5 text-xs font-semibold text-slate-400">Rp</span>
                     <input
                       type="number"
-                      value={editAprilKas === 0 ? '' : editAprilKas}
-                      onChange={(e) => setEditAprilKas(e.target.value === '' ? 0 : Number(e.target.value))}
+                      value={editMayKas === 0 ? '' : editMayKas}
+                      onChange={(e) => setEditMayKas(e.target.value === '' ? 0 : Number(e.target.value))}
                       placeholder="0"
                       className="w-full pl-9 pr-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
                     />
                   </div>
                   <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
-                    {formatRupiah(editAprilKas || 0)}
+                    {formatRupiah(editMayKas || 0)}
                   </span>
                 </div>
 
@@ -3869,14 +3926,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       <span className="absolute left-2.5 top-2 text-xs font-semibold text-slate-400">Rp</span>
                       <input
                         type="number"
-                        value={editAprilWifi === 0 ? '' : editAprilWifi}
-                        onChange={(e) => setEditAprilWifi(e.target.value === '' ? 0 : Number(e.target.value))}
+                        value={editMayWifi === 0 ? '' : editMayWifi}
+                        onChange={(e) => setEditMayWifi(e.target.value === '' ? 0 : Number(e.target.value))}
                         placeholder="0"
                         className="w-full pl-8 pr-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none"
                       />
                     </div>
                     <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
-                      {formatRupiah(editAprilWifi || 0)}
+                      {formatRupiah(editMayWifi || 0)}
                     </span>
                   </div>
 
@@ -3888,14 +3945,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       <span className="absolute left-2.5 top-2 text-xs font-semibold text-slate-400">Rp</span>
                       <input
                         type="number"
-                        value={editAprilSampah === 0 ? '' : editAprilSampah}
-                        onChange={(e) => setEditAprilSampah(e.target.value === '' ? 0 : Number(e.target.value))}
+                        value={editMaySampah === 0 ? '' : editMaySampah}
+                        onChange={(e) => setEditMaySampah(e.target.value === '' ? 0 : Number(e.target.value))}
                         placeholder="0"
                         className="w-full pl-8 pr-2.5 py-1.5 text-xs font-semibold border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                       />
                     </div>
                     <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
-                      {formatRupiah(editAprilSampah || 0)}
+                      {formatRupiah(editMaySampah || 0)}
                     </span>
                   </div>
                 </div>
@@ -3903,7 +3960,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700">Total Saldo Awal Gabungan:</span>
                   <span className="text-sm font-extrabold text-emerald-700 font-mono">
-                    {formatRupiah((Number(editAprilKas) || 0) + (Number(editAprilWifi) || 0) + (Number(editAprilSampah) || 0))}
+                    {formatRupiah((Number(editMayKas) || 0) + (Number(editMayWifi) || 0) + (Number(editMaySampah) || 0))}
                   </span>
                 </div>
 
@@ -3913,9 +3970,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   </label>
                   <input
                     type="text"
-                    value={editAprilNote}
-                    onChange={(e) => setEditAprilNote(e.target.value)}
-                    placeholder="Contoh: Saldo Awal Inputan Periode April"
+                    value={editMayNote}
+                    onChange={(e) => setEditMayNote(e.target.value)}
+                    placeholder="Contoh: Saldo Awal Inputan Periode Mei 2026"
                     className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
                   />
                 </div>
@@ -3924,7 +3981,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setIsAprilBalanceModalOpen(false)}
+                  onClick={() => setIsMayBalanceModalOpen(false)}
                   className="px-4 py-2 text-xs text-slate-600 hover:bg-slate-100 font-medium rounded-lg cursor-pointer"
                 >
                   Batal
@@ -3934,7 +3991,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   className="px-4 py-2 text-xs bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg cursor-pointer shadow-xs transition-colors flex items-center gap-1.5"
                 >
                   <Save className="w-3.5 h-3.5" />
-                  Simpan Saldo Awal April
+                  Simpan Saldo Awal Mei
                 </button>
               </div>
             </form>

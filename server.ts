@@ -387,18 +387,27 @@ async function startServer() {
   // GET /api/database - Retrieve latest online community database state
   app.get('/api/database', async (_req, res) => {
     try {
-      let current = ensureOnlineDatabaseInitialized();
-      // If memory state is still default seed, check Cloud Firestore once more before replying
-      if (current.isDefaultSeed) {
+      const fromRepoDisk = readJsonFileSafe(DB_FILE_PATH);
+      const fromTmpDisk = readJsonFileSafe(TMP_DB_FILE_PATH);
+      let best = pickNewerPayload(memoryDbState, pickNewerPayload(fromRepoDisk, fromTmpDisk));
+
+      // Always check Cloud Firestore to ensure container redeploys or cross-device edits are immediately pulled
+      try {
         const cloudState = await loadStateFromCloudFirestore();
-        if (cloudState && !cloudState.isDefaultSeed) {
-          persistStateEverywhereSync(cloudState);
-          current = cloudState;
+        if (cloudState) {
+          best = pickNewerPayload(best, cloudState);
         }
+      } catch {}
+
+      if (!best) {
+        best = ensureOnlineDatabaseInitialized();
+      } else {
+        persistStateEverywhereSync(best);
       }
+
       return res.json({
         exists: true,
-        data: current,
+        data: best,
         connectedClients: sseClients.size,
       });
     } catch (err) {

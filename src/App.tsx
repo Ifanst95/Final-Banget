@@ -3,7 +3,6 @@ import { useStorage } from './hooks/useStorage';
 import { Navbar } from './components/Navbar';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { EditSiteConfigModal } from './components/EditSiteConfigModal';
-import { ManageMenusModal } from './components/ManageMenusModal';
 import { CustomMenuSection } from './components/CustomMenuSection';
 import { OnlineDatabaseModal } from './components/OnlineDatabaseModal';
 import { NoticeBoardSection } from './components/NoticeBoardSection';
@@ -44,6 +43,7 @@ export default function App() {
     deleteTransaction,
     adjustBalance,
     saveAprilInitialBalance,
+    saveMayInitialBalance,
     addBaksosAgenda,
     updateBaksosAgenda,
     deleteBaksosAgenda,
@@ -72,7 +72,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('pengumuman');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-  const [isManageMenusModalOpen, setIsManageMenusModalOpen] = useState(false);
+  const [configModalTab, setConfigModalTab] = useState<'menus' | 'titles' | 'dues' | 'backup'>('menus');
   const [isDatabaseModalOpen, setIsDatabaseModalOpen] = useState(false);
 
   // Permanently enforce bright colorful theme and clear any legacy dark mode classes
@@ -118,8 +118,10 @@ export default function App() {
         isAdmin={isAdmin}
         onOpenLogin={() => setIsLoginModalOpen(true)}
         onLogout={() => logoutAdmin(true)}
-        onOpenConfigModal={() => setIsConfigModalOpen(true)}
-        onOpenManageMenusModal={() => setIsManageMenusModalOpen(true)}
+        onOpenConfigModal={() => {
+          setConfigModalTab('menus');
+          setIsConfigModalOpen(true);
+        }}
         onOpenDatabaseModal={() => setIsDatabaseModalOpen(true)}
         isOnlineSyncing={isOnlineSyncing}
         isOnlineConnected={isOnlineConnected}
@@ -177,7 +179,8 @@ export default function App() {
               onCreatePeriod={createPeriod}
               onDeletePeriod={deletePeriod}
               onBatchImportDues={batchImportDues}
-              onSaveAprilInitialBalance={saveAprilInitialBalance}
+              onSaveAprilInitialBalance={saveMayInitialBalance}
+              onSaveMayInitialBalance={saveMayInitialBalance}
               onOpenConfigModal={() => setIsConfigModalOpen(true)}
             />
           )}
@@ -252,7 +255,10 @@ export default function App() {
               config={siteConfig}
               menu={customActiveMenu}
               isAdmin={isAdmin}
-              onOpenManageMenus={() => setIsManageMenusModalOpen(true)}
+              onOpenManageMenus={() => {
+                setConfigModalTab('menus');
+                setIsConfigModalOpen(true);
+              }}
             />
           )}
         </div>
@@ -268,7 +274,10 @@ export default function App() {
         onEditCommittee={updateCommittee}
         onDeleteCommittee={deleteCommittee}
         onOpenLogin={() => setIsLoginModalOpen(true)}
-        onOpenConfigModal={() => setIsConfigModalOpen(true)}
+        onOpenConfigModal={() => {
+          setConfigModalTab('titles');
+          setIsConfigModalOpen(true);
+        }}
       />
 
       {/* Discrete Admin Login / Credentials Modal */}
@@ -281,13 +290,13 @@ export default function App() {
         onLogoutAndWipe={() => logoutAdmin(true)}
       />
 
-      {/* Website Configuration & Description Editor Modal */}
+      {/* Website Configuration & Menu Editor Modal (Unified: Menus, Titles, Dues, Backup) */}
       <EditSiteConfigModal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
         config={siteConfig}
         onSave={updateSiteConfig}
-        onOpenManageMenus={() => setIsManageMenusModalOpen(true)}
+        initialTab={configModalTab}
         onResetAllData={resetToDefaultData}
         onResetToDefaultWithLatestDb={async () => {
           setActiveTab('pengumuman');
@@ -295,51 +304,6 @@ export default function App() {
         }}
         currentPayload={getDatabasePayload()}
         onRestorePayload={restoreFromDatabasePayload}
-      />
-
-      {/* Dedicated Menu & Sub-Menu Management Modal for Admin */}
-      <ManageMenusModal
-        isOpen={isManageMenusModalOpen}
-        onClose={() => setIsManageMenusModalOpen(false)}
-        config={siteConfig}
-        onSaveMenus={(newMenus) => {
-          const updates: Partial<SiteConfig> = { navigationMenus: newMenus };
-          // Keep existing section titles in sync if built-in menus were edited
-          const pengumumanMenu = newMenus.find((m) => m.id === 'pengumuman');
-          if (pengumumanMenu) {
-            updates.announcementSectionTitle = pengumumanMenu.title;
-            updates.announcementSectionSubtitle = pengumumanMenu.description;
-          }
-          const dashboardMenu = newMenus.find((m) => m.id === 'dashboard');
-          if (dashboardMenu) {
-            updates.dashboardSectionTitle = dashboardMenu.title;
-            updates.dashboardSectionDescription = dashboardMenu.description;
-          }
-          const kasMenu = newMenus.find((m) => m.id === 'kas');
-          if (kasMenu) {
-            updates.cashSectionTitle = kasMenu.title;
-            updates.cashDescription = kasMenu.description;
-          }
-          const baksosMenu = newMenus.find((m) => m.id === 'baksos');
-          if (baksosMenu) {
-            updates.baksosSectionTitle = baksosMenu.title;
-            updates.baksosDescription = baksosMenu.description;
-          }
-          const wargaMenu = newMenus.find((m) => m.id === 'warga');
-          if (wargaMenu) {
-            updates.directorySectionTitle = wargaMenu.title;
-            updates.directorySectionDescription = wargaMenu.description;
-          }
-          const tunggakanMenu = newMenus.find((m) => m.id === 'tunggakan');
-          if (tunggakanMenu) {
-            updates.arrearsSectionTitle = tunggakanMenu.title;
-            updates.arrearsSectionDescription = tunggakanMenu.description;
-          }
-          updateSiteConfig(updates);
-        }}
-        onResetMenusToDefault={() => {
-          updateSiteConfig({ navigationMenus: INITIAL_NAV_MENUS });
-        }}
       />
 
       {/* Online Real-Time Auto-Sync & MySQL Relational Database Modal */}
