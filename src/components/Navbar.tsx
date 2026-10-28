@@ -21,7 +21,6 @@ import {
   Phone,
   RefreshCw,
   Settings,
-  Share2,
   ShieldCheck,
   Smartphone,
   Sparkles,
@@ -31,7 +30,6 @@ import {
 } from 'lucide-react';
 import { MenuItemConfig, SiteConfig } from '../types';
 import { INITIAL_NAV_MENUS } from '../data/initialData';
-import { openWhatsAppShare } from '../utils/helpers';
 import { useDeviceView } from '../hooks/useDeviceView';
 
 interface NavbarProps {
@@ -181,11 +179,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   }, [activeTab]);
 
-  const handleShareApp = () => {
-    const text = `*${config.title}*\n${config.subtitle}\n\nSilakan cek informasi pengumuman, transparansi kas warga, agenda bakti sosial, dan data warga di portal resmi kita:\n${window.location.href}`;
-    openWhatsAppShare(text);
-  };
-
   // Dynamically resolve navigation menus from configuration or fallback defaults
   const activeMenus: MenuItemConfig[] = (
     config.navigationMenus && config.navigationMenus.length > 0
@@ -237,65 +230,36 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Multi-color vibrant top accent bar */}
         <div className="h-1.5 sm:h-2 w-full bg-gradient-to-r from-emerald-500 via-cyan-500 via-indigo-500 via-fuchsia-500 to-amber-400" />
 
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3">
           {/* Zone 1: Brand Wordmark with Colorful Badge */}
           <button
             type="button"
             onClick={() => setActiveTab('pengumuman')}
-            className="flex items-center gap-2 text-left group cursor-pointer whitespace-nowrap truncate max-w-[170px] xs:max-w-[210px] sm:max-w-none min-h-[44px]"
+            className="flex items-center gap-2 sm:gap-2.5 text-left group cursor-pointer whitespace-nowrap min-h-[44px] shrink-0"
             aria-label="Kembali ke Beranda Pengumuman"
           >
             <span className="p-1 sm:p-1.5 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-indigo-600 text-white shadow-sm shrink-0 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-200" />
+              <Sparkles className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-amber-200" />
             </span>
-            <span className="font-display font-extrabold text-xs xs:text-sm sm:text-base md:text-lg tracking-tight bg-gradient-to-r from-emerald-800 via-teal-700 to-indigo-800 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity truncate">
-              {config.brandName !== undefined ? config.brandName : 'Warga Gang Mandor K2/25–K3/24'}
-            </span>
+            <div className="flex flex-col">
+              <span className="font-display font-extrabold text-xs xs:text-sm sm:text-base md:text-lg tracking-tight bg-gradient-to-r from-emerald-800 via-teal-700 to-indigo-800 bg-clip-text text-transparent group-hover:opacity-90 transition-opacity truncate max-w-[210px] xs:max-w-[280px] sm:max-w-md">
+                {config.brandName !== undefined ? config.brandName : 'Warga Gang Mandor K2/25–K3/24'}
+              </span>
+              {isAdmin && (
+                <span className="text-[10px] font-bold text-emerald-700 tracking-wide uppercase flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  Mode Pengurus Aktif
+                </span>
+              )}
+            </div>
           </button>
 
-          {/* Zone 2: Colorful Navigation Links (Desktop: PC / Laptop >= 1024px) */}
-          <nav className="hidden lg:flex items-center gap-1" aria-label="Navigasi Utama PC">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id || (item.id === 'kas' && activeTab === 'iuran_kk');
-              const isAmberTab = item.id === 'warga' && isActive;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveTab(item.id)}
-                  className={`relative px-2.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 rounded-xl ${
-                    isActive ? item.activeGradient : item.inactiveColor
-                  }`}
-                >
-                  <Icon
-                    className={`w-3.5 h-3.5 ${
-                      isActive ? (isAmberTab ? 'text-slate-950' : 'text-white') : item.iconColor
-                    }`}
-                  />
-                  <span>{item.label}</span>
-                  {item.count !== undefined && (
-                    <span
-                      className={`font-mono text-[11px] font-black px-1.5 py-0.5 rounded-md tabular-nums ${
-                        isActive
-                          ? 'bg-amber-300 text-slate-950'
-                          : 'bg-rose-600 text-white animate-pulse'
-                      }`}
-                    >
-                      {item.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* Zone 3: Online Sync + Device Mode Indicator + Admin Actions */}
+          {/* Zone 2: Online Sync + Device Mode Indicator + Admin Actions */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Automatic Device View Indicator Badge (Hanya tampil untuk Pengurus / Admin) */}
             {isAdmin && (
               <div
-                className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-teal-50 border border-teal-300/80 text-[11px] font-bold text-teal-900 shadow-2xs"
+                className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-teal-50 border border-teal-300/80 text-[11px] font-bold text-teal-900 shadow-2xs"
                 title={`Situs otomatis menyesuaikan tampilan untuk: ${deviceLabel}`}
               >
                 {isHandphone ? (
@@ -315,7 +279,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={onOpenDatabaseModal}
-                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:from-emerald-600 hover:to-cyan-700 text-white text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm min-h-[36px]"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:from-emerald-600 hover:to-cyan-700 text-white text-xs font-bold transition-all cursor-pointer whitespace-nowrap shadow-sm min-h-[36px]"
                 title={
                   lastOnlineSync
                     ? `Website Online & Sinkron Otomatis (${new Date(lastOnlineSync).toLocaleTimeString('id-ID')})`
@@ -346,47 +310,36 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={handleShareApp}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap min-h-[36px]"
-                title="Bagikan Portal ke WhatsApp (Khusus Admin)"
-              >
-                <Share2 className="w-3.5 h-3.5 text-amber-200" />
-                <span className="hidden lg:inline">Bagikan WA</span>
-              </button>
-            )}
-
             {isAdmin ? (
               <div className="flex items-center gap-1 sm:gap-1.5">
                 {onOpenManageMenusModal && (
                   <button
                     type="button"
                     onClick={onOpenManageMenusModal}
-                    className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap min-h-[36px]"
+                    className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap min-h-[36px]"
                     title="Kelola Menu Utama & Sub Menu (Tambah, Edit, Hapus)"
                   >
                     <Menu className="w-3.5 h-3.5 text-amber-300" />
-                    <span className="hidden lg:inline">Kelola Menu</span>
+                    <span className="hidden md:inline">Kelola Menu</span>
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={onOpenConfigModal}
-                  className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap min-h-[36px]"
+                  className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-400 hover:from-amber-300 hover:to-orange-300 text-slate-950 text-xs font-bold shadow-sm transition-all cursor-pointer whitespace-nowrap min-h-[36px]"
                   title="Pengaturan Judul & Teks Web"
                 >
                   <Settings className="w-3.5 h-3.5 text-slate-900" />
-                  <span className="hidden lg:inline">Pengaturan</span>
+                  <span className="hidden md:inline">Pengaturan</span>
                 </button>
                 <button
                   type="button"
                   onClick={onLogout}
-                  className="p-1.5 sm:p-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white shadow-xs transition-colors cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
+                  className="p-1.5 sm:p-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white shadow-xs transition-colors cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center gap-1.5 font-bold text-xs"
                   title="Keluar Mode Pengurus"
                 >
                   <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="hidden lg:inline">Keluar</span>
                 </button>
               </div>
             ) : (
@@ -416,49 +369,51 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </button>
               </div>
             )}
-
           </div>
         </div>
 
-        {/* Responsive Horizontal Touch Navigation Bar (Tablet & Handphone: < 1024px) */}
-        <div
-          ref={scrollNavRef}
-          className="lg:hidden border-t border-teal-200/80 bg-gradient-to-r from-emerald-50/95 via-cyan-50/95 to-purple-50/95 px-3 sm:px-4 py-2 overflow-x-auto no-scrollbar flex items-center gap-1.5 sm:gap-2 scroll-smooth"
-        >
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id || (item.id === 'kas' && activeTab === 'iuran_kk');
-            const isAmberTab = item.id === 'warga' && isActive;
-            return (
-              <button
-                key={item.id}
-                data-tab-id={item.id}
-                type="button"
-                onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 min-h-[38px] ${
-                  isActive ? item.activeGradient : item.inactiveColor
-                }`}
-              >
-                <Icon
-                  className={`w-3.5 h-3.5 ${
-                    isActive ? (isAmberTab ? 'text-slate-950' : 'text-white') : item.iconColor
+        {/* Dedicated Navigation Bar: Clean, Spacious, and Accessible across PC, Tablet & Mobile */}
+        <div className="border-t border-teal-200/80 bg-gradient-to-r from-emerald-50/95 via-cyan-50/95 to-purple-50/95 shadow-inner">
+          <div
+            ref={scrollNavRef}
+            className="max-w-7xl mx-auto px-2.5 sm:px-6 py-2 overflow-x-auto no-scrollbar flex items-center gap-1.5 sm:gap-2 scroll-smooth"
+            aria-label="Navigasi Menu Utama Portal"
+          >
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id || (item.id === 'kas' && activeTab === 'iuran_kk');
+              const isAmberTab = item.id === 'warga' && isActive;
+              return (
+                <button
+                  key={item.id}
+                  data-tab-id={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs sm:text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 min-h-[38px] ${
+                    isActive ? item.activeGradient : item.inactiveColor
                   }`}
-                />
-                <span>{item.label}</span>
-                {item.count !== undefined && (
-                  <span
-                    className={`font-mono text-[11px] font-black px-1.5 py-0.5 rounded-md tabular-nums ${
-                      isActive
-                        ? 'bg-amber-300 text-slate-950'
-                        : 'bg-rose-600 text-white animate-pulse'
+                >
+                  <Icon
+                    className={`w-3.5 h-3.5 ${
+                      isActive ? (isAmberTab ? 'text-slate-950' : 'text-white') : item.iconColor
                     }`}
-                  >
-                    {item.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                  />
+                  <span>{item.label}</span>
+                  {item.count !== undefined && (
+                    <span
+                      className={`font-mono text-[11px] font-black px-1.5 py-0.5 rounded-md tabular-nums ${
+                        isActive
+                          ? 'bg-amber-300 text-slate-950'
+                          : 'bg-rose-600 text-white animate-pulse'
+                      }`}
+                    >
+                      {item.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </header>
     </>

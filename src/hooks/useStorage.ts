@@ -416,12 +416,15 @@ export function useStorage() {
       let lastError: any = null;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
           const res = await fetch('/api/database', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payloadToSend),
-            keepalive: true,
+            signal: controller.signal,
           });
+          clearTimeout(timeoutId);
 
           if (res.ok) {
             const result = await res.json();
@@ -462,6 +465,7 @@ export function useStorage() {
       try {
         const firestoreSuccess = await saveStateToFirestoreDirect(payloadToSend);
         if (firestoreSuccess) {
+          hasPendingPushRef.current = false;
           setIsOnlineConnected(true);
           isPushingMutationRef.current = false;
           setIsOnlineSyncing(false);
@@ -558,9 +562,13 @@ export function useStorage() {
       let fetchedPayload: PortalDatabasePayload | null = null;
       for (let attempt = 1; attempt <= 3; attempt++) {
         try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
           const res = await fetch(`/api/database?t=${Date.now()}`, {
             cache: 'no-store',
+            signal: controller.signal,
           });
+          clearTimeout(timeoutId);
           if (res.ok) {
             const json = await res.json();
             if (json.exists && json.data) {

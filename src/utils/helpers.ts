@@ -38,11 +38,38 @@ export function isHouseVacant(house?: { occupancy?: string; headName?: string } 
   if (!house) return false;
   const occ = (house.occupancy || '').trim().toLowerCase();
   const name = (house.headName || '').trim().toLowerCase();
+  if (occ === 'belum ditempati' || occ === 'belum diisi') return false;
   return (
     occ === 'kosong' ||
     name.includes('kosong') ||
     name === '-' ||
     name === 'belum berpenghuni'
+  );
+}
+
+export function isHouseUnfilled(house?: { occupancy?: string; headName?: string; members?: any[] } | null): boolean {
+  if (!house) return false;
+  if (isHouseVacant(house)) return false;
+  const occ = (house.occupancy || '').trim().toLowerCase();
+  const name = (house.headName || '').trim().toLowerCase();
+  const members = house.members || [];
+  const hasNoMembers = members.length === 0;
+  const hasOnlyDummyMember =
+    members.length === 1 &&
+    (!members[0].name ||
+      members[0].name.trim() === '' ||
+      members[0].name.toLowerCase() === 'kosong' ||
+      members[0].name === '-');
+
+  return (
+    occ === 'belum ditempati' ||
+    occ === 'belum diisi' ||
+    name.includes('belum diisi') ||
+    name.includes('belum ditempati') ||
+    name.includes('belum terisi') ||
+    name === '' ||
+    hasNoMembers ||
+    hasOnlyDummyMember
   );
 }
 

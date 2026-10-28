@@ -36,6 +36,7 @@ import {
   exportResidentsToExcel,
   formatDateDDMMYYYY,
   formatRupiah,
+  isHouseUnfilled,
   isHouseVacant,
   openWhatsAppShare,
 } from '../utils/helpers';
@@ -89,7 +90,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
   const [formMembers, setFormMembers] = useState<FamilyMember[]>([]);
 
   const toggleExpand = (id: string) => {
-    setExpandedHouseIds((prev) => ({ ...prev, [id]: !(prev[id] ?? true) }));
+    setExpandedHouseIds((prev) => ({ ...prev, [id]: !(prev[id] ?? false) }));
   };
 
   const handleExpandAll = (expand: boolean) => {
@@ -492,6 +493,23 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
         </div>
       </div>
 
+      {/* Keterangan Warna Status Rumah */}
+      <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs bg-white/95 rounded-2xl p-3 sm:px-4 border border-slate-200/90 shadow-2xs">
+        <span className="font-bold text-slate-700 text-xs">Keterangan Warna Rumah:</span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-neutral-950 text-white font-bold border border-neutral-800 text-[11px] shadow-2xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-red-400"></span>
+          Rumah Kosong (Hitam)
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-sky-100 text-sky-950 font-bold border border-sky-300 text-[11px] shadow-2xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+          Rumah Belum Diisi / Belum Ditempati (Biru Muda)
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-900 font-bold border border-emerald-300 text-[11px] shadow-2xs">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          Rumah Ditempati (Hijau)
+        </span>
+      </div>
+
       {/* VIEW 1: TABEL BUKU INDUK LENGKAP (HANYA UNTUK VIEW ADMIN) */}
       {isAdmin && viewMode === 'excel' ? (
         <div className="bg-gradient-to-br from-indigo-50/60 via-cyan-50/40 to-emerald-50/50 dark:from-slate-900 dark:to-indigo-950/40 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 overflow-hidden shadow-md">
@@ -532,6 +550,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                 }`;
 
                 const isVacant = isEmptyHouse || isHouseVacant(house);
+                const isUnfilled = !isVacant && isHouseUnfilled(house);
 
                 return (
                   <div
@@ -539,12 +558,16 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                     className={`p-3.5 space-y-2 transition-colors ${
                       isFirstInHouse
                         ? isVacant
-                          ? 'border-t-4 border-t-slate-400'
+                          ? 'border-t-4 border-t-neutral-700'
+                          : isUnfilled
+                          ? 'border-t-4 border-t-sky-400'
                           : 'border-t-2 border-t-emerald-500/40'
                         : ''
                     } ${
                       isVacant
-                        ? 'bg-slate-50 text-slate-800 border-2 border-slate-300 rounded-2xl my-2 shadow-2xs'
+                        ? 'bg-neutral-950 text-white border-2 border-neutral-800 rounded-2xl my-2 shadow-sm'
+                        : isUnfilled
+                        ? 'bg-sky-100 text-sky-950 border-2 border-sky-300 rounded-2xl my-2 shadow-sm'
                         : isKK
                         ? 'bg-emerald-50/70 border-l-4 border-l-emerald-500 rounded-xl my-1'
                         : 'bg-white'
@@ -552,13 +575,17 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-[11px] font-mono text-slate-400 tabular-nums">
+                        <span className={`text-[11px] font-mono tabular-nums ${
+                          isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-800' : 'text-slate-400'
+                        }`}>
                           #{idx + 1}
                         </span>
                         <span
                           className={`px-2 py-0.5 rounded-md font-mono font-bold text-xs shrink-0 ${
                             isVacant
-                              ? 'bg-slate-200 text-slate-800 border border-slate-300'
+                              ? 'bg-neutral-800 text-white border border-neutral-700'
+                              : isUnfilled
+                              ? 'bg-sky-200 text-sky-950 border border-sky-400'
                               : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs'
                           }`}
                         >
@@ -567,24 +594,28 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                         <div className="min-w-0">
                           <div
                             className={`font-bold text-xs truncate ${
-                              isVacant ? 'text-slate-700 italic' : 'text-slate-900'
+                              isVacant ? 'text-white italic' : isUnfilled ? 'text-sky-950' : 'text-slate-900'
                             }`}
                           >
                             {isVacant
                               ? house.headName.toLowerCase().includes('kosong')
                                 ? house.headName
                                 : `Rumah Kosong (${house.headName})`
+                              : isUnfilled && (!house.headName || house.headName === '-' || house.headName.toLowerCase().includes('belum'))
+                              ? 'Rumah Belum Diisi / Belum Ditempati'
                               : isEmptyHouse
                               ? house.headName
                               : member?.name}
                           </div>
                           <div
                             className={`text-[11px] font-bold ${
-                              isVacant ? 'text-slate-500' : 'text-emerald-700'
+                              isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-800' : 'text-emerald-700'
                             }`}
                           >
                             {isVacant
                               ? 'Rumah Kosong / Tanpa Penghuni'
+                              : isUnfilled
+                              ? 'Rumah Belum Diisi / Belum Ditempati'
                               : isEmptyHouse
                               ? 'Kepala Keluarga'
                               : member?.relation}{' '}
@@ -599,7 +630,11 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                             type="button"
                             onClick={() => handleOpenEdit(house)}
                             className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                              isVacant ? 'text-slate-300 hover:text-white bg-slate-800' : 'text-slate-500 hover:text-emerald-700 bg-slate-100'
+                              isVacant
+                                ? 'text-neutral-300 hover:text-white bg-neutral-800'
+                                : isUnfilled
+                                ? 'text-sky-800 hover:text-sky-950 bg-sky-200'
+                                : 'text-slate-500 hover:text-emerald-700 bg-slate-100'
                             }`}
                             title={`Edit Blok ${house.blockNumber}`}
                           >
@@ -621,7 +656,11 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                               type="button"
                               onClick={() => setDeleteConfirmId(house.id)}
                               className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                isVacant ? 'text-slate-400 hover:text-rose-400 bg-slate-800' : 'text-slate-500 hover:text-rose-600 bg-slate-100'
+                                isVacant
+                                  ? 'text-neutral-400 hover:text-rose-400 bg-neutral-800'
+                                  : isUnfilled
+                                  ? 'text-sky-800 hover:text-rose-600 bg-sky-200'
+                                  : 'text-slate-500 hover:text-rose-600 bg-slate-100'
                               }`}
                               title={`Hapus Blok ${house.blockNumber}`}
                             >
@@ -635,20 +674,22 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                     <div
                       className={`grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] p-2.5 rounded-xl border ${
                         isVacant
-                          ? 'bg-slate-950/80 text-slate-300 border-slate-800'
+                          ? 'bg-neutral-900 text-neutral-200 border-neutral-800'
+                          : isUnfilled
+                          ? 'bg-sky-50 text-sky-950 border-sky-200'
                           : 'text-slate-600 bg-slate-50 border-slate-200/70'
                       }`}
                     >
                       <div>
-                        <span className="text-slate-400">KK:</span>{' '}
-                        <strong className={isVacant ? 'text-slate-200' : 'text-slate-800'}>
-                          {house.headName}
+                        <span className={isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-700' : 'text-slate-400'}>KK:</span>{' '}
+                        <strong className={isVacant ? 'text-white' : isUnfilled ? 'text-sky-950' : 'text-slate-800'}>
+                          {house.headName || '-'}
                         </strong>
                       </div>
                       <div>
-                        <span className="text-slate-400">Umur / JK:</span>{' '}
-                        <strong className={`font-mono ${isVacant ? 'text-slate-300' : 'text-slate-800'}`}>
-                          {isEmptyHouse || isVacant
+                        <span className={isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-700' : 'text-slate-400'}>Umur / JK:</span>{' '}
+                        <strong className={`font-mono ${isVacant ? 'text-neutral-300' : isUnfilled ? 'text-sky-950' : 'text-slate-800'}`}>
+                          {isEmptyHouse || isVacant || isUnfilled
                             ? '-'
                             : `${calculateAge(member?.birthDate || '')} thn (${
                                 member?.gender === 'Laki-laki' ? 'L' : 'P'
@@ -656,9 +697,9 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                         </strong>
                       </div>
                       <div>
-                        <span className="text-slate-400">TTL:</span>{' '}
-                        <span className={isVacant ? 'text-slate-300' : 'text-slate-700'}>
-                          {isEmptyHouse || isVacant
+                        <span className={isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-700' : 'text-slate-400'}>TTL:</span>{' '}
+                        <span className={isVacant ? 'text-neutral-300' : isUnfilled ? 'text-sky-900' : 'text-slate-700'}>
+                          {isEmptyHouse || isVacant || isUnfilled
                             ? '-'
                             : `${member?.birthPlace || '-'}, ${formatDateDDMMYYYY(
                                 member?.birthDate || ''
@@ -666,37 +707,39 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-400">Agama:</span>{' '}
-                        <span className={isVacant ? 'text-slate-300' : 'text-slate-700'}>
-                          {isEmptyHouse || isVacant ? '-' : member?.religion}
+                        <span className={isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-700' : 'text-slate-400'}>Agama:</span>{' '}
+                        <span className={isVacant ? 'text-neutral-300' : isUnfilled ? 'text-sky-900' : 'text-slate-700'}>
+                          {isEmptyHouse || isVacant || isUnfilled ? '-' : member?.religion}
                         </span>
                       </div>
                       <div>
-                        <span className="text-slate-400">Hunian:</span>{' '}
-                        <strong className={isVacant ? 'text-slate-300' : 'text-slate-700'}>
+                        <span className={isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-700' : 'text-slate-400'}>Hunian:</span>{' '}
+                        <strong className={isVacant ? 'text-neutral-300' : isUnfilled ? 'text-sky-950' : 'text-slate-700'}>
                           {house.ownership} (
                           <span
                             className={
                               isVacant
-                                ? 'px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-bold border border-slate-700'
+                                ? 'px-1.5 py-0.5 rounded bg-neutral-800 text-white font-bold border border-neutral-700'
+                                : isUnfilled
+                                ? 'px-1.5 py-0.5 rounded bg-sky-200 text-sky-950 font-bold border border-sky-300'
                                 : 'font-bold text-emerald-700'
                             }
                           >
-                            {isVacant ? 'Kosong' : house.occupancy}
+                            {isVacant ? 'Kosong' : isUnfilled ? 'Belum Diisi' : house.occupancy}
                           </span>
                           )
                         </strong>
                       </div>
                       <div>
-                        <span className="text-slate-400">Rukem / WiFi:</span>{' '}
-                        <span className={isVacant ? 'text-slate-300' : 'text-slate-700'}>
+                        <span className={isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-700' : 'text-slate-400'}>Rukem / WiFi:</span>{' '}
+                        <span className={isVacant ? 'text-neutral-300' : isUnfilled ? 'text-sky-900' : 'text-slate-700'}>
                           {house.rukem} · {wifiText}
                         </span>
                       </div>
                       {house.phone && (
                         <div className="col-span-2">
-                          <span className="text-slate-400">No. HP/WA:</span>{' '}
-                          <span className="font-mono font-semibold text-emerald-700">
+                          <span className={isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-700' : 'text-slate-400'}>No. HP/WA:</span>{' '}
+                          <span className={`font-mono font-semibold ${isVacant ? 'text-neutral-200' : isUnfilled ? 'text-sky-950' : 'text-emerald-700'}`}>
                             {house.phone}
                           </span>
                         </div>
@@ -761,36 +804,51 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                     }`;
 
                     const isVacant = isEmptyHouse || isHouseVacant(house);
+                    const isUnfilled = !isVacant && isHouseUnfilled(house);
 
                     return (
                       <tr
                         key={member ? member.id : house.id}
                         className={`transition-colors ${
                           isVacant
-                            ? 'bg-slate-50/90 text-slate-800 hover:bg-slate-100/90'
+                            ? 'bg-neutral-950 text-white hover:bg-neutral-900'
+                            : isUnfilled
+                            ? 'bg-sky-100 text-sky-950 hover:bg-sky-200/90'
                             : isKK
                             ? 'bg-emerald-50/40 hover:bg-emerald-50/70'
                             : 'bg-white hover:bg-teal-50/20'
                         } ${
                           isFirstInHouse
                             ? isVacant
-                              ? 'border-t-2 border-t-slate-300'
+                              ? 'border-t-2 border-t-neutral-700'
+                              : isUnfilled
+                              ? 'border-t-2 border-t-sky-400'
                               : 'border-t-2 border-t-slate-300'
                             : ''
                         }`}
                       >
                         <td className={`py-2.5 px-3 text-center font-mono border-r tabular-nums ${
-                          isVacant ? 'text-slate-500 border-slate-200' : 'text-slate-400 border-slate-100'
+                          isVacant
+                            ? 'text-neutral-400 border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-800 font-semibold border-sky-300 bg-sky-100/90'
+                            : 'text-slate-400 border-slate-100'
                         }`}>
                           {idx + 1}
                         </td>
                         <td className={`py-2.5 px-3 font-mono font-bold border-r ${
-                          isVacant ? 'border-slate-200' : 'border-slate-100'
+                          isVacant
+                            ? 'border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'border-sky-300 bg-sky-100/90'
+                            : 'border-slate-100'
                         }`}>
                           <span
                             className={
                               isVacant
-                                ? 'px-2 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300 font-mono text-xs font-bold'
+                                ? 'px-2 py-0.5 rounded bg-neutral-800 text-white border border-neutral-700 font-mono text-xs font-bold'
+                                : isUnfilled
+                                ? 'px-2 py-0.5 rounded bg-sky-200 text-sky-950 border border-sky-400 font-mono text-xs font-bold'
                                 : 'px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono text-xs font-bold'
                             }
                           >
@@ -798,29 +856,43 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                           </span>
                         </td>
                         <td className={`py-2.5 px-3 font-bold border-r ${
-                          isVacant ? 'text-slate-700 border-slate-200' : 'text-slate-900 border-slate-100'
+                          isVacant
+                            ? 'text-white border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-950 border-sky-300 bg-sky-100/90'
+                            : 'text-slate-900 border-slate-100'
                         }`}>
                           {isVacant
                             ? house.headName.toLowerCase().includes('kosong')
                               ? house.headName
                               : `Rumah Kosong (${house.headName})`
+                            : isUnfilled && (!house.headName || house.headName === '-' || house.headName.toLowerCase().includes('belum'))
+                            ? 'Rumah Belum Diisi / Belum Ditempati'
                             : house.headName}
                         </td>
                         <td
                           className={`py-2.5 px-3 border-r ${
                             isVacant
-                              ? 'text-slate-500 italic border-slate-200'
+                              ? 'text-neutral-400 italic border-neutral-800 bg-neutral-950'
+                              : isUnfilled
+                              ? 'text-sky-900 font-medium border-sky-300 bg-sky-100/90'
                               : isKK
                               ? 'font-bold text-slate-900 border-slate-100'
                               : 'text-slate-700 border-slate-100'
                           }`}
                         >
-                          {isEmptyHouse || isVacant ? '-' : member?.name}
+                          {isEmptyHouse || isVacant
+                            ? '-'
+                            : isUnfilled && (!member?.name || member.name === '-' || member.name.toLowerCase().includes('belum'))
+                            ? '-'
+                            : member?.name}
                         </td>
                         <td
                           className={`py-2.5 px-3 border-r ${
                             isVacant
-                              ? 'text-slate-500 border-slate-200'
+                              ? 'text-neutral-300 border-neutral-800 bg-neutral-950'
+                              : isUnfilled
+                              ? 'text-sky-900 font-semibold border-sky-300 bg-sky-100/90'
                               : isKK
                               ? 'font-bold text-emerald-800 border-slate-100'
                               : 'text-slate-600 border-slate-100'
@@ -828,51 +900,89 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                         >
                           {isVacant
                             ? 'Rumah Kosong'
+                            : isUnfilled && (isEmptyHouse || !member?.relation)
+                            ? 'Belum Diisi'
                             : isEmptyHouse
                             ? 'Kepala Keluarga'
                             : member?.relation}
                         </td>
                         <td className={`py-2.5 px-3 border-r ${
-                          isVacant ? 'text-slate-500 border-slate-200' : 'text-slate-600 border-slate-100'
+                          isVacant
+                            ? 'text-neutral-400 border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-900 border-sky-300 bg-sky-100/90'
+                            : 'text-slate-600 border-slate-100'
                         }`}>
-                          {isEmptyHouse || isVacant ? '-' : member?.birthPlace || '-'}
+                          {isEmptyHouse || isVacant || isUnfilled ? '-' : member?.birthPlace || '-'}
                         </td>
                         <td className={`py-2.5 px-3 font-mono border-r tabular-nums ${
-                          isVacant ? 'text-slate-500 border-slate-200' : 'text-slate-600 border-slate-100'
+                          isVacant
+                            ? 'text-neutral-400 border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-900 border-sky-300 bg-sky-100/90'
+                            : 'text-slate-600 border-slate-100'
                         }`}>
-                          {isEmptyHouse || isVacant ? '-' : formatDateDDMMYYYY(member?.birthDate || '')}
+                          {isEmptyHouse || isVacant || isUnfilled ? '-' : formatDateDDMMYYYY(member?.birthDate || '')}
                         </td>
                         <td className={`py-2.5 px-3 text-center font-mono font-bold border-r tabular-nums ${
-                          isVacant ? 'text-slate-600 border-slate-200' : 'text-slate-800 border-slate-100'
+                          isVacant
+                            ? 'text-neutral-400 border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-950 border-sky-300 bg-sky-100/90'
+                            : 'text-slate-800 border-slate-100'
                         }`}>
-                          {isEmptyHouse || isVacant ? '-' : calculateAge(member?.birthDate || '')}
+                          {isEmptyHouse || isVacant || isUnfilled ? '-' : calculateAge(member?.birthDate || '')}
                         </td>
                         <td className={`py-2.5 px-3 border-r ${
-                          isVacant ? 'text-slate-500 border-slate-200' : 'text-slate-600 border-slate-100'
+                          isVacant
+                            ? 'text-neutral-400 border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-900 border-sky-300 bg-sky-100/90'
+                            : 'text-slate-600 border-slate-100'
                         }`}>
-                          {isEmptyHouse || isVacant ? '-' : member?.gender}
+                          {isEmptyHouse || isVacant || isUnfilled ? '-' : member?.gender}
                         </td>
                         <td className={`py-2.5 px-3 border-r ${
-                          isVacant ? 'text-slate-500 border-slate-200' : 'text-slate-600 border-slate-100'
+                          isVacant
+                            ? 'text-neutral-400 border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-900 border-sky-300 bg-sky-100/90'
+                            : 'text-slate-600 border-slate-100'
                         }`}>
-                          {isEmptyHouse || isVacant ? '-' : member?.religion}
+                          {isEmptyHouse || isVacant || isUnfilled ? '-' : member?.religion}
                         </td>
                         <td className={`py-2.5 px-3 font-mono border-r tabular-nums ${
-                          isVacant ? 'text-slate-600 border-slate-200' : 'text-slate-700 border-slate-100'
+                          isVacant
+                            ? 'text-neutral-400 border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-900 border-sky-300 bg-sky-100/90 font-medium'
+                            : 'text-slate-700 border-slate-100'
                         }`}>
                           {house.phone || '-'}
                         </td>
                         <td className={`py-2.5 px-3 border-r ${
-                          isVacant ? 'text-slate-700 border-slate-200' : 'text-slate-700 border-slate-100'
+                          isVacant
+                            ? 'text-neutral-300 border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-950 font-medium border-sky-300 bg-sky-100/90'
+                            : 'text-slate-700 border-slate-100'
                         }`}>
                           {house.ownership}
                         </td>
                         <td className={`py-2.5 px-3 border-r font-medium ${
-                          isVacant ? 'border-slate-200' : 'border-slate-100'
+                          isVacant
+                            ? 'border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'border-sky-300 bg-sky-100/90'
+                            : 'border-slate-100'
                         }`}>
                           {isVacant ? (
-                            <span className="px-2 py-0.5 rounded-md bg-slate-200 text-slate-800 font-bold border border-slate-300">
+                            <span className="px-2 py-0.5 rounded-md bg-neutral-800 text-white font-bold border border-neutral-700">
                               Kosong (Tanpa Penghuni)
+                            </span>
+                          ) : isUnfilled ? (
+                            <span className="px-2 py-0.5 rounded-md bg-sky-200 text-sky-950 font-bold border border-sky-400">
+                              Belum Diisi / Belum Ditempati
                             </span>
                           ) : (
                             <span
@@ -889,7 +999,9 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                         <td
                           className={`py-2.5 px-3 border-r font-medium ${
                             isVacant
-                              ? 'text-slate-500 border-slate-200'
+                              ? 'text-neutral-400 border-neutral-800 bg-neutral-950'
+                              : isUnfilled
+                              ? 'text-sky-900 font-semibold border-sky-300 bg-sky-100/90'
                               : house.rukem === 'Ikut Rukem'
                               ? 'text-purple-700 font-bold border-slate-100'
                               : 'text-slate-500 border-slate-100'
@@ -898,22 +1010,38 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                           {house.rukem}
                         </td>
                         <td className={`py-2.5 px-3 border-r ${
-                          isVacant ? 'text-slate-500 border-slate-200' : 'text-slate-700 border-slate-100'
+                          isVacant
+                            ? 'text-neutral-400 border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-900 border-sky-300 bg-sky-100/90'
+                            : 'text-slate-700 border-slate-100'
                         }`}>
                           {wifiText}
                         </td>
                         <td className={`py-2.5 px-3 border-r ${
-                          isVacant ? 'text-slate-500 border-slate-200' : 'text-slate-500 border-slate-100'
+                          isVacant
+                            ? 'text-neutral-400 border-neutral-800 bg-neutral-950'
+                            : isUnfilled
+                            ? 'text-sky-900 border-sky-300 bg-sky-100/90'
+                            : 'text-slate-500 border-slate-100'
                         }`}>
                           {orderLabel}
                         </td>
                         {isAdmin && (
-                          <td className="py-2.5 px-3 text-center">
+                          <td className={`py-2.5 px-3 text-center ${
+                            isVacant ? 'bg-neutral-950 border-neutral-800' : isUnfilled ? 'bg-sky-100/90 border-sky-300' : ''
+                          }`}>
                             <div className="flex items-center justify-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(house)}
-                                className="p-1 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded transition-colors cursor-pointer"
+                                className={`p-1 rounded transition-colors cursor-pointer ${
+                                  isVacant
+                                    ? 'text-neutral-300 hover:text-white hover:bg-neutral-800'
+                                    : isUnfilled
+                                    ? 'text-sky-800 hover:text-sky-950 hover:bg-sky-200'
+                                    : 'text-slate-500 hover:text-emerald-700 hover:bg-emerald-50'
+                                }`}
                                 title={`Edit Blok ${house.blockNumber}`}
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
@@ -933,7 +1061,13 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                                 <button
                                   type="button"
                                   onClick={() => setDeleteConfirmId(house.id)}
-                                  className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded transition-colors cursor-pointer"
+                                  className={`p-1 rounded transition-colors cursor-pointer ${
+                                    isVacant
+                                      ? 'text-neutral-400 hover:text-rose-400 hover:bg-neutral-800'
+                                      : isUnfilled
+                                      ? 'text-sky-700 hover:text-rose-600 hover:bg-sky-200'
+                                      : 'text-slate-500 hover:text-rose-600 hover:bg-rose-50'
+                                  }`}
                                   title={`Hapus Blok ${house.blockNumber}`}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
@@ -953,25 +1087,60 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
       ) : (
         /* VIEW 2: KARTU PER BLOK RUMAH (GROUPED VIEW) */
         <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 rounded-2xl border border-emerald-200/80 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <span className="p-2 rounded-xl bg-emerald-600 text-white shadow-2xs shrink-0">
+                <Users className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="font-black text-xs sm:text-sm text-slate-900">
+                  Direktori Data Warga Gang Mandor
+                </h3>
+                <p className="text-[11px] text-slate-600">
+                  Default diringkas semua kavling. Klik tombol <span className="font-bold text-emerald-700 bg-emerald-100 px-1 py-0.5 rounded">Buka</span> pada setiap rumah jika ingin melihat anggotanya.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleExpandAll(false)}
+                className="px-3 py-1.5 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl transition-colors cursor-pointer shadow-2xs"
+              >
+                Ringkas Semua
+              </button>
+              <button
+                type="button"
+                onClick={() => handleExpandAll(true)}
+                className="px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700 rounded-xl transition-colors cursor-pointer shadow-2xs"
+              >
+                Buka Semua
+              </button>
+            </div>
+          </div>
+
           {filteredResidents.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400 text-xs">
               Tidak ada data warga yang cocok dengan kriteria pencarian.
             </div>
           ) : (
             filteredResidents.map((house) => {
-              const isExpanded = expandedHouseIds[house.id] ?? true;
+              const isExpanded = expandedHouseIds[house.id] ?? false;
               const headMember = house.members?.find((m) => m.relation === 'Kepala Keluarga');
               const otherMembers =
                 house.members?.filter((m) => m.relation !== 'Kepala Keluarga') || [];
 
               const isVacant = isHouseVacant(house);
+              const isUnfilled = !isVacant && isHouseUnfilled(house);
 
               return (
                 <div
                   key={house.id}
                   className={`rounded-2xl border overflow-hidden transition-all ${
                     isVacant
-                      ? 'bg-white text-slate-800 border-2 border-slate-300 shadow-xs'
+                      ? 'bg-neutral-950 text-white border-2 border-neutral-800 shadow-sm'
+                      : isUnfilled
+                      ? 'bg-sky-50 text-sky-950 border-2 border-sky-300 shadow-sm hover:border-sky-400'
                       : 'bg-white border-2 border-emerald-200/90 hover:border-emerald-500 hover:shadow-lg shadow-xs'
                   }`}
                 >
@@ -979,7 +1148,9 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                   <div
                     className={`p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b ${
                       isVacant
-                        ? 'bg-slate-100/90 text-slate-800 border-slate-200'
+                        ? 'bg-neutral-900 text-white border-neutral-800'
+                        : isUnfilled
+                        ? 'bg-gradient-to-r from-sky-100 via-sky-50 to-blue-100 text-sky-950 border-sky-300'
                         : 'bg-gradient-to-r from-teal-50/90 via-emerald-50/70 to-cyan-50/80 border-emerald-200/80'
                     }`}
                   >
@@ -987,7 +1158,9 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                       <span
                         className={`px-3 py-1.5 font-black text-sm rounded-xl font-mono shadow-xs ${
                           isVacant
-                            ? 'bg-slate-200 text-slate-800 border border-slate-300 font-bold'
+                            ? 'bg-neutral-800 text-white border border-neutral-700 font-bold'
+                            : isUnfilled
+                            ? 'bg-sky-200 text-sky-950 border border-sky-400 font-bold'
                             : 'bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 text-white shadow-xs'
                         }`}
                       >
@@ -997,38 +1170,58 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3
                             className={`font-black text-sm sm:text-base ${
-                              isVacant ? 'text-slate-800' : 'text-slate-900'
+                              isVacant ? 'text-white' : isUnfilled ? 'text-sky-950' : 'text-slate-900'
                             }`}
                           >
                             {isVacant
                               ? house.headName.toLowerCase().includes('kosong')
                                 ? house.headName
                                 : `Rumah Kosong (${house.headName})`
+                              : isUnfilled
+                              ? `Kavling ${house.blockNumber} (Belum Diisi / Belum Ditempati)`
                               : `Keluarga ${house.headName}`}
                           </h3>
                           <span
                             className={`text-xs font-bold px-2.5 py-0.5 rounded-lg ${
                               isVacant
-                                ? 'bg-slate-200 text-slate-800 border border-slate-300'
+                                ? 'bg-neutral-800 text-neutral-200 border border-neutral-700'
+                                : isUnfilled
+                                ? 'bg-sky-200 text-sky-950 border border-sky-400'
                                 : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
                             }`}
                           >
-                            {isVacant ? 'Rumah Kosong (Bebas Iuran)' : `${house.members?.length || 0} Anggota`}
+                            {isVacant
+                              ? 'Rumah Kosong (Bebas Iuran)'
+                              : isUnfilled
+                              ? 'Belum Diisi / Ditempati'
+                              : `${house.members?.length || 0} Anggota`}
                           </span>
                         </div>
                         {isAdmin && (
                           <div className="flex flex-wrap items-center gap-2 text-xs mt-1">
                             {isVacant ? (
                               <>
-                                <span className="text-slate-600">
-                                  Status: <strong className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300 font-bold">Kosong (Tanpa Penghuni)</strong>
+                                <span className="text-neutral-400">
+                                  Status: <strong className="px-1.5 py-0.5 rounded bg-neutral-800 text-white border border-neutral-700 font-bold">Kosong (Tanpa Penghuni)</strong>
                                 </span>
-                                <span className="text-slate-300">·</span>
-                                <span className="text-slate-600">
-                                  Kepemilikan: <strong className="text-slate-700">{house.ownership}</strong>
+                                <span className="text-neutral-600">·</span>
+                                <span className="text-neutral-400">
+                                  Kepemilikan: <strong className="text-neutral-200">{house.ownership}</strong>
                                 </span>
-                                <span className="text-slate-300">·</span>
-                                <span className="text-slate-500 font-medium">Bebas seluruh iuran rutin</span>
+                                <span className="text-neutral-600">·</span>
+                                <span className="text-neutral-400 font-medium">Bebas seluruh iuran rutin</span>
+                              </>
+                            ) : isUnfilled ? (
+                              <>
+                                <span className="text-sky-800">
+                                  Status: <strong className="px-1.5 py-0.5 rounded bg-sky-200 text-sky-950 border border-sky-400 font-bold">Belum Diisi / Belum Ditempati</strong>
+                                </span>
+                                <span className="text-sky-300">·</span>
+                                <span className="text-sky-800">
+                                  Kepemilikan: <strong className="text-sky-950">{house.ownership}</strong>
+                                </span>
+                                <span className="text-sky-300">·</span>
+                                <span className="text-sky-700 font-medium">Rincian anggota keluarga belum tersedia</span>
                               </>
                             ) : (
                               <>
@@ -1098,7 +1291,13 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                           <button
                             type="button"
                             onClick={() => handleOpenEdit(house)}
-                            className="p-1.5 rounded-lg text-slate-600 hover:text-emerald-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                              isVacant
+                                ? 'text-neutral-300 hover:text-white bg-neutral-800'
+                                : isUnfilled
+                                ? 'text-sky-800 hover:text-sky-950 bg-sky-200'
+                                : 'text-slate-600 hover:text-emerald-700 hover:bg-slate-100'
+                            }`}
                             title="Edit Data Warga & Anggota Keluarga"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -1127,7 +1326,13 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                             <button
                               type="button"
                               onClick={() => setDeleteConfirmId(house.id)}
-                              className="p-1.5 rounded-lg text-slate-600 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                isVacant
+                                  ? 'text-neutral-400 hover:text-rose-400 bg-neutral-800'
+                                  : isUnfilled
+                                  ? 'text-sky-700 hover:text-rose-600 bg-sky-200'
+                                  : 'text-slate-600 hover:text-rose-600 hover:bg-rose-50'
+                              }`}
                               title="Hapus Data Warga"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -1138,13 +1343,22 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                       <button
                         type="button"
                         onClick={() => toggleExpand(house.id)}
-                        className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-lg transition-colors cursor-pointer text-slate-600 hover:bg-slate-100 border border-slate-200"
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs ${
+                          isExpanded
+                            ? 'bg-slate-200 hover:bg-slate-300 text-slate-800 border border-slate-300'
+                            : isVacant
+                            ? 'bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700'
+                            : isUnfilled
+                            ? 'bg-sky-200 hover:bg-sky-300 text-sky-950 border border-sky-400'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white border border-emerald-700'
+                        }`}
+                        title={isExpanded ? 'Tutup rincian' : 'Klik buka jika ingin lihat anggotanya'}
                       >
-                        <span>{isExpanded ? 'Tutup Detail' : 'Lihat Anggota'}</span>
+                        <span>{isExpanded ? 'Tutup' : 'Buka'}</span>
                         {isExpanded ? (
-                          <ChevronUp className="w-4 h-4" />
+                          <ChevronUp className="w-3.5 h-3.5" />
                         ) : (
-                          <ChevronDown className="w-4 h-4" />
+                          <ChevronDown className="w-3.5 h-3.5" />
                         )}
                       </button>
                     </div>
@@ -1155,23 +1369,34 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                     <div
                       className={`p-4 space-y-3 ${
                         isVacant
-                          ? 'bg-slate-50/90 text-slate-800 border-t border-slate-200'
+                          ? 'bg-neutral-900 text-white border-t border-neutral-800'
+                          : isUnfilled
+                          ? 'bg-sky-50 text-sky-950 border-t border-sky-300'
                           : 'bg-gradient-to-b from-teal-50/40 via-cyan-50/25 to-emerald-50/40 space-y-3'
                       }`}
                     >
-                      {isVacant ||
-                      house.occupancy === 'Kosong' ||
-                      !house.members ||
-                      house.members.length === 0 ? (
+                      {isVacant || house.occupancy === 'Kosong' ? (
                         <div
-                          className="p-4 rounded-xl border border-slate-200 bg-white text-xs space-y-2"
+                          className="p-4 rounded-xl border border-neutral-800 bg-neutral-950 text-xs space-y-2 text-white"
                         >
-                          <div className="flex items-center gap-2 font-bold text-slate-800 text-sm">
-                            <span className="p-1 rounded bg-slate-100 text-slate-700">🏚️</span>
+                          <div className="flex items-center gap-2 font-bold text-white text-sm">
+                            <span className="p-1 rounded bg-neutral-800 text-neutral-300">🏚️</span>
                             <span>Rumah Kosong / Tanpa Penghuni Tetap</span>
                           </div>
-                          <p className="text-slate-600 leading-relaxed">
-                            Kavling {house.blockNumber} saat ini tercatat kosong / belum berpenghuni. Seluruh tagihan iuran rutin kas bulanan warga dan agenda bakti sosial otomatis dibebaskan.
+                          <p className="text-neutral-300 leading-relaxed">
+                            Kavling {house.blockNumber} saat ini tercatat kosong / tanpa penghuni. Seluruh tagihan iuran rutin kas bulanan warga dan agenda bakti sosial otomatis dibebaskan.
+                          </p>
+                        </div>
+                      ) : isUnfilled || !house.members || house.members.length === 0 ? (
+                        <div
+                          className="p-4 rounded-xl border border-sky-300 bg-sky-100/90 text-xs space-y-2 text-sky-950"
+                        >
+                          <div className="flex items-center gap-2 font-bold text-sky-950 text-sm">
+                            <span className="p-1 rounded bg-sky-200 text-sky-800">🏠</span>
+                            <span>Rumah Belum Diisi / Belum Ditempati</span>
+                          </div>
+                          <p className="text-sky-900 leading-relaxed">
+                            Kavling {house.blockNumber} saat ini tercatat belum diisi / belum ditempati. Rincian data anggota keluarga belum tersedia.
                           </p>
                         </div>
                       ) : !isAdmin ? (
