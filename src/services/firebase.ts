@@ -10,8 +10,13 @@ import {
 import firebaseConfig from '../../firebase-applet-config.json';
 import { PortalDatabasePayload } from '../types';
 
-export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const effectiveConfig = {
+  ...firebaseConfig,
+  apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || firebaseConfig.apiKey,
+};
+
+export const app = !getApps().length ? initializeApp(effectiveConfig) : getApp();
+export const db = getFirestore(app, effectiveConfig.firestoreDatabaseId);
 
 export enum OperationType {
   CREATE = 'create',

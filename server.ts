@@ -1,4 +1,5 @@
 import express from 'express';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -11,6 +12,9 @@ import {
   INITIAL_SITE_CONFIG,
   INITIAL_TRANSACTIONS,
 } from './src/data/initialData.ts';
+
+dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -26,9 +30,9 @@ try {
   }
 } catch {}
 
-const FIRESTORE_PROJECT_ID = firebaseConfig?.projectId || 'quiet-celerity-0pthm';
-const FIRESTORE_DB_ID = firebaseConfig?.firestoreDatabaseId || 'ai-studio-remixpapaninform-41e5cb9f-2f4d-49e1-83a5-ba7c0b787c5b';
-const FIRESTORE_API_KEY = firebaseConfig?.apiKey || 'AIzaSyAzqsKwGf4SyDIxvOlzPbXk2CUue1Av0Zc';
+const FIRESTORE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || firebaseConfig?.projectId || 'quiet-celerity-0pthm';
+const FIRESTORE_DB_ID = process.env.FIREBASE_DATABASE_ID || firebaseConfig?.firestoreDatabaseId || 'ai-studio-remixpapaninform-41e5cb9f-2f4d-49e1-83a5-ba7c0b787c5b';
+const FIRESTORE_API_KEY = process.env.FIREBASE_API_KEY || firebaseConfig?.apiKey || 'AIzaSyAzqsKwGf4SyDIxvOlzPbXk2CUue1Av0Zc';
 const FIRESTORE_DOC_URL = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}/databases/${FIRESTORE_DB_ID}/documents/portal_state/main_state`;
 
 interface RuntimeDatabasePayload {

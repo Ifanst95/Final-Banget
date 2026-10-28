@@ -22,6 +22,7 @@ import {
   parseAndNormalizeBackupJson,
 } from '../utils/backupRestoreHelper';
 import confetti from 'canvas-confetti';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 interface OnlineDatabaseModalProps {
   isOpen: boolean;
@@ -201,6 +202,33 @@ export const OnlineDatabaseModal: React.FC<OnlineDatabaseModalProps> = ({
                 Update: {new Date(lastOnlineSync).toLocaleTimeString('id-ID')}
               </span>
             )}
+          </div>
+
+          {/* Firebase Cloud Firestore API Info Card */}
+          <div className="p-3.5 bg-white/95 rounded-xl border border-emerald-200/80 shadow-2xs text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="font-bold text-slate-800">Firebase & Cloud Firestore API Aktif</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-mono text-[11px] font-bold border border-emerald-300">
+                Terhubung
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-700 bg-slate-50/90 p-2.5 rounded-lg border border-slate-200 font-mono">
+              <div>
+                <span className="text-slate-400 font-sans">Firebase Project:</span> {firebaseConfig.projectId}
+              </div>
+              <div>
+                <span className="text-slate-400 font-sans">Database ID:</span> {firebaseConfig.firestoreDatabaseId}
+              </div>
+              <div>
+                <span className="text-slate-400 font-sans">Firebase API Key:</span> {firebaseConfig.apiKey ? `${firebaseConfig.apiKey.substring(0, 8)}...${firebaseConfig.apiKey.substring(firebaseConfig.apiKey.length - 4)}` : 'Tersedia di Server'}
+              </div>
+              <div>
+                <span className="text-slate-400 font-sans">Protokol Sinkron:</span> REST API + Realtime Listener
+              </div>
+            </div>
           </div>
 
           {statusMessage && (
