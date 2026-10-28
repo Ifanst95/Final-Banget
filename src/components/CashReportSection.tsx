@@ -699,12 +699,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   // Per KK recap list
   const perKKRecapList = useMemo<PerKKRecapItem[]>(() => {
     return residents.map((house) => {
-      const isEmptyHouse = house.occupancy === 'Kosong' || house.occupancy === 'Belum Ditempati' || isHouseVacant(house);
+      const isPureKosong = house.occupancy === 'Kosong' || isHouseVacant(house);
+      const isUnoccupied = house.occupancy === 'Belum Ditempati';
       const isAdvancePaid = house.duesStatus === 'Bayar Lebih';
       const isLunas = house.duesStatus === 'Lunas' || isAdvancePaid;
-      // Rumah kosong default tidak wajib iuran (0 tagihan), namun jika pengurus mencatat bayar (isLunas), gunakan nominal iuran
       const defaultNominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
-      const nominalPerMonth = isEmptyHouse ? (isLunas ? defaultNominal : 0) : defaultNominal;
+      const hasAnyPaid = isLunas || (house.duesPaidAmount || 0) > 0;
+      // Rumah kosong default tidak wajib iuran (0 tagihan), namun jika ada pembayaran, perlakukan sesuai standar
+      const isEmptyHouse = isPureKosong || (isUnoccupied && !hasAnyPaid);
+      const nominalPerMonth = isPureKosong && !hasAnyPaid ? 0 : defaultNominal;
       const paidMonthsCount = isEmptyHouse
         ? isAdvancePaid
           ? Math.max(2, house.duesPaidMonths || 2)
@@ -831,7 +834,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
   // Status computation for any given house in any given period
   const getHouseStatusForPeriod = useCallback((house: ResidentHouse, periodLabel: string) => {
-    const isEmpty = house.occupancy === 'Kosong' || house.occupancy === 'Belum Ditempati' || isHouseVacant(house);
+    const isPureKosong = house.occupancy === 'Kosong' || isHouseVacant(house);
+    const hasExplicitPayment =
+      house.duesStatus === 'Lunas' ||
+      house.duesStatus === 'Bayar Lebih' ||
+      (house.duesPaidAmount || 0) > 0;
+    const isEmpty = isPureKosong || (house.occupancy === 'Belum Ditempati' && !hasExplicitPayment);
     const nominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
     const targetKey = parseIndonesianMonthYearToKey(periodLabel) || '';
     const currentKey = parseIndonesianMonthYearToKey(defaultMonthLabel) || '2026-10';
@@ -869,7 +877,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           status: 'Kosong' as const,
           amount: 0,
           label: house.occupancy === 'Belum Ditempati' ? 'Belum Ditempati' : 'Bebas Iuran',
-          badgeClass: 'bg-slate-100 text-slate-800 border border-slate-300 font-semibold',
+          badgeClass: 'bg-black text-white border border-neutral-700 font-semibold',
           paidDate: undefined,
           note: house.occupancy === 'Belum Ditempati' ? 'Belum Ditempati (Tidak Wajib)' : 'Rumah Kosong (Tidak Wajib)',
         };
@@ -923,7 +931,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         status: 'Kosong' as const,
         amount: 0,
         label: house.occupancy === 'Belum Ditempati' ? 'Belum Ditempati' : 'Bebas Iuran',
-        badgeClass: 'bg-slate-100 text-slate-800 border border-slate-300 font-semibold',
+        badgeClass: 'bg-black text-white border border-neutral-700 font-semibold',
         paidDate: undefined as string | undefined,
         note: house.occupancy === 'Belum Ditempati' ? 'Belum Ditempati (Tidak Wajib)' : 'Rumah Kosong (Tidak Wajib)',
       };
@@ -2606,9 +2614,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <span className="w-2 h-2 rounded-full bg-sky-600"></span>
                   Biru Muda: Bayar &gt;1 Bln
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-200 text-slate-800 border border-slate-300">
-                  <span className="w-2 h-2 rounded-full bg-slate-500"></span>
-                  Abu-abu: Belum Ditempati / Kosong
+                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black text-white border border-neutral-700 shadow-2xs">
+                  <span className="w-2 h-2 rounded-full bg-white"></span>
+                  Hitam: Rumah Kosong
                 </span>
               </div>
             </div>
@@ -2713,29 +2721,46 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       </tr>
                     ) : (
                       filteredPerKKList.map((item, idx) => {
-                        const { house, isLunas, isAdvancePaid, isEmptyHouse } = item;
-                        const isVacant = isEmptyHouse || isHouseVacant(house);
+                        const { house, isLunas, isAdvancePaid } = item;
+                        const isPureKosong = house.occupancy === 'Kosong' || isHouseVacant(house);
                         const isUnoccupied = house.occupancy === 'Belum Ditempati';
-                        const payerName = isVacant
-                          ? house.duesHeadNameOverride && house.duesHeadNameOverride !== house.headName && !house.duesHeadNameOverride.toLowerCase().includes(house.headName.toLowerCase())
-                            ? house.duesHeadNameOverride
-                            : 'Rumah Kosong'
-                          : isUnoccupied
-                          ? house.duesHeadNameOverride || 'Belum Ditempati'
-                          : house.duesHeadNameOverride || house.headName;
+
                         const periodStr = selectedKKPeriod !== 'semua' ? selectedKKPeriod : item.periodLabel;
                         const statusInfo =
                           selectedKKPeriod !== 'semua'
                             ? getHouseStatusForPeriod(house, selectedKKPeriod)
                             : null;
 
+                        const defaultNominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
+                        const nominal = item.nominalPerMonth || defaultNominal;
+
                         const iuranPaid = statusInfo
                           ? statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih'
-                            ? statusInfo.amount || item.nominalPerMonth
+                            ? statusInfo.amount || nominal
                             : statusInfo.amount || 0
                           : isLunas
-                          ? item.nominalPerMonth * (isAdvancePaid ? Math.max(1, house.duesPaidMonths || 1) : 1)
+                          ? nominal * (isAdvancePaid ? Math.max(1, house.duesPaidMonths || 1) : 1)
                           : house.duesPaidAmount || 0;
+
+                        const hasIuranPaid = iuranPaid > 0;
+
+                        // Pewarnaan Kolom & Sel:
+                        // 1. Rumah kosong murni (tanpa pembayaran) ATAU rumah belum ditempati tanpa isian iuran -> HITAM
+                        // 2. Rumah yang belum ditempati NAMUN ada isian di kolom iuran bulanan -> MENGIKUTI STANDAR YANG ADA (Hijau / Biru / Merah)
+                        const isRumahKosongHitam = (isPureKosong && !hasIuranPaid) || (isUnoccupied && !hasIuranPaid);
+
+                        const payerName = isPureKosong
+                          ? house.duesHeadNameOverride &&
+                            house.duesHeadNameOverride !== house.headName &&
+                            !house.duesHeadNameOverride.toLowerCase().includes(house.headName.toLowerCase())
+                            ? house.duesHeadNameOverride
+                            : 'Rumah Kosong'
+                          : isUnoccupied
+                          ? house.duesHeadNameOverride ||
+                            (house.headName && house.headName !== 'Kosong' && house.headName !== '-'
+                              ? house.headName
+                              : 'Belum Ditempati')
+                          : house.duesHeadNameOverride || house.headName;
 
                         const dendaPaid = item.baksosFineAmount || 0;
 
@@ -2766,27 +2791,28 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         const totalSemua = iuranPaid + dendaPaid + tunggakanPaid;
 
                         const isBayarLebih =
-                          !isVacant &&
+                          !isRumahKosongHitam &&
                           ((statusInfo && statusInfo.status === 'Bayar Lebih') ||
                            (selectedKKPeriod === 'semua' && isAdvancePaid) ||
                            ((house.duesPaidMonths || 0) > 1));
 
                         const isSudahBayar =
-                          !isVacant &&
+                          !isRumahKosongHitam &&
                           !isBayarLebih &&
                           ((statusInfo && (statusInfo.status === 'Lunas' || (statusInfo.amount || 0) > 0)) ||
                            (selectedKKPeriod === 'semua' && isLunas) ||
                            (iuranPaid > 0));
 
-                        const isMenunggak = !isVacant && !isBayarLebih && !isSudahBayar;
+                        const isMenunggak = !isRumahKosongHitam && !isBayarLebih && !isSudahBayar;
 
                         // Pewarnaan otomatis seluruh baris & sel sesuai kriteria:
+                        // - Rumah Kosong (termasuk belum ditempati tanpa isian iuran): Hitam pekat
+                        // - Rumah belum ditempati dengan isian iuran: Standar hijau / biru muda
                         // - Sudah bayar: Hijau lembut
-                        // - Menunggak: Merah lembut
-                        // - Rumah belum ditempati / kosong: Abu-abu netral (bukan hitam)
                         // - Bayar > 1 bulan: Biru muda lembut
-                        const rowCellClass = isVacant
-                          ? 'bg-slate-50/90 text-slate-800 border-slate-200 font-medium'
+                        // - Menunggak: Merah lembut
+                        const rowCellClass = isRumahKosongHitam
+                          ? 'bg-black text-white border-neutral-800 font-medium'
                           : isBayarLebih
                           ? 'bg-sky-50 text-sky-950 border-sky-300 font-medium'
                           : isSudahBayar
@@ -2797,8 +2823,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           <tr
                             key={house.id}
                             className={`transition-colors border-b ${
-                              isVacant
-                                ? 'bg-slate-50/90 text-slate-800 border-slate-200 hover:bg-slate-100/80'
+                              isRumahKosongHitam
+                                ? 'bg-black text-white border-neutral-800 hover:bg-neutral-900'
                                 : isBayarLebih
                                 ? 'bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100/60'
                                 : isSudahBayar
@@ -2807,7 +2833,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             }`}
                           >
                             {/* 1. No */}
-                            <td className={`py-2.5 px-2 text-center font-mono border ${rowCellClass} text-slate-600`}>
+                            <td className={`py-2.5 px-2 text-center font-mono border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : 'text-slate-600'}`}>
                               {idx + 1}
                             </td>
 
@@ -2815,8 +2841,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             <td className={`py-2.5 px-3 text-center border ${rowCellClass}`}>
                               <span
                                 className={`font-mono text-xs font-bold px-2 py-0.5 rounded-lg border shadow-2xs ${
-                                  isVacant
-                                    ? 'bg-slate-200 text-slate-800 border-slate-300'
+                                  isRumahKosongHitam
+                                    ? 'bg-neutral-900 text-white border-neutral-700'
                                     : isBayarLebih
                                     ? 'bg-sky-200/90 text-sky-950 border-sky-400'
                                     : isSudahBayar
@@ -2828,13 +2854,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               </span>
                             </td>
 
-                            {/* 3. Nama Kepala Keluarga (Bersumber dari Input Penarikan, bukan Buku Induk lama) */}
+                            {/* 3. Nama Kepala Keluarga */}
                             <td className={`py-2.5 px-4 border ${rowCellClass}`}>
                               <div className="flex items-center justify-between gap-1.5">
                                 <span
                                   className={`font-bold ${
-                                    isVacant
-                                      ? 'text-slate-800'
+                                    isRumahKosongHitam
+                                      ? 'text-white'
                                       : isBayarLebih
                                       ? 'text-sky-950'
                                       : isSudahBayar
@@ -2849,8 +2875,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     type="button"
                                     onClick={() => handleOpenEditHouseDues(house, false)}
                                     className={`p-1 rounded transition-colors cursor-pointer shrink-0 ${
-                                      isVacant
-                                        ? 'text-slate-400 hover:text-emerald-700 hover:bg-slate-200'
+                                      isRumahKosongHitam
+                                        ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
                                         : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-100/60'
                                     }`}
                                     title="Edit Iuran & Tunggakan KK"
@@ -2862,56 +2888,56 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             </td>
 
                             {/* 4. Periode Iuran */}
-                            <td className={`py-2.5 px-3 text-center font-bold border ${rowCellClass} text-slate-700`}>
+                            <td className={`py-2.5 px-3 text-center font-bold border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : 'text-slate-700'}`}>
                               {periodStr}
                             </td>
 
                             {/* 5. Iuran Bulanan */}
                             <td className={`py-2.5 px-3 text-right font-mono tabular-nums border ${rowCellClass}`}>
                               {iuranPaid > 0 ? (
-                                <span className={`font-bold ${isVacant ? 'text-emerald-800' : isBayarLebih ? 'text-sky-900' : isSudahBayar ? 'text-emerald-800' : 'text-slate-700'}`}>
+                                <span className={`font-bold ${isRumahKosongHitam ? 'text-emerald-400' : isBayarLebih ? 'text-sky-900' : isSudahBayar ? 'text-emerald-800' : 'text-slate-700'}`}>
                                   +{formatRupiah(iuranPaid)}
                                 </span>
-                              ) : isVacant ? (
-                                <span className="text-slate-500 font-semibold italic text-[11px]">Bebas Iuran (Rp 0)</span>
+                              ) : isRumahKosongHitam ? (
+                                <span className="text-slate-400 font-semibold italic text-[11px]">Bebas Iuran (Rp 0)</span>
                               ) : (
                                 <span className="text-rose-700 font-bold">Rp 0 (Belum Bayar)</span>
                               )}
                             </td>
 
-                            {/* 6. Denda Baksos (Warna Merah) */}
+                            {/* 6. Denda Baksos */}
                             <td className={`py-2.5 px-3 text-right font-mono tabular-nums border ${rowCellClass}`}>
                               {dendaPaid > 0 ? (
                                 <span className="text-rose-600 font-black">+{formatRupiah(dendaPaid)}</span>
                               ) : (
-                                <span className="text-slate-400">-</span>
+                                <span className={isRumahKosongHitam ? 'text-neutral-500' : 'text-slate-400'}>-</span>
                               )}
                             </td>
 
-                            {/* 7. Pembayaran Tunggakan (Warna Merah) */}
+                            {/* 7. Pembayaran Tunggakan */}
                             <td className={`py-2.5 px-3 text-right font-mono tabular-nums border ${rowCellClass}`}>
                               {tunggakanPaid > 0 ? (
                                 <span className="text-rose-600 font-black">+{formatRupiah(tunggakanPaid)}</span>
                               ) : (
-                                <span className="text-slate-400">-</span>
+                                <span className={isRumahKosongHitam ? 'text-neutral-500' : 'text-slate-400'}>-</span>
                               )}
                             </td>
 
                             {/* 8. Tanggal Pembayaran */}
-                            <td className={`py-2.5 px-3 text-center font-mono text-[11px] border ${rowCellClass} text-slate-700`}>
+                            <td className={`py-2.5 px-3 text-center font-mono text-[11px] border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : 'text-slate-700'}`}>
                               {paidDate ? formatDateDDMMYYYY(paidDate) : '-'}
                             </td>
 
                             {/* 9. Total Semua Pembayaran */}
                             <td className={`py-2.5 px-4 text-right font-mono tabular-nums border ${rowCellClass}`}>
                               <div className="flex flex-col items-end">
-                                {isVacant ? (
+                                {isRumahKosongHitam ? (
                                   <>
-                                    <span className="font-mono font-bold text-slate-800">
+                                    <span className="font-mono font-bold text-white">
                                       {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
                                     </span>
-                                    <span className="text-[10px] font-sans font-bold text-slate-500">
-                                      {house.occupancy === 'Belum Ditempati' ? 'Belum Ditempati' : 'Rumah Kosong (Bebas)'}
+                                    <span className="text-[10px] font-sans font-bold text-slate-400">
+                                      {isUnoccupied ? 'Belum Ditempati (Bebas)' : 'Rumah Kosong (Bebas)'}
                                     </span>
                                   </>
                                 ) : isBayarLebih ? (
