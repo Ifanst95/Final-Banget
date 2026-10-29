@@ -239,6 +239,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [selectedTxMonth, setSelectedTxMonth] = useState<string>(() => defaultMonthKey);
   const [searchTx, setSearchTx] = useState<string>('');
 
+  React.useEffect(() => {
+    if (selectedTxMonth === 'semua') {
+      setSelectedTxMonth(defaultMonthKey);
+    }
+  }, [selectedTxMonth, defaultMonthKey]);
+
   const [isPeriodModalOpen, setIsPeriodModalOpen] = useState(false);
   const [periodModalTab, setPeriodModalTab] = useState<'tambah' | 'hapus'>('tambah');
   const [newPeriodMonthIndex, setNewPeriodMonthIndex] = useState<number>(new Date().getMonth());
@@ -260,6 +266,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
   // Per KK edit modal state
   const [editingHouseDues, setEditingHouseDues] = useState<ResidentHouse | null>(null);
+  const [houseDuesOccupancyInput, setHouseDuesOccupancyInput] = useState<ResidentHouse['occupancy']>('Ditempati');
   const [houseDuesHeadNameInput, setHouseDuesHeadNameInput] = useState<string>('');
   const [houseDuesAmountInput, setHouseDuesAmountInput] = useState<number>(50000);
   const [houseDuesStatusInput, setHouseDuesStatusInput] = useState<'Lunas' | 'Bayar Lebih' | 'Belum Bayar'>('Lunas');
@@ -985,9 +992,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         selectedKKPeriod.toLowerCase().trim() === 'april 2026' ||
         selectedKKPeriod.toLowerCase().trim() === 'april');
 
-    if (isFuturePeriod || isApril2026) {
+    if (selectedKKPeriod === 'semua' || isFuturePeriod || isApril2026) {
       setSelectedKKPeriod(active);
-    } else if (selectedKKPeriod !== 'semua' && (!selectedKKPeriod || !sortedPeriods.includes(selectedKKPeriod))) {
+    } else if (!selectedKKPeriod || !sortedPeriods.includes(selectedKKPeriod)) {
       setSelectedKKPeriod(active);
     }
   }, [sortedPeriods, config.duesCurrentMonth, defaultMonthLabel, selectedKKPeriod]);
@@ -1005,22 +1012,47 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     const currentKey = parseIndonesianMonthYearToKey(defaultMonthLabel) || '2026-10';
 
     const houseBasePeriod = house.duesMonthNote || defaultMonthLabel;
+    const baseKey = parseIndonesianMonthYearToKey(houseBasePeriod);
     const isPaidState = house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih';
+    const paidMonths = house.duesPaidMonths || (house.duesStatus === 'Bayar Lebih' ? 2 : isPaidState ? 1 : 0);
+    const coveredMonths = isPaidState
+      ? getSubsequentMonthLabels(houseBasePeriod, Math.max(1, paidMonths))
+      : [];
 
-    // Ketentuan: Mengikuti bulan yang diinputkan (duesMonthNote), jangan otomatis menghitung bulan yang lunas jika tidak diinput
+    // Ketentuan: Mengikuti bulan yang diinputkan (duesMonthNote) dan rentang multi-bulan yang dibayar
     const isCoveredByInput = isPaidState && isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel);
+    const isCoveredByMonths = isPaidState && coveredMonths.some((m) => parseIndonesianMonthYearToKey(m) === targetKey);
 
     // Prioritas 1: Jika periode cocok dengan bulan yang diinputkan atau sama persis dengan periode dasar rumah
-    if (isCoveredByInput || periodLabel === houseBasePeriod) {
+    if (isCoveredByInput || isCoveredByMonths || (isPaidState && periodLabel === houseBasePeriod)) {
       if (isPaidState) {
-        const isAdvance = house.duesStatus === 'Bayar Lebih' || (house.duesPaidMonths && house.duesPaidMonths > 1);
+        const isAdvance = paidMonths > 1 || house.duesStatus === 'Bayar Lebih';
+        const isBaseMonth = baseKey ? targetKey === baseKey : periodLabel === houseBasePeriod;
+        const isAdvanceSubsequentMonth = !isBaseMonth && (baseKey && targetKey ? targetKey > baseKey : true);
+
+        // KETENTUAN: Jika bayar lebih dari 1 bulan, total iurannya masuk di bulan dia bayar iuran,
+        // kemudian bulan berikutnya lunas tanpa ada isian iurannya (Rp 0 / Lunas di Muka)
+        if (isAdvanceSubsequentMonth) {
+          return {
+            status: 'Lunas' as const,
+            amount: 0,
+            isAdvanceSubsequentMonth: true,
+            label: isEmpty ? 'Lunas (Kosong)' : 'Lunas (Dimuka)',
+            badgeClass: 'bg-sky-100 text-sky-900 border border-sky-300 font-bold shadow-xs',
+            paidDate: house.duesPaidDate,
+            note: `Lunas di Muka (Total iuran sudah masuk di periode ${formatMonthYearFromKey(baseKey || '') || houseBasePeriod})`,
+          };
+        }
+
+        const totalDuesInBaseMonth = isAdvance ? (nominal * paidMonths) : nominal;
         return {
           status: isAdvance ? ('Bayar Lebih' as const) : ('Lunas' as const),
-          amount: nominal,
+          amount: totalDuesInBaseMonth,
+          isAdvanceSubsequentMonth: false,
           label: isAdvance
             ? isEmpty
-              ? 'Bayar Lebih (Kosong)'
-              : 'Bayar Lebih'
+              ? `Bayar Lebih (Kosong ${paidMonths} Bln)`
+              : `Bayar Lebih (${paidMonths} Bln)`
             : isEmpty
             ? 'Lunas (Kosong)'
             : 'Lunas',
@@ -1029,9 +1061,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             : 'bg-emerald-600 text-white border border-emerald-500 font-bold shadow-xs',
           paidDate: house.duesPaidDate,
           note: isAdvance
-            ? house.duesMonthNote
-              ? `Tercakup: ${house.duesMonthNote}`
-              : `Deposit +${formatRupiah(house.duesPrepaidBalance || 0)}`
+            ? `Tercakup: ${coveredMonths.join(', ')} (Total iuran ${formatRupiah(totalDuesInBaseMonth)} masuk di bulan ini)`
             : undefined,
         };
       }
@@ -1354,9 +1384,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           : null;
 
       const iuranPaid = statusInfo
-        ? statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih'
-          ? statusInfo.amount || item.nominalPerMonth
-          : statusInfo.amount || 0
+        ? statusInfo.amount !== undefined
+          ? statusInfo.amount
+          : statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih'
+          ? item.nominalPerMonth
+          : 0
         : isLunas
         ? item.nominalPerMonth * (isAdvancePaid ? Math.max(1, house.duesPaidMonths || 1) : 1)
         : house.duesPaidAmount || 0;
@@ -1449,7 +1481,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       if (effectiveMonthKey !== 'semua') {
         const s = getHouseStatusForPeriod(item.house, activePeriodLabel);
         if (s.status === 'Lunas' || s.status === 'Bayar Lebih') {
-          return sum + (s.amount || item.nominalPerMonth);
+          return sum + (s.amount !== undefined ? s.amount : item.nominalPerMonth);
         }
         return sum + (s.amount || 0);
       }
@@ -1938,7 +1970,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         : nominal * currentMonths;
 
     setEditingHouseDues(house);
-    setHouseDuesHeadNameInput(house.duesHeadNameOverride || house.headName);
+    setHouseDuesOccupancyInput(house.occupancy || 'Ditempati');
+    setHouseDuesHeadNameInput(house.duesHeadNameOverride || '');
     setHouseDuesAmountInput(nominal);
     setHouseDuesStatusInput(initialStatus);
     setHouseDuesPaidMonthsInput(currentMonths);
@@ -1956,10 +1989,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     e.preventDefault();
     if (!editingHouseDues) return;
 
-    const isVacant =
-      editingHouseDues.occupancy === 'Kosong' ||
-      editingHouseDues.occupancy === 'Belum Ditempati' ||
-      isHouseVacant(editingHouseDues);
+    const isVacant = houseDuesOccupancyInput === 'Kosong';
+    const isUnoccupied = houseDuesOccupancyInput === 'Belum Ditempati';
 
     const amountNum = Math.max(0, Number(houseDuesAmountInput) || 0);
     const isNowPaid = houseDuesStatusInput === 'Lunas' || houseDuesStatusInput === 'Bayar Lebih';
@@ -1982,13 +2013,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     const paidArrearsAmount = Math.max(0, oldPrevArrears - newPrevArrears);
 
     const trimmedHeadInput = houseDuesHeadNameInput.trim();
-    const finalHeadNameOverride =
-      trimmedHeadInput && trimmedHeadInput !== editingHouseDues.headName
-        ? trimmedHeadInput
-        : undefined;
+    // Kepala keluarga di Rekap Iuran murni dari inputan user (tidak mengambil dari buku induk warga):
+    const finalHeadNameOverride = trimmedHeadInput || (isVacant ? 'Rumah Kosong' : isUnoccupied ? 'Belum Ditempati' : '');
 
     const updatedResident: ResidentHouse = {
       ...editingHouseDues,
+      occupancy: houseDuesOccupancyInput,
       duesHeadNameOverride: finalHeadNameOverride,
       customDuesAmount: amountNum,
       duesStatus: houseDuesStatusInput,
@@ -2001,7 +2031,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       previousArrearsNote: isVacant ? '' : houseDuesPrevNoteInput.trim(),
     };
 
-    const displayName = finalHeadNameOverride || editingHouseDues.headName;
+    const displayName = finalHeadNameOverride || `Blok ${editingHouseDues.blockNumber}`;
     const houseDescLabel = isVacant
       ? `(Rumah Kosong - ${displayName})`
       : `(${displayName})`;
@@ -2490,17 +2520,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <Calendar className="w-4 h-4 text-emerald-600" />
                   Pilih Periode:
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedTxMonth('semua')}
-                  className={`px-3 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer ${
-                    selectedTxMonth === 'semua'
-                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
-                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs'
-                  }`}
-                >
-                  Semua Periode ({transactions.length})
-                </button>
                 {allMonthlyCashflowGroups.map((m) => (
                   <button
                     key={m.monthKey}
@@ -2648,18 +2667,18 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </div>
           </div>
 
-          {/* HEADER TABEL BUKU KAS MULTI-KOLOM (DITEMPATKAN DI PALING ATAS) */}
+          {/* HEADER TABEL BUKU KAS SEDERHANA (HANYA PEMASUKAN & PENGELUARAN, KATEGORI DI DETAIL) */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
             <div>
               <h3 className="font-black text-slate-900 text-sm sm:text-base flex items-center gap-2">
                 <Table className="w-4 h-4 text-emerald-700" />
                 <span>Tabel Buku Keluar Masuk Kas</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                  Multi-Kolom
+                  Pemasukan &amp; Pengeluaran
                 </span>
               </h3>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Menampilkan Saldo Bulan Sebelumnya, Total Penerimaan Rekap Iuran Per KK, Uraian Pengeluaran Gang, serta Uraian Cashback &amp; Kas Lainnya.
+                Menampilkan Saldo Awal, Pemasukan (+), Pengeluaran (-), dan Saldo Berjalan dengan rincian kategori dan pos pada detail transaksi.
               </p>
             </div>
           </div>
@@ -2668,50 +2687,26 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             <table className="w-full text-center text-xs border-collapse border border-slate-300">
               <thead>
                 <tr className="border-b border-slate-300 bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white font-extrabold">
-                  <th rowSpan={2} className="py-3 px-2 text-center w-12 border border-slate-300/80 text-white">
+                  <th className="py-3.5 px-2 text-center w-12 border border-slate-300/80 text-white">
                     No
                   </th>
-                  <th rowSpan={2} className="py-3 px-3 text-center w-28 border border-slate-300/80 text-white">
+                  <th className="py-3.5 px-3 text-center w-28 border border-slate-300/80 text-white">
                     Tanggal
                   </th>
-                  <th rowSpan={2} className="py-3 px-4 text-center min-w-[220px] border border-slate-300/80 text-white">
+                  <th className="py-3.5 px-4 text-center min-w-[260px] border border-slate-300/80 text-white">
                     Detail & Uraian Transaksi
                   </th>
-                  <th colSpan={3} className="py-2.5 px-3 text-center bg-emerald-700/95 text-white border border-slate-300/80 font-black tracking-wide">
+                  <th className="py-3.5 px-3 text-center w-36 bg-emerald-700/95 text-white border border-slate-300/80 font-black tracking-wide">
                     PEMASUKAN (+)
                   </th>
-                  <th colSpan={3} className="py-2.5 px-3 text-center bg-rose-700/95 text-white border border-slate-300/80 font-black tracking-wide">
+                  <th className="py-3.5 px-3 text-center w-36 bg-rose-700/95 text-white border border-slate-300/80 font-black tracking-wide">
                     PENGELUARAN (-)
                   </th>
-                  <th rowSpan={2} className="py-3 px-3 text-center w-28 border border-slate-300/80 text-white">
-                    Jumlah
-                  </th>
-                  <th rowSpan={2} className="py-3 px-3 text-center w-32 border border-slate-300/80 text-white">
+                  <th className="py-3.5 px-3 text-center w-36 border border-slate-300/80 text-white font-black">
                     Saldo Berjalan
                   </th>
-                  <th rowSpan={2} className="py-3 px-2 text-center w-20 border border-slate-300/80 text-white">
+                  <th className="py-3.5 px-2 text-center w-24 border border-slate-300/80 text-white">
                     {isAdmin ? 'Aksi' : 'Status'}
-                  </th>
-                </tr>
-
-                <tr className="border-b border-slate-300 text-[11px] font-black bg-slate-100">
-                  <th className="py-2 px-2 text-center text-emerald-950 bg-emerald-100/90 border border-slate-300">
-                    Total Penerimaan Kas
-                  </th>
-                  <th className="py-2 px-2 text-center text-blue-950 bg-blue-100/90 border border-slate-300">
-                    Cashback WiFi
-                  </th>
-                  <th className="py-2 px-2 text-center text-teal-950 bg-teal-100/90 border border-slate-300">
-                    Cashback Sampah
-                  </th>
-                  <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
-                    Kas Utama / Gang
-                  </th>
-                  <th className="py-2 px-2 text-center text-blue-950 bg-blue-100/90 border border-slate-300">
-                    Cashback WiFi
-                  </th>
-                  <th className="py-2 px-2 text-center text-teal-950 bg-teal-100/90 border border-slate-300">
-                    Cashback Sampah
                   </th>
                 </tr>
               </thead>
@@ -2745,26 +2740,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         </button>
                       )}
                     </div>
-                    <div className="text-[10px] text-amber-800 font-normal">
-                      Kas Utama: {formatRupiah(prevMonthSummary.kasUtama)} | WiFi: {formatRupiah(prevMonthSummary.wifiCashback)} | Sampah: {formatRupiah(prevMonthSummary.sampahCashback)}
+                    <div className="mt-1 flex items-center justify-center gap-1.5 flex-wrap text-[10px]">
+                      <span className="px-2 py-0.5 rounded-md font-bold bg-amber-200/90 text-amber-950 border border-amber-300">
+                        Kas Utama: {formatRupiah(prevMonthSummary.kasUtama)}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md font-bold bg-blue-100 text-blue-900 border border-blue-300">
+                        WiFi: {formatRupiah(prevMonthSummary.wifiCashback)}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-md font-bold bg-teal-100 text-teal-900 border border-teal-300">
+                        Sampah: {formatRupiah(prevMonthSummary.sampahCashback)}
+                      </span>
                     </div>
                   </td>
-
-                  <td className="py-2.5 px-2 text-center font-mono text-emerald-800 font-bold border border-slate-300">
-                    {formatRupiah(prevMonthSummary.kasUtama)}
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-blue-600 font-bold border border-slate-300">
-                    {formatRupiah(prevMonthSummary.wifiCashback)}
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-teal-800 font-bold border border-slate-300">
-                    {formatRupiah(prevMonthSummary.sampahCashback)}
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                  <td className="py-2.5 px-3 text-center font-mono font-bold text-amber-900 border border-slate-300">
-                    {formatRupiah(prevMonthSummary.total)}
-                  </td>
+                  <td className="py-2.5 px-3 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                  <td className="py-2.5 px-3 text-center font-mono text-slate-400 border border-slate-300">-</td>
                   <td className="py-2.5 px-3 text-center font-mono font-extrabold text-amber-950 border border-slate-300">
                     {formatRupiah(prevMonthSummary.total)}
                   </td>
@@ -2785,18 +2774,34 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         <Users className="w-3.5 h-3.5 text-emerald-700" />
                         <span>{simplifiedCashbookData.rekapIuranRow.description}</span>
                       </div>
+                      <div className="mt-1 flex items-center justify-center gap-1.5 flex-wrap text-[10px]">
+                        <span className="px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                          Kategori: Penerimaan Kas Warga
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full font-medium bg-teal-100 text-teal-900 border border-teal-300">
+                          Pos: Kas Utama
+                        </span>
+                        {simplifiedCashbookData.effectiveTotalIuran > 0 && (
+                          <span className="px-2 py-0.5 rounded-full font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            Iuran: {formatRupiah(simplifiedCashbookData.effectiveTotalIuran)}
+                          </span>
+                        )}
+                        {simplifiedCashbookData.effectiveTotalDenda > 0 && (
+                          <span className="px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-900 border border-amber-300">
+                            Denda: {formatRupiah(simplifiedCashbookData.effectiveTotalDenda)}
+                          </span>
+                        )}
+                        {simplifiedCashbookData.effectiveTotalTunggakan > 0 && (
+                          <span className="px-2 py-0.5 rounded-full font-semibold bg-indigo-50 text-indigo-900 border border-indigo-300">
+                            Tunggakan: {formatRupiah(simplifiedCashbookData.effectiveTotalTunggakan)}
+                          </span>
+                        )}
+                      </div>
                     </td>
-                    <td className="py-2.5 px-2 text-center font-mono font-black text-emerald-800 text-xs sm:text-sm tabular-nums border border-slate-300 bg-emerald-50/90">
+                    <td className="py-2.5 px-3 text-center font-mono font-black text-emerald-800 text-xs sm:text-sm tabular-nums border border-slate-300 bg-emerald-50/90">
                       +{formatRupiah(simplifiedCashbookData.rekapIuranRow.masuk)}
                     </td>
-                    <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                    <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                    <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                    <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                    <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                    <td className="py-2.5 px-3 text-center font-mono font-bold text-emerald-800 border border-slate-300">
-                      +{formatRupiah(simplifiedCashbookData.rekapIuranRow.masuk)}
-                    </td>
+                    <td className="py-2.5 px-3 text-center font-mono text-slate-400 border border-slate-300">-</td>
                     <td className="py-2.5 px-3 text-center font-mono font-extrabold text-slate-900 border border-slate-300">
                       {formatRupiah(simplifiedCashbookData.rekapIuranRow.runningBalance)}
                     </td>
@@ -2807,7 +2812,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           setCurrentSubTab('per_kk');
                           if (onSwitchMode) onSwitchMode('iuran_kk');
                         }}
-                        className="px-2 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold cursor-pointer transition-all border border-emerald-300 shadow-2xs"
                       >
                         Rekap KK
                       </button>
@@ -2826,11 +2831,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     isMasuk,
                     isWifi,
                     isSampah,
-                    masukWifi,
-                    masukSampah,
-                    keluarKasUtama,
-                    keluarWifi,
-                    keluarSampah,
                     runningBalance,
                   } = item;
 
@@ -2853,62 +2853,34 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           <span
                             className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
                               isWifi
-                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                ? 'bg-blue-100 text-blue-900 border border-blue-300'
                                 : isSampah
-                                ? 'bg-cyan-100 text-cyan-800 border border-cyan-200'
-                                : 'bg-rose-100 text-rose-800 border border-rose-300'
+                                ? 'bg-cyan-100 text-cyan-900 border border-cyan-300'
+                                : isMasuk
+                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                : 'bg-rose-100 text-rose-900 border border-rose-300'
                             }`}
                           >
-                            {subCategoryLabel}
+                            Kategori: {subCategoryLabel}
+                          </span>
+                          <span className="px-2 py-0.5 rounded-full font-medium text-[10px] bg-slate-100 text-slate-700 border border-slate-300">
+                            Pos: {tx.pool}
                           </span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                        {item.isMasuk && !item.isWifi && !item.isSampah ? (
-                          <span className="text-emerald-700">+{formatRupiah(tx.amount)}</span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                        {masukWifi > 0 ? (
-                          <span className="text-blue-600 font-bold">+{formatRupiah(masukWifi)}</span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                        {masukSampah > 0 ? (
-                          <span className="text-teal-700 font-bold">+{formatRupiah(masukSampah)}</span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                        {keluarKasUtama > 0 ? (
-                          <span className="text-rose-600">-{formatRupiah(keluarKasUtama)}</span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                        {keluarWifi > 0 ? (
-                          <span className="text-blue-600 font-bold">-{formatRupiah(keluarWifi)}</span>
-                        ) : (
-                          <span className="text-slate-300">-</span>
-                        )}
-                      </td>
-                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                        {keluarSampah > 0 ? (
-                          <span className="text-teal-700 font-bold">-{formatRupiah(keluarSampah)}</span>
+                      <td className="py-2.5 px-3 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
+                        {isMasuk ? (
+                          <span className="text-emerald-700 font-black">+{formatRupiah(tx.amount)}</span>
                         ) : (
                           <span className="text-slate-300">-</span>
                         )}
                       </td>
                       <td className="py-2.5 px-3 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                        <span className={isMasuk ? 'text-emerald-700' : 'text-rose-600'}>
-                          {isMasuk ? '+' : '-'}{formatRupiah(tx.amount)}
-                        </span>
+                        {!isMasuk ? (
+                          <span className="text-rose-600 font-black">-{formatRupiah(tx.amount)}</span>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
                       </td>
                       <td className="py-2.5 px-3 text-center font-mono font-extrabold whitespace-nowrap tabular-nums text-slate-900 border border-slate-300">
                         {formatRupiah(runningBalance)}
@@ -2972,32 +2944,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <td className="py-3 px-2 text-center border border-slate-300">-</td>
                   <td className="py-3 px-3 text-center font-mono border border-slate-300 font-bold">Akhir Bulan</td>
                   <td className="py-3 px-4 text-center font-black text-slate-900 border border-slate-300">
-                    TOTAL TRANSAKSI & SALDO AKHIR
+                    TOTAL PEMASUKAN, PENGELUARAN & SALDO AKHIR
                   </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-emerald-800 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukKasUtama)}
+                  <td className="py-3 px-3 text-center font-mono font-black text-emerald-800 text-xs sm:text-sm border border-slate-300">
+                    +{formatRupiah(tableTotals.sumMasukKasUtama + tableTotals.sumMasukCashback)}
                   </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukWifi)}
+                  <td className="py-3 px-3 text-center font-mono font-black text-rose-700 text-xs sm:text-sm border border-slate-300">
+                    -{formatRupiah(tableTotals.sumKeluarKasUtama + tableTotals.sumKeluarCashback)}
                   </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-teal-800 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukSampah)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-rose-700 border border-slate-300">
-                    -{formatRupiah(tableTotals.sumKeluarKasUtama)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
-                    -{formatRupiah(tableTotals.sumKeluarWifi)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-teal-800 border border-slate-300">
-                    -{formatRupiah(tableTotals.sumKeluarSampah)}
-                  </td>
-                  <td className="py-3 px-3 text-center font-mono font-black border border-slate-300">
-                    <span className={tableTotals.netPeriod >= 0 ? 'text-emerald-700' : 'text-rose-700'}>
-                      {tableTotals.netPeriod >= 0 ? '+' : ''}{formatRupiah(tableTotals.netPeriod)}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-center font-mono font-black text-emerald-950 text-sm border border-slate-300">
+                  <td className="py-3 px-3 text-center font-mono font-black text-emerald-950 text-sm sm:text-base border border-slate-300">
                     {formatRupiah(tableTotals.finalSaldo)}
                   </td>
                   <td className="py-3 px-2 text-center text-slate-400 font-mono text-[10px] border border-slate-300">-</td>
@@ -3293,17 +3248,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <Calendar className="w-4 h-4 text-emerald-600" />
                   Pilih Periode:
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedKKPeriod('semua')}
-                  className={`px-3 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer ${
-                    selectedKKPeriod === 'semua'
-                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
-                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs'
-                  }`}
-                >
-                  Semua Periode ({residents.length} KK)
-                </button>
                 {sortedPeriods.map((p) => {
                   const isCur = p === defaultMonthLabel;
                   return (
@@ -3447,7 +3391,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     ) : (
                       filteredPerKKList.map((item, idx) => {
                         const { house, isLunas, isAdvancePaid } = item;
-                        const isPureKosong = house.occupancy === 'Kosong' || isHouseVacant(house);
+
+                        const isPureKosong =
+                          house.occupancy === 'Kosong' ||
+                          isHouseVacant(house) ||
+                          Boolean(house.duesHeadNameOverride && /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim()));
+
                         const isUnoccupied = house.occupancy === 'Belum Ditempati';
 
                         const periodStr = selectedKKPeriod !== 'semua' ? selectedKKPeriod : item.periodLabel;
@@ -3458,10 +3407,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                         const defaultNominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
                         const nominal = item.nominalPerMonth || defaultNominal;
+                        const isAdvanceSubsequent = Boolean(statusInfo?.isAdvanceSubsequentMonth);
 
                         const iuranPaid = statusInfo
-                          ? statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih'
-                            ? statusInfo.amount || nominal
+                          ? statusInfo.isAdvanceSubsequentMonth
+                            ? 0
+                            : statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih'
+                            ? (statusInfo.amount !== undefined ? statusInfo.amount : nominal)
                             : statusInfo.amount || 0
                           : isLunas
                           ? nominal * (isAdvancePaid ? Math.max(1, house.duesPaidMonths || 1) : 1)
@@ -3469,22 +3421,19 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                         const hasIuranPaid = iuranPaid > 0;
 
-                        // Pewarnaan Kolom & Sel:
-                        // 1. Rumah kosong murni (tanpa pembayaran) ATAU rumah belum ditempati tanpa isian iuran -> HITAM
-                        // 2. Rumah yang belum ditempati NAMUN ada isian di kolom iuran bulanan -> MENGIKUTI STANDAR YANG ADA (Hijau / Biru / Merah)
-                        const isRumahKosongHitam = (isPureKosong && !hasIuranPaid) || (isUnoccupied && !hasIuranPaid);
+                        // KETENTUAN WARNA:
+                        // 1. Rumah Kosong: Otomatis HITAM PEKAT seluruh cell dan kolomnya
+                        // 2. Belum Ditempati: Warna cell & kolom MENGIKUTI STATUS IURAN (Biru jika Bayar Lebih, Hijau jika Lunas, Merah jika Belum Bayar)
+                        const isRumahKosongHitam = isPureKosong;
 
-                        const payerName = isPureKosong
-                          ? house.duesHeadNameOverride ||
-                            (house.headName && house.headName !== 'Kosong' && house.headName !== '-'
-                              ? house.headName
-                              : 'Rumah Kosong')
+                        // Kepala keluarga di Rekap Iuran murni dari inputan user (tidak mengambil dari buku induk warga):
+                        const payerName = house.duesHeadNameOverride && house.duesHeadNameOverride.trim()
+                          ? house.duesHeadNameOverride.trim()
+                          : isPureKosong
+                          ? 'Rumah Kosong'
                           : isUnoccupied
-                          ? house.duesHeadNameOverride ||
-                            (house.headName && house.headName !== 'Kosong' && house.headName !== '-'
-                              ? house.headName
-                              : 'Belum Ditempati')
-                          : house.duesHeadNameOverride || house.headName;
+                          ? 'Belum Ditempati'
+                          : '';
 
                         const baksosInfo = getHouseBaksosForPeriod(house, selectedKKPeriod);
                         const dendaPaid = baksosInfo.dendaPaid;
@@ -3513,14 +3462,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                         const isBayarLebih =
                           !isRumahKosongHitam &&
+                          !isAdvanceSubsequent &&
                           ((statusInfo && statusInfo.status === 'Bayar Lebih') ||
                            (selectedKKPeriod === 'semua' && isAdvancePaid) ||
-                           ((house.duesPaidMonths || 0) > 1));
+                           ((house.duesPaidMonths || 0) > 1 && !statusInfo));
 
                         const isSudahBayar =
                           !isRumahKosongHitam &&
                           !isBayarLebih &&
-                          (tunggakanPaid > 0 ||
+                          (isAdvanceSubsequent ||
+                           tunggakanPaid > 0 ||
                            (statusInfo && (statusInfo.status === 'Lunas' || (statusInfo.amount || 0) > 0)) ||
                            (selectedKKPeriod === 'semua' && isLunas) ||
                            (iuranPaid > 0));
@@ -3528,8 +3479,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         const isMenunggak = !isRumahKosongHitam && !isBayarLebih && !isSudahBayar;
 
                         // Pewarnaan otomatis seluruh baris & sel sesuai kriteria:
-                        // - Rumah Kosong (termasuk belum ditempati tanpa isian iuran): Hitam pekat
-                        // - Rumah belum ditempati dengan isian iuran: Standar hijau / biru muda
+                        // - Rumah Kosong: Hitam pekat
+                        // - Belum Ditempati: Mengikuti status iuran (Hijau / Biru / Merah)
                         // - Sudah bayar: Hijau lembut
                         // - Bayar > 1 bulan: Biru muda lembut
                         // - Menunggak: Merah lembut
@@ -3579,19 +3530,33 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             {/* 3. Nama Kepala Keluarga */}
                             <td className={`py-2.5 px-4 border ${rowCellClass}`}>
                               <div className="flex items-center justify-between gap-1.5">
-                                <span
-                                  className={`font-bold ${
-                                    isRumahKosongHitam
-                                      ? 'text-white'
-                                      : isBayarLebih
-                                      ? 'text-sky-950'
-                                      : isSudahBayar
-                                      ? 'text-emerald-950'
-                                      : 'text-rose-950'
-                                  }`}
-                                >
-                                  {payerName}
-                                </span>
+                                {payerName ? (
+                                  <span
+                                    className={`font-bold ${
+                                      isRumahKosongHitam
+                                        ? 'text-white'
+                                        : isBayarLebih
+                                        ? 'text-sky-950'
+                                        : isSudahBayar
+                                        ? 'text-emerald-950'
+                                        : 'text-rose-950'
+                                    }`}
+                                  >
+                                    {payerName}
+                                  </span>
+                                ) : (
+                                  <span
+                                    onClick={() => isAdmin && handleOpenEditHouseDues(house, false)}
+                                    className={`text-xs italic cursor-pointer ${
+                                      isAdmin
+                                        ? 'text-indigo-600 hover:text-indigo-800 underline decoration-dotted font-semibold'
+                                        : 'text-slate-400'
+                                    }`}
+                                    title="Klik untuk input nama kepala keluarga"
+                                  >
+                                    {isAdmin ? '+ Input Nama KK' : '-'}
+                                  </span>
+                                )}
                                 {isAdmin && (
                                   <button
                                     type="button"
@@ -3601,7 +3566,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                         ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
                                         : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-100/60'
                                     }`}
-                                    title="Edit Iuran & Tunggakan KK"
+                                    title="Edit Nama KK / Iuran Ini"
                                   >
                                     <Edit2 className="w-3.5 h-3.5" />
                                   </button>
@@ -3616,7 +3581,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                             {/* 5. Iuran Bulanan */}
                             <td className={`py-2.5 px-3 text-right font-mono tabular-nums border ${rowCellClass}`}>
-                              {iuranPaid > 0 ? (
+                              {isAdvanceSubsequent ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="font-bold text-emerald-800">Rp 0</span>
+                                  <span className="text-[10px] font-sans font-bold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-300 mt-0.5 shadow-2xs">
+                                    ✓ Lunas (Tanpa Isian)
+                                  </span>
+                                </div>
+                              ) : iuranPaid > 0 ? (
                                 <span className={`font-bold ${isRumahKosongHitam ? 'text-emerald-400' : isBayarLebih ? 'text-sky-900' : isSudahBayar ? 'text-emerald-800' : 'text-slate-700'}`}>
                                   +{formatRupiah(iuranPaid)}
                                 </span>
@@ -3689,6 +3661,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     </span>
                                     <span className="text-[10px] font-sans font-bold text-slate-400">
                                       {isUnoccupied ? 'Belum Ditempati (Bebas)' : 'Rumah Kosong (Bebas)'}
+                                    </span>
+                                  </>
+                                ) : isAdvanceSubsequent ? (
+                                  <>
+                                    <span className="font-mono font-black text-emerald-950">
+                                      {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
+                                    </span>
+                                    <span className="text-[10px] font-sans font-extrabold text-emerald-800">
+                                      ✓ Lunas (Bayar di Muka)
                                     </span>
                                   </>
                                 ) : isBayarLebih ? (
@@ -4202,25 +4183,85 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               )}
 
               <form onSubmit={handleSaveHouseDues} className="p-5 space-y-3.5">
-                {/* Input Nama Kepala Keluarga / Penanggung Jawab Iuran & Tunggakan */}
+                {/* Pilihan Status Hunian Rumah: Ditempati / Belum Ditempati / Rumah Kosong */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Status Hunian Rumah
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHouseDuesOccupancyInput('Ditempati');
+                        if (houseDuesHeadNameInput === 'Rumah Kosong' || houseDuesHeadNameInput === 'Belum Ditempati') {
+                          setHouseDuesHeadNameInput('');
+                        }
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                        houseDuesOccupancyInput === 'Ditempati'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      Ditempati
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHouseDuesOccupancyInput('Belum Ditempati');
+                        if (!houseDuesHeadNameInput || houseDuesHeadNameInput === 'Rumah Kosong') {
+                          setHouseDuesHeadNameInput('Belum Ditempati');
+                        }
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                        houseDuesOccupancyInput === 'Belum Ditempati'
+                          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      Belum Ditempati
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHouseDuesOccupancyInput('Kosong');
+                        setHouseDuesHeadNameInput('Rumah Kosong');
+                        setHouseDuesAmountInput(0);
+                        setHouseDuesStatusInput('Belum Bayar');
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all cursor-pointer ${
+                        houseDuesOccupancyInput === 'Kosong'
+                          ? 'bg-black text-white border-black shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                      }`}
+                    >
+                      Rumah Kosong
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-slate-500 block leading-tight">
+                    *Pilih <strong>Rumah Kosong</strong> untuk otomatis mewarnai cell dan kolom tabel menjadi <strong>hitam pekat</strong>. Pilih <strong>Belum Ditempati</strong> untuk mengikuti <strong>status iuran</strong> (hijau jika lunas, merah jika belum).
+                  </span>
+                </div>
+
+                {/* Input Nama Kepala Keluarga / Penanggung Jawab Iuran & Tunggakan (Inputan User) */}
                 <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-emerald-950">
-                      Nama Kepala Keluarga / Pembayar Iuran
+                      Nama Kepala Keluarga (Inputan Khusus Iuran KK)
                     </label>
                     <span className="text-[10px] text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200 font-semibold">
-                      Buku Induk: {editingHouseDues.headName}
+                      Inputan Anda
                     </span>
                   </div>
                   <input
                     type="text"
                     value={houseDuesHeadNameInput}
                     onChange={(e) => setHouseDuesHeadNameInput(e.target.value)}
-                    placeholder={editingHouseDues.headName}
+                    placeholder="Ketik nama kepala keluarga..."
                     className="w-full px-3 py-2 text-xs bg-white border border-emerald-300 rounded-lg font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs"
                   />
                   <p className="text-[10px] text-slate-500 leading-tight">
-                    *Catatan: Anda dapat mengedit nama pembayar/KK di sini khusus untuk Rekap Iuran & Catatan Tunggakan, tanpa mengubah data asli Kepala Keluarga di Buku Induk Warga.
+                    *Nama kepala keluarga di Rekap Iuran murni dari apa yang Anda inputkan di sini (tidak mengambil dari Buku Induk Warga).
                   </p>
                 </div>
 

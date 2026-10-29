@@ -429,10 +429,7 @@ export async function parseDuesExcelFile(
               status === 'Bayar Lebih' ? Math.max(0, totalReceived - parsedNominal) : 0;
 
             const trimmedHead = rawHeadName.trim();
-            const headOverride =
-              trimmedHead && trimmedHead !== matchedResident.headName
-                ? trimmedHead
-                : matchedResident.duesHeadNameOverride;
+            const headOverride = trimmedHead || matchedResident.duesHeadNameOverride || '';
 
             const updatedHouse: ResidentHouse = {
               ...matchedResident,

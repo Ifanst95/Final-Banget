@@ -180,7 +180,9 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
       const isAdvancePaidForInputMonth = isCoveredForInputMonth && inputMonth !== houseBasePeriod;
       const isDuesPaid = isCoveredForInputMonth || (inputMonth === houseBasePeriod && isPaidState);
 
-      const monthlyDuesNominal = isVacant
+      const monthlyDuesNominal = isAdvancePaidForInputMonth
+        ? 0
+        : isVacant
         ? isDuesPaid
           ? house.customDuesAmount || defaultNominal
           : 0
@@ -188,7 +190,9 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
         ? house.customDuesAmount
         : defaultNominal;
 
-      const remainingDues = isVacant
+      const remainingDues = isAdvancePaidForInputMonth
+        ? 0
+        : isVacant
         ? 0
         : isDuesPaid
         ? 0
@@ -231,6 +235,7 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
         isDuesPaid,
         remainingDues,
         isAdvancePaidForInputMonth,
+        houseBasePeriod,
         coveredMonths,
         paidMonthsCount: paidMonths,
         previousArrears,
@@ -308,10 +313,10 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
     const finalNominal = isVacant ? 0 : Math.max(0, editNominal);
     const trimmedHead = editHeadName.trim();
     const finalHeadOverride = isVacant
-      ? trimmedHead && trimmedHead !== 'Rumah Kosong' ? trimmedHead : 'Rumah Kosong'
+      ? (trimmedHead || 'Rumah Kosong')
       : isUnoccupied
-      ? trimmedHead && trimmedHead !== 'Belum Ditempati' ? trimmedHead : 'Belum Ditempati'
-      : trimmedHead && trimmedHead !== editingHouse.headName ? trimmedHead : undefined;
+      ? (trimmedHead || 'Belum Ditempati')
+      : trimmedHead;
 
     const updated: ResidentHouse = {
       ...editingHouse,
@@ -922,19 +927,22 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
       // 1. Warga yang SUDAH LUNAS untuk periode ini -> Tetap tercatat di Rekap KK
       if (item.isDuesPaid) {
         // Cek jika belum ada mutasi kas untuk warga ini di periode ini, catat otomatis
-        const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
-        const hasExistingTx = transactions.some(
-          (tx) => tx.type === 'masuk' && blockRegex.test(tx.description) && tx.description.includes(targetPeriod)
-        );
-        if (!hasExistingTx) {
-          missingTransactions.push({
-            date: house.duesPaidDate || todayStr,
-            type: 'masuk',
-            pool: 'Kas Utama',
-            category: 'Iuran Warga',
-            description: `Penarikan Iuran Bulanan (${targetPeriod}) Blok ${house.blockNumber} (${displayName})`,
-            amount: item.monthlyDuesNominal,
-          });
+        // HANYA jika bukan advance-paid untuk bulan ini (karena total iuran multi-bulan sudah masuk di bulan bayar)
+        if (!item.isAdvancePaidForInputMonth && item.monthlyDuesNominal > 0) {
+          const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+          const hasExistingTx = transactions.some(
+            (tx) => tx.type === 'masuk' && blockRegex.test(tx.description) && tx.description.includes(targetPeriod)
+          );
+          if (!hasExistingTx) {
+            missingTransactions.push({
+              date: house.duesPaidDate || todayStr,
+              type: 'masuk',
+              pool: 'Kas Utama',
+              category: 'Iuran Warga',
+              description: `Penarikan Iuran Bulanan (${targetPeriod}) Blok ${house.blockNumber} (${displayName})`,
+              amount: item.monthlyDuesNominal,
+            });
+          }
         }
 
         // Rollover ke bulan berikutnya: cek apakah warga bayar di muka (> 1 bulan)
@@ -1212,6 +1220,7 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                       isDuesPaid,
                       remainingDues,
                       isAdvancePaidForInputMonth,
+                      houseBasePeriod,
                       paidMonthsCount,
                       previousArrears,
                       previousArrearsNote,
@@ -1363,6 +1372,33 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                                 <Edit2 className="w-2.5 h-2.5" />
                               </button>
                             </div>
+                          ) : isAdvancePaidForInputMonth ? (
+                            <div>
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="font-bold text-emerald-800">Rp 0</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEdit(house)}
+                                  className="p-0.5 text-sky-700 hover:text-sky-950 rounded cursor-pointer"
+                                  title="Edit Jumlah Iuran Bulanan"
+                                >
+                                  <Edit2 className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                              <div className="mt-0.5 flex flex-col items-end">
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickToggleStatus(house)}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-sky-200 text-sky-950 border border-sky-400 hover:bg-sky-300 cursor-pointer transition-all hover:scale-105"
+                                  title="Klik untuk ubah status iuran"
+                                >
+                                  <span>✓ Lunas (Tanpa Isian)</span>
+                                </button>
+                                <span className="text-[9px] text-sky-700 mt-0.5 font-sans font-medium">
+                                  Total masuk di {houseBasePeriod}
+                                </span>
+                              </div>
+                            </div>
                           ) : (
                             <div>
                               <div className="flex items-center justify-end gap-1">
@@ -1398,20 +1434,13 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                                     type="button"
                                     onClick={() => handleQuickToggleStatus(house)}
                                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all hover:scale-105 border ${
-                                      isAdvancePaidForInputMonth
-                                        ? 'bg-sky-200 text-sky-950 border-sky-400 hover:bg-sky-300'
-                                        : paidMonthsCount > 1
+                                      paidMonthsCount > 1
                                         ? 'bg-sky-200 text-sky-950 border-sky-400 hover:bg-sky-300'
                                         : 'bg-emerald-200 text-emerald-950 border-emerald-400 hover:bg-emerald-300'
                                     }`}
                                     title="Klik untuk ubah kembali status menjadi Belum Bayar (Otomatis bersihkan data di Rekap KK & Buku Kas)"
                                   >
-                                    {isAdvancePaidForInputMonth ? (
-                                      <>
-                                        <span>✓ Lunas di Muka</span>
-                                        <span className="text-[9px] font-normal text-sky-800">(Otomatis)</span>
-                                      </>
-                                    ) : paidMonthsCount > 1 ? (
+                                    {paidMonthsCount > 1 ? (
                                       <span>✓ Bayar Lebih {paidMonthsCount - 1} Bln (Total {paidMonthsCount} Bln)</span>
                                     ) : (
                                       <span>✓ Lunas (1 Bln)</span>
