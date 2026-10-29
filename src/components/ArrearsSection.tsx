@@ -907,7 +907,6 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                 <th className="py-3 px-3">No Blok</th>
                 <th className="py-3 px-3">Kepala Keluarga</th>
                 <th className="py-3 px-3 text-right">Iuran Bulan Ini</th>
-                <th className="py-3 px-3 text-right">Denda Baksos</th>
                 <th className="py-3 px-3 text-right">Tunggakan Bulan/Thn Lalu</th>
                 <th className="py-3 px-3">Keterangan Tunggakan Lalu</th>
                 <th className="py-3 px-3 text-right">Total Tunggakan</th>
@@ -923,7 +922,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
               {filteredDelinquentList.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 10 : 9}
+                    colSpan={isAdmin ? 9 : 8}
                     className="py-10 text-center text-slate-500 font-medium bg-white/60"
                   >
                     🎉 Tidak ada data warga yang menunggak {searchQuery ? 'dengan kata kunci pencarian ini' : '(Seluruh KK Tertib & Lunas)'}.
@@ -1006,15 +1005,6 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                         )}
                       </td>
                       <td className="py-3 px-3 text-right font-mono tabular-nums">
-                        {item.baksosFineArrears > 0 ? (
-                          <span className="text-amber-700 font-semibold">
-                            {formatRupiah(item.baksosFineArrears)} ({item.unpaidBaksosList.length}x)
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">Rp 0</span>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono tabular-nums">
                         <div className="flex items-center justify-end gap-1">
                           <span
                             className={
@@ -1049,7 +1039,14 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-sm tabular-nums">
                         {hasDebt ? (
-                          <span className="text-rose-700">{formatRupiah(item.totalArrears)}</span>
+                          <div>
+                            <span className="text-rose-700">{formatRupiah(item.totalArrears)}</span>
+                            {item.baksosFineArrears > 0 && (
+                              <span className="block text-[10px] font-sans font-medium text-amber-700">
+                                (Inc. Denda Baksos: {formatRupiah(item.baksosFineArrears)})
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-emerald-700">Rp 0</span>
                         )}

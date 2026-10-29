@@ -1412,9 +1412,9 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                                         <span className="text-[9px] font-normal text-sky-800">(Otomatis)</span>
                                       </>
                                     ) : paidMonthsCount > 1 ? (
-                                      <span>✓ Lunas ({paidMonthsCount} Bln)</span>
+                                      <span>✓ Bayar Lebih {paidMonthsCount - 1} Bln (Total {paidMonthsCount} Bln)</span>
                                     ) : (
-                                      <span>✓ Lunas (Klik Batal)</span>
+                                      <span>✓ Lunas (1 Bln)</span>
                                     )}
                                   </button>
                                 ) : (
@@ -2061,19 +2061,19 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                       </div>
 
                       {/* Presets Tombol Cepat */}
-                      <div className="grid grid-cols-5 gap-1 text-[11px]">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[11px]">
                         {[
-                          { count: 1, label: '1 Bln' },
-                          { count: 2, label: '2 Bln' },
-                          { count: 3, label: '3 Bln' },
-                          { count: 6, label: '6 Bln' },
-                          { count: 12, label: '12 Bln' },
+                          { count: 1, label: '1 Bln (Bulan Ini)' },
+                          { count: 2, label: '+1 Bln (Total 2 Bln)' },
+                          { count: 3, label: '+2 Bln (Total 3 Bln)' },
+                          { count: 6, label: '+5 Bln (Total 6 Bln)' },
+                          { count: 12, label: '1 Thn (Total 12 Bln)' },
                         ].map((preset) => (
                           <button
                             key={preset.count}
                             type="button"
                             onClick={() => setPayDuesMonths(preset.count)}
-                            className={`py-1 rounded-lg font-bold border transition-all cursor-pointer text-center ${
+                            className={`py-1.5 px-1 rounded-lg font-bold border transition-all cursor-pointer text-center text-[10.5px] ${
                               payDuesMonths === preset.count
                                 ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs ring-1 ring-emerald-400'
                                 : 'bg-white text-slate-700 border-emerald-200 hover:bg-emerald-100/60'
@@ -2085,11 +2085,13 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                       </div>
 
                       {/* Pratinjau Bulan yang Dicakup & Otomatis Masuk Bulan Berikutnya */}
-                      <div className="p-2.5 bg-white/95 border border-emerald-200 rounded-xl space-y-1.5 text-[11px]">
+                      <div className="p-2.5 bg-white/95 border border-emerald-200 rounded-xl space-y-2 text-[11px]">
                         <div className="flex items-center justify-between text-slate-700 font-semibold">
                           <span>Bulan yang Dicakup Pembayaran:</span>
                           <span className="text-emerald-800 font-mono font-bold">
-                            {payDuesMonths} Bulan ({formatRupiah(payDuesMonths * (payingBillingItem.monthlyDuesNominal || defaultNominal))})
+                            {payDuesMonths > 1
+                              ? `Bayar Lebih ${payDuesMonths - 1} Bulan (Total ${payDuesMonths} Bulan: ${formatRupiah(payDuesMonths * (payingBillingItem.monthlyDuesNominal || defaultNominal))})`
+                              : `1 Bulan (${formatRupiah(payingBillingItem.monthlyDuesNominal || defaultNominal)})`}
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1">
@@ -2104,6 +2106,11 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                             >
                               <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                               <span>{mLabel}</span>
+                              {idx === 0 && payDuesMonths > 1 && (
+                                <span className="text-[9px] font-normal text-emerald-700">
+                                  (Bulan Ini)
+                                </span>
+                              )}
                               {idx > 0 && (
                                 <span className="text-[9px] font-normal text-indigo-700">
                                   (Otomatis Lunas)
@@ -2114,16 +2121,19 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                         </div>
                         {payDuesMonths > 1 && (
                           <>
+                            <div className="p-2 bg-indigo-100/80 rounded-lg border border-indigo-300 text-[10.5px] text-indigo-950 leading-relaxed">
+                              💡 <strong>Hitungan Bayar Lebih:</strong> Bayar lebih <strong>{payDuesMonths - 1} bulan</strong> sudah otomatis termasuk pembayaran bulan dia membayar (<strong>{inputMonth.trim() || defaultPeriod}</strong>) dan {payDuesMonths - 1} bulan berikutnya, sehingga total mencakup <strong>{payDuesMonths} Bulan</strong> ({formatRupiah(payDuesMonths * (payingBillingItem.monthlyDuesNominal || defaultNominal))}).
+                            </div>
                             <p className="text-[10px] text-indigo-950 bg-indigo-50/80 p-2 rounded-lg border border-indigo-200 leading-relaxed font-medium">
-                              💡 <strong>Otomatis Masuk ke Bulan Berikutnya:</strong> Warga otomatis tercatat <strong>LUNAS</strong> saat Anda memilih bulan-bulan di atas di penarikan keuangan maupun rekap kas per KK tanpa perlu ditagih/diinput ulang.
+                              ✨ <strong>Otomatis Masuk ke Bulan Berikutnya:</strong> Warga otomatis berstatus <strong>LUNAS</strong> saat Anda memilih bulan-bulan di atas di penarikan keuangan maupun rekap kas per KK tanpa perlu ditagih/diinput ulang.
                             </p>
                             <div className="p-2 bg-indigo-50/90 rounded-lg border border-indigo-200 text-[10px] space-y-1">
                               <span className="font-bold text-indigo-950 block">📝 Catatan Transaksi Kas Otomatis:</span>
                               <div className="font-mono text-indigo-900 bg-white/90 p-1.5 rounded border border-indigo-200 break-words font-semibold text-[10px]">
                                 {(() => {
                                   const covList = getSubsequentMonthLabels(inputMonth.trim() || defaultPeriod, payDuesMonths);
-                                  const rangeTxt = `${inputMonth.trim() || defaultPeriod} - ${covList[covList.length - 1]} (${payDuesMonths} Bulan)`;
-                                  return `Iuran Kas Warga Lebih dari 1 Bulan (${rangeTxt}) Blok ${payingBillingItem.house.blockNumber} (${payingBillingItem.displayName})${payNote ? ` - ${payNote}` : ''}`;
+                                  const rangeTxt = `${inputMonth.trim() || defaultPeriod} s/d ${covList[covList.length - 1]} (Total ${payDuesMonths} Bulan)`;
+                                  return `Iuran Kas Warga Bayar Lebih ${payDuesMonths - 1} Bulan (${rangeTxt}) Blok ${payingBillingItem.house.blockNumber} (${payingBillingItem.displayName})${payNote ? ` - ${payNote}` : ''}`;
                                 })()}
                               </div>
                             </div>

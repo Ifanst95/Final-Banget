@@ -76,6 +76,8 @@ interface CashReportSectionProps {
     currentPoolBalanceOverride?: number
   ) => void;
   onUpdateResident: (updated: ResidentHouse) => void;
+  onMarkFinePaid?: (agendaId: string, residentId: string, houseName: string, blockNo: string) => void;
+  onUnmarkFinePaid?: (agendaId: string, residentId: string) => void;
   onOpenConfigModal: () => void;
   onSwitchMode?: (targetTab: string) => void;
   onCreatePeriod?: (
@@ -118,6 +120,7 @@ export interface PerKKRecapItem {
   currentMonthRemaining: number;
   previousArrears: number;
   baksosFineAmount: number;
+  baksosPaidAmount?: number;
   unpaidBaksosCount: number;
   totalBillRemaining: number;
   historicalTxTotal: number;
@@ -151,6 +154,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   onDeleteTransaction,
   onAdjustBalance,
   onUpdateResident,
+  onMarkFinePaid,
+  onUnmarkFinePaid,
   onOpenConfigModal,
   onSwitchMode,
   onCreatePeriod,
@@ -833,7 +838,21 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const previousArrears = isEmptyHouse ? 0 : house.previousArrears || 0;
       const totalBillRemaining = currentMonthRemaining + previousArrears + baksosFineAmount;
 
+      // Hitung Pembayaran Denda Baksos yang sudah lunas
+      const paidBaksosList = baksosAgendas.filter((agenda) => {
+        const attendance = agenda.attendance?.[house.id];
+        const isFinePaid = agenda.finesPaid?.[house.id];
+        return attendance === 'Tidak Hadir' && Boolean(isFinePaid);
+      });
+      const baksosAgendasPaidFine = paidBaksosList.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
+
       const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+      const baksosTxs = transactions.filter(
+        (tx) => tx.type === 'masuk' && (tx.category === 'Denda Baksos' || tx.description.toLowerCase().includes('denda baksos')) && blockRegex.test(tx.description)
+      );
+      const baksosTxPaidFine = baksosTxs.reduce((sum, t) => sum + t.amount, 0);
+      const baksosPaidAmount = Math.max(baksosAgendasPaidFine, baksosTxPaidFine);
+
       const houseTxs = transactions.filter(
         (tx) => tx.type === 'masuk' && isIuranOrTunggakanTx(tx) && blockRegex.test(tx.description)
       );
@@ -854,6 +873,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         currentMonthRemaining,
         previousArrears,
         baksosFineAmount,
+        baksosPaidAmount,
         unpaidBaksosCount: unpaidBaksosList.length,
         totalBillRemaining,
         historicalTxTotal,
@@ -1122,6 +1142,80 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     };
   }, [defaultMonthLabel, transactions, config.duesAmountPerMonth]);
 
+  // Helper to compute Baksos attendance, fine payment, and unpaid fines for any house and period
+  const getHouseBaksosForPeriod = useCallback(
+    (house: ResidentHouse, periodLabel: string) => {
+      const isPureKosong = house.occupancy === 'Kosong' || isHouseVacant(house);
+      const isUnoccupied = house.occupancy === 'Belum Ditempati';
+      const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
+      const targetKey = periodLabel !== 'semua' ? parseIndonesianMonthYearToKey(periodLabel) : null;
+      const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+
+      const agendas = baksosAgendas || [];
+
+      // Filter agendas matching this period
+      const matchingAgendas = agendas.filter((agenda) => {
+        if (!targetKey) return true;
+        return getMonthKeyFromDate(agenda.date) === targetKey;
+      });
+
+      // Matching baksos fine payment transactions in Kas Utama
+      const baksosTxs = transactions.filter((t) => {
+        if (t.type !== 'masuk') return false;
+        const cat = t.category || '';
+        const desc = (t.description || '').toLowerCase();
+        const isBaksos = cat === 'Denda Baksos' || desc.includes('denda baksos');
+        if (!isBaksos) return false;
+        if (!blockRegex.test(t.description)) return false;
+        if (targetKey) {
+          return getMonthKeyFromDate(t.date) === targetKey;
+        }
+        return true;
+      });
+      const txPaidAmount = baksosTxs.reduce((sum, t) => sum + t.amount, 0);
+
+      // Paid baksos agendas
+      const paidAgendas = matchingAgendas.filter((agenda) => {
+        const att = agenda.attendance?.[house.id];
+        const isPaid = agenda.finesPaid?.[house.id];
+        return att === 'Tidak Hadir' && Boolean(isPaid);
+      });
+      const agendaPaidAmount = paidAgendas.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
+
+      // Total denda baksos paid
+      const dendaPaid = Math.max(txPaidAmount, agendaPaidAmount);
+
+      // Unpaid baksos agendas
+      const unpaidAgendas = matchingAgendas.filter((agenda) => {
+        const att =
+          agenda.attendance?.[house.id] ||
+          (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
+        const isPaid = agenda.finesPaid?.[house.id];
+        return att === 'Tidak Hadir' && !isPaid;
+      });
+      const calculatedUnpaid = isPureKosong || isUnoccupied ? 0 : unpaidAgendas.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
+      const dendaUnpaid =
+        targetKey === null && house.customBaksosFineAmount !== undefined
+          ? house.customBaksosFineAmount
+          : calculatedUnpaid;
+
+      const hadHadir = matchingAgendas.some((a) => a.attendance?.[house.id] === 'Hadir');
+      const hadTidakWajib = isContract || matchingAgendas.some((a) => a.attendance?.[house.id] === 'Tidak Wajib');
+
+      return {
+        matchingAgendasCount: matchingAgendas.length,
+        dendaPaid,
+        dendaUnpaid,
+        hadHadir,
+        hadTidakWajib,
+        isPureKosong: isPureKosong || isUnoccupied,
+        paidAgendas,
+        unpaidAgendas,
+      };
+    },
+    [baksosAgendas, transactions]
+  );
+
   // Aggregate statistics per period for recap cards & matrix footer
   const periodRecapStats = useMemo(() => {
     const occupiedHouses = residents.filter((r) => r.occupancy !== 'Kosong' && !isHouseVacant(r));
@@ -1230,7 +1324,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         ? item.nominalPerMonth * (isAdvancePaid ? Math.max(1, house.duesPaidMonths || 1) : 1)
         : house.duesPaidAmount || 0;
 
-      const dendaPaid = item.baksosFineAmount || 0;
+      const baksosInfo = getHouseBaksosForPeriod(house, selectedKKPeriod);
+      const dendaPaid = baksosInfo.dendaPaid;
 
       const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
       const tunggakanTxs = transactions.filter((t) => {
@@ -1252,7 +1347,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     });
 
     return { sumIuran, sumDenda, sumTunggakan, sumTotal };
-  }, [filteredPerKKList, selectedKKPeriod, transactions, getHouseStatusForPeriod]);
+  }, [filteredPerKKList, selectedKKPeriod, transactions, getHouseStatusForPeriod, getHouseBaksosForPeriod]);
 
   // Aggregate KK stats
   const kkStats = useMemo(() => {
@@ -1440,9 +1535,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         date: firstTxDate,
         description:
           effectiveMonthKey === 'semua'
-            ? 'Total Penerimaan Kas (Iuran Warga, Denda Baksos & Pembayaran Tunggakan Seluruh KK)'
-            : `Total Penerimaan Kas (Iuran Warga, Denda Baksos & Pembayaran Tunggakan Periode ${activePeriodLabel})`,
-        subDescription: `Iuran Warga: ${formatRupiah(effectiveTotalIuran)} • Denda Baksos: ${formatRupiah(effectiveTotalDenda)} • Pembayaran Tunggakan: ${formatRupiah(effectiveTotalTunggakan)} • (${lunasCount} dari ${occupiedCount} KK Lunas / Bayar Lebih)`,
+            ? 'Total Penerimaan Kas'
+            : `Total Penerimaan Kas ${activePeriodLabel}`,
+        subDescription: '',
         category: 'Penerimaan Kas Warga',
         pool: 'Kas Utama' as const,
         masukIuran: effectiveTotalIuran,
@@ -1820,7 +1915,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         pool: 'Kas Utama',
         category: 'Iuran Warga',
         description: isAdvancePay
-          ? `Iuran Kas Warga Lebih dari 1 Bulan (${monthLabel} - ${coveredMonths[coveredMonths.length - 1]} (${monthsCount} Bulan)) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`
+          ? `Iuran Kas Warga Bayar Lebih ${Math.max(1, monthsCount - 1)} Bulan (${monthLabel} s/d ${coveredMonths[coveredMonths.length - 1]} (Total ${monthsCount} Bulan)) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`
           : isNowPaid
           ? `Iuran Bulanan (${monthLabel}) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`
           : `Cicilan Iuran Bulanan (${monthLabel}) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`,
@@ -2198,65 +2293,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         </div>
       </div>
 
-      {/* SALDO SUMMARY CARDS (Tampil untuk Warga & Pengurus: Saldo Kas Utama, Cashback WiFi, Cashback Sampah & Total Saldo) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Kas Utama */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50/90 to-green-100/90 border-2 border-emerald-300 text-emerald-950 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between hover:shadow-md hover:border-emerald-400 transition-all">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full blur-xl pointer-events-none" />
-          <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
-            <span>Saldo Kas Utama</span>
-            <div className="p-1.5 rounded-xl bg-emerald-600 text-white shadow-xs">
-              <Wallet className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 text-lg sm:text-2xl font-black font-mono tracking-tight text-emerald-950 tabular-nums">
-            {formatRupiah(balances.kasUtama)}
-          </div>
-        </div>
 
-        {/* Cashback WiFi */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-sky-50 via-cyan-50/90 to-blue-100/90 border-2 border-sky-300 text-sky-950 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between hover:shadow-md hover:border-sky-400 transition-all">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-sky-400/10 rounded-full blur-xl pointer-events-none" />
-          <div className="flex items-center justify-between text-xs font-bold text-sky-900">
-            <span>Cashback WiFi</span>
-            <div className="p-1.5 rounded-xl bg-sky-600 text-white shadow-xs">
-              <Wifi className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 text-lg sm:text-2xl font-black font-mono tracking-tight text-sky-950 tabular-nums">
-            {formatRupiah(balances.wifiCashback)}
-          </div>
-        </div>
-
-        {/* Cashback Sampah */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-teal-50 via-emerald-50/90 to-teal-100/90 border-2 border-teal-300 text-teal-950 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between hover:shadow-md hover:border-teal-400 transition-all">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-teal-400/10 rounded-full blur-xl pointer-events-none" />
-          <div className="flex items-center justify-between text-xs font-bold text-teal-900">
-            <span>Cashback Sampah</span>
-            <div className="p-1.5 rounded-xl bg-teal-600 text-white shadow-xs">
-              <RotateCcw className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3 text-lg sm:text-2xl font-black font-mono tracking-tight text-teal-950 tabular-nums">
-            {formatRupiah(balances.sampahCashback)}
-          </div>
-        </div>
-
-        {/* Total Keseluruhan Keuangan */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-lg shadow-emerald-950/20 border-2 border-emerald-400/60 ring-2 ring-emerald-300/30 flex flex-col justify-between">
-          <div className="absolute -right-6 -top-6 w-28 h-28 bg-emerald-500/20 rounded-full blur-xl pointer-events-none" />
-          <div className="relative z-10 flex items-center justify-between text-xs font-bold text-emerald-100">
-            <span>Total Keseluruhan Keuangan</span>
-            <div className="flex items-center gap-1.5 bg-white/10 px-2 py-0.5 rounded-full border border-white/15 backdrop-blur-xs">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-[10px] text-amber-200 font-mono font-bold uppercase tracking-wider">Aktif</span>
-            </div>
-          </div>
-          <div className="relative z-10 mt-3 text-lg sm:text-2xl font-black font-mono tracking-tight tabular-nums text-amber-300">
-            {formatRupiah(balances.total)}
-          </div>
-        </div>
-      </div>
 
       {/* UNIFIED SUB-TABS: 1. Buku Kas Keluar & Masuk | 2. Kas Per KK */}
       <div className="bg-gradient-to-r from-slate-100 via-teal-50/80 to-emerald-50/80 p-1.5 sm:p-2 rounded-2xl border-2 border-emerald-200/90 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
@@ -2515,7 +2552,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <th rowSpan={2} className="py-3 px-4 text-center min-w-[220px] border border-slate-300/80 text-white">
                     Detail & Uraian Transaksi
                   </th>
-                  <th colSpan={5} className="py-2.5 px-3 text-center bg-emerald-700/95 text-white border border-slate-300/80 font-black tracking-wide">
+                  <th colSpan={3} className="py-2.5 px-3 text-center bg-emerald-700/95 text-white border border-slate-300/80 font-black tracking-wide">
                     PEMASUKAN (+)
                   </th>
                   <th colSpan={3} className="py-2.5 px-3 text-center bg-rose-700/95 text-white border border-slate-300/80 font-black tracking-wide">
@@ -2534,13 +2571,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                 <tr className="border-b border-slate-300 text-[11px] font-black bg-slate-100">
                   <th className="py-2 px-2 text-center text-emerald-950 bg-emerald-100/90 border border-slate-300">
-                    Iuran Warga
-                  </th>
-                  <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
-                    Denda Baksos
-                  </th>
-                  <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
-                    Pembayaran Tunggakan
+                    Total Penerimaan Kas
                   </th>
                   <th className="py-2 px-2 text-center text-blue-950 bg-blue-100/90 border border-slate-300">
                     Cashback WiFi
@@ -2597,8 +2628,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <td className="py-2.5 px-2 text-center font-mono text-emerald-800 font-bold border border-slate-300">
                     {formatRupiah(prevMonthSummary.kasUtama)}
                   </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
                   <td className="py-2.5 px-2 text-center font-mono text-blue-600 font-bold border border-slate-300">
                     {formatRupiah(prevMonthSummary.wifiCashback)}
                   </td>
@@ -2631,26 +2660,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         <Users className="w-3.5 h-3.5 text-emerald-700" />
                         <span>{simplifiedCashbookData.rekapIuranRow.description}</span>
                       </div>
-                      <div className="text-[10px] text-emerald-800 font-medium mt-0.5">
-                        {simplifiedCashbookData.rekapIuranRow.subDescription}
-                      </div>
                     </td>
-                    <td className="py-2.5 px-2 text-center font-mono font-bold text-emerald-700 tabular-nums border border-slate-300">
-                      +{formatRupiah(simplifiedCashbookData.rekapIuranRow.masukIuran)}
-                    </td>
-                    <td className="py-2.5 px-2 text-center font-mono font-bold text-amber-700 tabular-nums border border-slate-300">
-                      {simplifiedCashbookData.rekapIuranRow.masukDenda > 0 ? (
-                        `+${formatRupiah(simplifiedCashbookData.rekapIuranRow.masukDenda)}`
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-2 text-center font-mono font-bold text-rose-700 tabular-nums border border-slate-300">
-                      {simplifiedCashbookData.rekapIuranRow.masukTunggakan > 0 ? (
-                        `+${formatRupiah(simplifiedCashbookData.rekapIuranRow.masukTunggakan)}`
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
+                    <td className="py-2.5 px-2 text-center font-mono font-black text-emerald-800 text-xs sm:text-sm tabular-nums border border-slate-300 bg-emerald-50/90">
+                      +{formatRupiah(simplifiedCashbookData.rekapIuranRow.masuk)}
                     </td>
                     <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
                     <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
@@ -2726,9 +2738,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           </span>
                         </div>
                       </td>
-                      <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                      <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
-                      <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
+                        {item.isMasuk && !item.isWifi && !item.isSampah ? (
+                          <span className="text-emerald-700">+{formatRupiah(tx.amount)}</span>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
                       <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
                         {masukWifi > 0 ? (
                           <span className="text-blue-600 font-bold">+{formatRupiah(masukWifi)}</span>
@@ -2834,13 +2850,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     TOTAL TRANSAKSI & SALDO AKHIR
                   </td>
                   <td className="py-3 px-2 text-center font-mono font-black text-emerald-800 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukIuran)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-amber-600 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukDenda)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-rose-600 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukTunggakan)}
+                    +{formatRupiah(tableTotals.sumMasukKasUtama)}
                   </td>
                   <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
                     +{formatRupiah(tableTotals.sumMasukWifi)}
@@ -2948,33 +2958,21 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <span>KAS UTAMA PERIODE INI</span>
                 </div>
                 <div className="mt-3 space-y-1.5 text-xs font-mono text-center">
-                  {/* 1. Iuran Warga */}
-                  <div className="flex justify-between items-center text-emerald-950 px-2.5 py-1 rounded-xl bg-white/90 border border-emerald-200 shadow-2xs">
-                    <span className="font-sans text-[11px] font-bold text-emerald-950">1. Iuran Warga (+):</span>
-                    <span className="font-bold text-emerald-700 tabular-nums">+{formatRupiah(tableTotals.sumMasukIuran)}</span>
+                  {/* 1. Total Penerimaan Kas */}
+                  <div className="flex justify-between items-center text-emerald-950 px-2.5 py-1.5 rounded-xl bg-white/95 border-2 border-emerald-200 shadow-2xs">
+                    <span className="font-sans text-[11px] font-bold text-emerald-900">1. Total Penerimaan Kas (+):</span>
+                    <span className="font-bold text-emerald-700 tabular-nums">+{formatRupiah(tableTotals.sumMasukKasUtama)}</span>
                   </div>
 
-                  {/* 2. Denda Baksos */}
-                  <div className="flex justify-between items-center text-rose-950 px-2.5 py-1 rounded-xl bg-white/90 border border-rose-200 shadow-2xs">
-                    <span className="font-sans text-[11px] font-bold text-rose-950">2. Denda Baksos (+):</span>
-                    <span className="font-bold text-rose-600 tabular-nums">+{formatRupiah(tableTotals.sumMasukDenda)}</span>
-                  </div>
-
-                  {/* 3. Pembayaran Tunggakan */}
-                  <div className="flex justify-between items-center text-rose-950 px-2.5 py-1 rounded-xl bg-white/90 border border-rose-200 shadow-2xs">
-                    <span className="font-sans text-[11px] font-bold text-rose-950">3. Pembayaran Tunggakan (+):</span>
-                    <span className="font-bold text-rose-600 tabular-nums">+{formatRupiah(tableTotals.sumMasukTunggakan)}</span>
-                  </div>
-
-                  {/* 4. Pengeluaran Kas */}
-                  <div className="flex justify-between items-center text-slate-800 px-2.5 py-1 rounded-xl bg-white/90 border border-amber-200 shadow-2xs">
-                    <span className="font-sans text-[11px] font-bold text-slate-800">4. Pengeluaran Kas (-):</span>
+                  {/* 2. Pengeluaran Kas */}
+                  <div className="flex justify-between items-center text-slate-800 px-2.5 py-1.5 rounded-xl bg-white/90 border border-amber-200 shadow-2xs">
+                    <span className="font-sans text-[11px] font-bold text-slate-800">2. Pengeluaran Kas (-):</span>
                     <span className="font-bold text-rose-600 tabular-nums">-{formatRupiah(tableTotals.sumKeluarKasUtama)}</span>
                   </div>
 
-                  {/* 5. Arus Kas Bersih */}
-                  <div className="flex justify-between items-center px-2.5 py-1 rounded-xl bg-teal-100/90 border border-teal-300 font-bold shadow-2xs">
-                    <span className="font-sans text-[11px] text-teal-950">5. Arus Kas Bersih:</span>
+                  {/* 3. Arus Kas Bersih */}
+                  <div className="flex justify-between items-center px-2.5 py-1.5 rounded-xl bg-teal-100/90 border border-teal-300 font-bold shadow-2xs">
+                    <span className="font-sans text-[11px] text-teal-950">3. Arus Kas Bersih:</span>
                     <span className={`tabular-nums ${tableTotals.netKasUtama >= 0 ? 'text-teal-900' : 'text-rose-700'}`}>
                       {tableTotals.netKasUtama >= 0 ? '+' : ''}{formatRupiah(tableTotals.netKasUtama)}
                     </span>
@@ -3053,37 +3051,24 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     {formatRupiah(tableTotals.finalCashback)}
                   </span>
                 </div>
+
+                {/* TOTAL SISA SALDO KESELURUHAN KEUANGAN GANG DI BAWAH TOTAL SALDO CASHBACK */}
+                <div className="mt-2.5 pt-2.5 border-t-2 border-emerald-400 text-center bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 text-white rounded-xl p-3 shadow-md border border-emerald-400/70">
+                  <span className="text-[11px] font-black uppercase tracking-wider block text-emerald-200">
+                    TOTAL SISA SALDO KESELURUHAN KEUANGAN GANG
+                  </span>
+                  <span className="font-mono text-lg font-black text-amber-300 tabular-nums block mt-0.5">
+                    {formatRupiah(tableTotals.finalSaldo)}
+                  </span>
+                  <span className="text-[10px] text-emerald-100/80 block mt-0.5 font-sans">
+                    (Kas Utama: {formatRupiah(tableTotals.finalKasUtama)} + Cashback: {formatRupiah(tableTotals.finalCashback)})
+                  </span>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* CHIP RINGKASAN SALDO AKHIR PER POS KAS DI BAWAH TABEL */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 text-center shadow-2xs">
-              <span className="text-[10px] font-bold text-emerald-800 uppercase block">Saldo Kas Utama</span>
-              <span className="font-mono text-sm font-black text-emerald-950 tabular-nums">
-                {formatRupiah(tableTotals.finalKasUtama)}
-              </span>
-            </div>
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 border border-blue-200 text-center shadow-2xs">
-              <span className="text-[10px] font-bold text-blue-800 uppercase block">Saldo Cashback WiFi</span>
-              <span className="font-mono text-sm font-black text-blue-950 tabular-nums">
-                {formatRupiah(tableTotals.finalWifi)}
-              </span>
-            </div>
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 text-center shadow-2xs">
-              <span className="text-[10px] font-bold text-teal-800 uppercase block">Saldo Cashback Sampah</span>
-              <span className="font-mono text-sm font-black text-teal-950 tabular-nums">
-                {formatRupiah(tableTotals.finalSampah)}
-              </span>
-            </div>
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 text-white border border-teal-500 text-center shadow-sm">
-              <span className="text-[10px] font-bold text-amber-300 uppercase block">Total Saldo Kas Akhir</span>
-              <span className="font-mono text-sm font-black text-emerald-300 tabular-nums">
-                {formatRupiah(tableTotals.finalSaldo)}
-              </span>
-            </div>
-          </div>
+
 
         </div>
       )}
@@ -3308,7 +3293,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       <th className="py-3 px-4 min-w-[200px] border border-slate-300/70 text-white">Nama Kepala Keluarga</th>
                       <th className="py-3 px-3 text-center border border-slate-300/70 text-white">Periode Iuran</th>
                       <th className="py-3 px-3 text-right border border-slate-300/70 text-white">Iuran Bulanan</th>
-                      <th className="py-3 px-3 text-right border border-slate-300/70 text-white">Denda Baksos</th>
+                      <th className="py-3 px-3 text-center border border-slate-300/70 text-white">Pembayaran Denda Baksos</th>
                       <th className="py-3 px-3 text-right border border-slate-300/70 text-white">Pembayaran Tunggakan</th>
                       <th className="py-3 px-3 text-center border border-slate-300/70 text-white">Tanggal Pembayaran</th>
                       <th className="py-3 px-4 text-right border border-slate-300/70 text-white">Total Semua Pembayaran</th>
@@ -3364,7 +3349,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               : 'Belum Ditempati')
                           : house.duesHeadNameOverride || house.headName;
 
-                        const dendaPaid = item.baksosFineAmount || 0;
+                        const baksosInfo = getHouseBaksosForPeriod(house, selectedKKPeriod);
+                        const dendaPaid = baksosInfo.dendaPaid;
 
                         const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
                         const tunggakanTxs = transactions.filter((t) => {
@@ -3504,12 +3490,41 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               )}
                             </td>
 
-                            {/* 6. Denda Baksos */}
-                            <td className={`py-2.5 px-3 text-right font-mono tabular-nums border ${rowCellClass}`}>
+                            {/* 6. Pembayaran Denda Baksos */}
+                            <td className={`py-2.5 px-3 text-center border ${rowCellClass}`}>
                               {dendaPaid > 0 ? (
-                                <span className="text-rose-600 font-black">+{formatRupiah(dendaPaid)}</span>
+                                <div className="flex flex-col items-center justify-center">
+                                  <span className="font-mono font-black text-emerald-800 text-xs sm:text-sm tabular-nums">
+                                    +{formatRupiah(dendaPaid)}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-300 mt-0.5 shadow-2xs">
+                                    ✓ Denda Baksos Lunas
+                                  </span>
+                                </div>
+                              ) : baksosInfo.dendaUnpaid > 0 ? (
+                                <div className="flex flex-col items-center justify-center">
+                                  <span className="font-mono font-bold text-rose-700 text-xs tabular-nums">
+                                    Rp 0
+                                  </span>
+                                  <span className="text-[10px] font-bold text-rose-700 bg-rose-100/90 px-2 py-0.5 rounded-md border border-rose-300 mt-0.5 shadow-2xs">
+                                    Denda {formatRupiah(baksosInfo.dendaUnpaid)} Belum Bayar
+                                  </span>
+                                </div>
+                              ) : baksosInfo.hadHadir ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Hadir (Bebas)</span>
+                                </span>
+                              ) : baksosInfo.hadTidakWajib ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                  Tidak Wajib
+                                </span>
+                              ) : isRumahKosongHitam ? (
+                                <span className="text-[10px] text-slate-400 italic">
+                                  Bebas (Kosong)
+                                </span>
                               ) : (
-                                <span className={isRumahKosongHitam ? 'text-neutral-500' : 'text-slate-400'}>-</span>
+                                <span className="text-slate-400 font-mono text-center block">-</span>
                               )}
                             </td>
 
@@ -3545,7 +3560,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       +{formatRupiah(totalSemua)}
                                     </span>
                                     <span className="text-[10px] font-sans font-extrabold text-sky-800">
-                                      Bayar &gt;1 Bln ({house.duesPaidMonths || 2} Bln)
+                                      {house.duesPaidMonths && house.duesPaidMonths > 1
+                                        ? `Bayar Lebih ${house.duesPaidMonths - 1} Bln (Total ${house.duesPaidMonths} Bln)`
+                                        : 'Bayar Lebih'}
                                     </span>
                                   </>
                                 ) : isSudahBayar ? (
@@ -3582,8 +3599,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       <td className="py-3 px-3 text-right font-mono text-emerald-800 border border-slate-300 font-black">
                         +{formatRupiah(recapTotals.sumIuran)}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-rose-600 border border-slate-300 font-black">
-                        +{formatRupiah(recapTotals.sumDenda)}
+                      <td className="py-3 px-3 text-center font-mono text-emerald-800 border border-slate-300 font-black">
+                        {recapTotals.sumDenda > 0 ? `+${formatRupiah(recapTotals.sumDenda)}` : 'Rp 0'}
                       </td>
                       <td className="py-3 px-3 text-right font-mono text-rose-600 border border-slate-300 font-black">
                         +{formatRupiah(recapTotals.sumTunggakan)}
@@ -4058,13 +4075,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       {isEditingVacant ? (
                         <>
                           <option value="Belum Bayar">Bebas Iuran (Default Rumah Kosong - Tidak Wajib)</option>
-                          <option value="Lunas">Lunas (1 Bulan)</option>
-                          <option value="Bayar Lebih">Bayar Lebih (&gt;1 Bulan)</option>
+                          <option value="Lunas">Lunas (1 Bulan Ini Saja)</option>
+                          <option value="Bayar Lebih">Bayar Lebih (Bulan Ini + Bulan Berikutnya)</option>
                         </>
                       ) : (
                         <>
-                          <option value="Lunas">Lunas (1 Bulan)</option>
-                          <option value="Bayar Lebih">Bayar Lebih (&gt;1 Bulan)</option>
+                          <option value="Lunas">Lunas (1 Bulan Ini Saja)</option>
+                          <option value="Bayar Lebih">Bayar Lebih (Bulan Ini + Bulan Berikutnya)</option>
                           <option value="Belum Bayar">Belum Bayar</option>
                         </>
                       )}
@@ -4075,45 +4092,57 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 {houseDuesStatusInput === 'Bayar Lebih' && (() => {
                   const mLabel = houseDuesMonthInput.trim() || defaultMonthLabel;
                   const monthsCount = Math.max(2, houseDuesPaidMonthsInput);
+                  const extraMonths = Math.max(1, monthsCount - 1);
                   const covered = getSubsequentMonthLabels(mLabel, monthsCount);
-                  const rangeTxt = `${mLabel} - ${covered[covered.length - 1]} (${monthsCount} Bulan)`;
+                  const rangeTxt = `${mLabel} s/d ${covered[covered.length - 1]} (Total ${monthsCount} Bulan)`;
                   const payerName = houseDuesHeadNameInput.trim() || editingHouseDues.headName;
                   const houseTag = isEditingVacant ? `(Rumah Kosong - ${payerName})` : `(${payerName})`;
-                  const autoNotePreview = `Iuran Kas Warga Lebih dari 1 Bulan (${rangeTxt}) Warga Blok ${editingHouseDues.blockNumber} ${houseTag}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`;
+                  const autoNotePreview = `Iuran Kas Warga Bayar Lebih ${extraMonths} Bulan (${rangeTxt}) Warga Blok ${editingHouseDues.blockNumber} ${houseTag}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`;
 
                   return (
                     <div className="p-3.5 bg-indigo-50/90 border border-indigo-200 rounded-xl space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4 text-indigo-600" />
-                          <span>Pilihan Iuran Lebih dari 1 Bulan</span>
+                          <span>Pilihan Bayar Lebih ({extraMonths} Bulan Lebih)</span>
                         </span>
                         <span className="text-[10px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
-                          {monthsCount} Bulan Tercover
+                          Total {monthsCount} Bulan Tercover
                         </span>
+                      </div>
+
+                      {/* Info Banner: Penjelasan Hitungan Bayar Lebih */}
+                      <div className="p-2.5 bg-indigo-100/80 rounded-lg border border-indigo-300 text-[11px] text-indigo-950 leading-relaxed">
+                        💡 <strong>Hitungan Bayar Lebih:</strong> Bayar lebih <strong>{extraMonths} bulan</strong> sudah otomatis termasuk pembayaran bulan dia membayar (<strong>{mLabel}</strong>) ditambah {extraMonths} bulan berikutnya ({covered.slice(1).join(', ')}), sehingga total yang dicakup adalah <strong>{monthsCount} Bulan</strong> ({formatRupiah(houseDuesAmountInput * monthsCount)}).
                       </div>
 
                       {/* Presets Cepat Bulan */}
                       <div className="space-y-1">
                         <label className="block text-[11px] font-bold text-indigo-900">
-                          Pilihan Cepat Jumlah Bulan:
+                          Pilihan Cepat Bayar Lebih:
                         </label>
-                        <div className="grid grid-cols-6 gap-1 text-[11px]">
-                          {[2, 3, 4, 5, 6, 12].map((cnt) => (
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[11px]">
+                          {[
+                            { cnt: 2, extra: 1, label: '+1 Bln (Total 2 Bln)' },
+                            { cnt: 3, extra: 2, label: '+2 Bln (Total 3 Bln)' },
+                            { cnt: 4, extra: 3, label: '+3 Bln (Total 4 Bln)' },
+                            { cnt: 6, extra: 5, label: '+5 Bln (Total 6 Bln)' },
+                            { cnt: 12, extra: 11, label: '1 Thn (Total 12 Bln)' },
+                          ].map((preset) => (
                             <button
-                              key={cnt}
+                              key={preset.cnt}
                               type="button"
                               onClick={() => {
-                                setHouseDuesPaidMonthsInput(cnt);
-                                setHouseDuesTotalReceivedInput(houseDuesAmountInput * cnt);
+                                setHouseDuesPaidMonthsInput(preset.cnt);
+                                setHouseDuesTotalReceivedInput(houseDuesAmountInput * preset.cnt);
                               }}
-                              className={`py-1 rounded-lg font-bold border transition-all cursor-pointer text-center ${
-                                houseDuesPaidMonthsInput === cnt
+                              className={`py-1.5 px-1 rounded-lg font-bold border transition-all cursor-pointer text-center text-[10.5px] ${
+                                houseDuesPaidMonthsInput === preset.cnt
                                   ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs ring-1 ring-indigo-400'
                                   : 'bg-white text-indigo-900 border-indigo-200 hover:bg-indigo-100/70'
                               }`}
                             >
-                              {cnt === 12 ? '1 Thn' : `${cnt} Bln`}
+                              {preset.label}
                             </button>
                           ))}
                         </div>
@@ -4122,7 +4151,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div>
                           <label className="block font-semibold text-indigo-900 mb-1">
-                            Jumlah Bulan Manual
+                            Total Bulan yang Dibayar
                           </label>
                           <input
                             type="number"
@@ -4136,6 +4165,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             }}
                             className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                           />
+                          <span className="block text-[10px] text-indigo-700 mt-0.5">
+                            Bulan ini + {extraMonths} bulan lebih
+                          </span>
                         </div>
                         <div>
                           <label className="block font-semibold text-indigo-900 mb-1">
@@ -4149,13 +4181,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             onChange={(e) => setHouseDuesTotalReceivedInput(Number(e.target.value) || 0)}
                             className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                           />
+                          <span className="block text-[10px] text-slate-500 mt-0.5">
+                            {monthsCount} x {formatRupiah(houseDuesAmountInput)}
+                          </span>
                         </div>
                       </div>
 
                       {/* Daftar Bulan yang Dicakup */}
                       <div className="space-y-1">
                         <span className="block text-[11px] font-semibold text-indigo-900">
-                          Bulan yang Otomatis Tercatat Lunas:
+                          Bulan yang Otomatis Tercatat Lunas ({monthsCount} Bulan):
                         </span>
                         <div className="flex flex-wrap gap-1">
                           {covered.map((m, idx) => (
@@ -4167,7 +4202,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   : 'bg-indigo-100 text-indigo-900 border-indigo-300'
                               }`}
                             >
-                              ✓ {m}
+                              {idx === 0 ? `✓ ${m} (Bulan Berjalan)` : `✓ ${m} (+Lebih ${idx})`}
                             </span>
                           ))}
                         </div>
@@ -4187,10 +4222,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         />
                       </div>
 
-                      {/* Preview Catatan Transaksi */}
-                      <div className="p-2 bg-white/90 rounded-lg border border-indigo-200 text-[10px] space-y-1">
-                        <span className="font-bold text-indigo-950 block">📝 Pratinjau Catatan Transaksi Kas:</span>
-                        <div className="font-mono text-indigo-900 break-words font-medium">
+                      {/* Pratinjau Catatan Transaksi */}
+                      <div className="text-[10px] space-y-1 pt-1 border-t border-indigo-200/70">
+                        <span className="font-bold text-indigo-950 block">📝 Otomatis Dicatat di Buku Kas:</span>
+                        <div className="p-2 bg-white rounded-lg border border-indigo-200 text-indigo-900 font-mono text-[10px] break-words">
                           {autoNotePreview}
                         </div>
                       </div>
@@ -4231,6 +4266,74 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     />
                   </div>
                 </div>
+
+                {/* Status & Pembayaran Denda Baksos */}
+                {(() => {
+                  const baksosModalInfo = getHouseBaksosForPeriod(editingHouseDues, selectedKKPeriod);
+                  return (
+                    <div className="p-3 bg-teal-50/90 border border-teal-200 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between flex-wrap gap-1">
+                        <span className="text-xs font-bold text-teal-950 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-teal-700" />
+                          <span>Data Pembayaran Denda Baksos ({selectedKKPeriod !== 'semua' ? selectedKKPeriod : 'Semua Periode'})</span>
+                        </span>
+                        {baksosModalInfo.dendaPaid > 0 ? (
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+                            ✓ Lunas (+{formatRupiah(baksosModalInfo.dendaPaid)})
+                          </span>
+                        ) : baksosModalInfo.dendaUnpaid > 0 ? (
+                          <span className="text-[10px] font-bold text-rose-800 bg-rose-100 px-2 py-0.5 rounded-md border border-rose-300">
+                            Belum Bayar ({formatRupiah(baksosModalInfo.dendaUnpaid)})
+                          </span>
+                        ) : baksosModalInfo.hadHadir ? (
+                          <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+                            Hadir (Bebas Denda)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-medium text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                            Tidak Ada Denda
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Tombol pelunasan cepat denda baksos untuk admin jika ada yang belum bayar */}
+                      {baksosModalInfo.unpaidAgendas.length > 0 && onMarkFinePaid && (
+                        <div className="pt-2 border-t border-teal-200/70 space-y-1.5">
+                          <span className="text-[11px] font-bold text-teal-900 block">
+                            Kegiatan dengan Denda Belum Bayar:
+                          </span>
+                          {baksosModalInfo.unpaidAgendas.map((agenda) => (
+                            <div
+                              key={agenda.id}
+                              className="flex items-center justify-between text-xs bg-white p-2 rounded-lg border border-teal-200 gap-2"
+                            >
+                              <span className="text-slate-800 text-[11px] font-medium truncate" title={agenda.title}>
+                                {agenda.title} ({formatDateDDMMYYYY(agenda.date)})
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onMarkFinePaid(
+                                    agenda.id,
+                                    editingHouseDues.id,
+                                    editingHouseDues.headName,
+                                    editingHouseDues.blockNumber
+                                  );
+                                  try {
+                                    confetti({ particleCount: 35, spread: 50 });
+                                  } catch {}
+                                }}
+                                className="px-2.5 py-1 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-md cursor-pointer shrink-0 transition-all shadow-2xs"
+                              >
+                                Lunaskan (+Rp 10.000)
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">

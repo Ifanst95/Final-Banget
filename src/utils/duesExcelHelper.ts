@@ -137,7 +137,7 @@ export function downloadDuesExcelTemplate(
     {
       Kolom: 'Jumlah Bulan Dibayar',
       'Aturan Pengisian':
-        'Isi 1 jika Lunas 1 bulan. Isi 2, 3, dst jika bayar lebih untuk beberapa bulan ke depan. Isi 0 jika belum bayar.',
+        'Isi 1 jika Lunas 1 bulan. Isi 2 jika bayar lebih 1 bulan (mencakup bulan berjalan + 1 bulan berikutnya, misal Mei dan Juni = total 2 bulan). Isi 3 jika bayar lebih 2 bulan (total 3 bulan), dst. Isi 0 jika belum bayar.',
     },
     {
       Kolom: 'Total Uang Diterima (Rp)',

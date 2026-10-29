@@ -176,6 +176,8 @@ export default function App() {
               onDeleteTransaction={deleteTransaction}
               onAdjustBalance={adjustBalance}
               onUpdateResident={updateResident}
+              onMarkFinePaid={markBaksosFinePaid}
+              onUnmarkFinePaid={unmarkBaksosFinePaid}
               onCreatePeriod={createPeriod}
               onDeletePeriod={deletePeriod}
               onBatchImportDues={batchImportDues}
