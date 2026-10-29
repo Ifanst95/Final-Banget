@@ -1109,380 +1109,564 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
       </div>
 
       {/* TABEL RINCIAN 3 KOMPONEN PENARIKAN KEUANGAN */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-md overflow-hidden">
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-teal-800 via-emerald-800 to-indigo-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <FileSpreadsheet className="w-5 h-5 text-amber-300" />
-            <h3 className="font-extrabold text-sm sm:text-base text-white">
-              Tabel Rincian 3 Komponen Penarikan Keuangan ({filteredBillingList.length} Kavling)
-            </h3>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-medium text-emerald-100">
-            <span>Bulan Ditagihkan: <strong className="text-amber-300">{inputMonth}</strong></span>
-            <span>•</span>
-            <span className="text-emerald-200 font-bold">Bisa Edit Iuran, Baksos & Tunggakan</span>
-          </div>
+      <div className="space-y-3">
+        {/* Keterangan Warna Otomatis Sama Persis Dengan Rekap Iuran Per KK */}
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs bg-white/95 rounded-2xl p-3 sm:px-4 border border-slate-200/90 shadow-2xs">
+          <span className="font-bold text-slate-700 text-xs">Keterangan Warna Otomatis:</span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-neutral-950 text-white font-bold border border-neutral-800 text-[11px] shadow-2xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-neutral-400"></span>
+            Rumah Kosong (Hitam / Bebas Iuran)
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-sky-100 text-sky-950 font-bold border border-sky-300 text-[11px] shadow-2xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+            Bayar Lebih / Lunas di Muka (Biru Muda)
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-950 font-bold border border-emerald-300 text-[11px] shadow-2xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            Lunas (Hijau Muda)
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-100 text-rose-950 font-bold border border-rose-300 text-[11px] shadow-2xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+            Belum Bayar / Menunggak (Merah Muda)
+          </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
-            <thead>
-              <tr className="bg-slate-100/90 text-slate-800 font-extrabold border-b border-slate-200">
-                <th className="py-3 px-2 text-center w-8">No</th>
-                <th className="py-3 px-2.5 text-center w-20">No Blok</th>
-                <th className="py-3 px-3 min-w-[200px]">
-                  Kepala Keluarga / Penanggung Jawab
-                  <span className="block text-[10px] text-slate-500 font-normal">
-                    (Bisa diedit khusus penarikan)
-                  </span>
-                </th>
-                <th className="py-3 px-2.5 text-center">Status Rumah</th>
-                <th className="py-3 px-3 text-right bg-emerald-50/70 border-l border-emerald-200">
-                  <div className="flex items-center justify-end gap-1">
-                    <span>1. Iuran Bulanan</span>
-                    <Edit2 className="w-3 h-3 text-emerald-700" />
-                  </div>
-                  <span className="block text-[10px] text-emerald-800 font-normal">
-                    (Kosong = Rp 0, Belum Ditempati = Edit)
-                  </span>
-                </th>
-                <th className="py-3 px-3 text-right bg-purple-50/70 border-l border-purple-200">
-                  <div className="flex items-center justify-end gap-1">
-                    <span>2. Tunggakan Lalu</span>
-                    <Edit2 className="w-3 h-3 text-purple-700" />
-                  </div>
-                  <span className="block text-[10px] text-purple-800 font-normal">
-                    (Bisa diedit nominalnya)
-                  </span>
-                </th>
-                <th className="py-3 px-3 text-right bg-amber-50/70 border-l border-amber-200">
-                  <div className="flex items-center justify-end gap-1">
-                    <span>3. Denda Baksos</span>
-                    <Edit2 className="w-3 h-3 text-amber-700" />
-                  </div>
-                  <span className="block text-[10px] text-amber-800 font-normal">
-                    (Bisa diedit nominalnya)
-                  </span>
-                </th>
-                <th className="py-3 px-3 text-right bg-rose-50/70 border-l border-rose-200 font-black">
-                  Total Tagihan
-                </th>
-                <th className="py-3 px-3 text-center min-w-[240px]">
-                  Pilihan Pembayaran & Aksi
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredBillingList.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 text-xs italic">
-                    Tidak ada data kavling rumah yang cocok dengan filter pencarian.
-                  </td>
+        <div className="bg-white rounded-3xl border border-slate-300/90 shadow-md overflow-hidden">
+          <div className="p-4 sm:p-5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2">
+              <FileSpreadsheet className="w-5 h-5 text-amber-300" />
+              <h3 className="font-extrabold text-sm sm:text-base text-white">
+                Tabel Rincian 3 Komponen Penarikan Keuangan ({filteredBillingList.length} Kavling)
+              </h3>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-medium text-emerald-50">
+              <span>Bulan Ditagihkan: <strong className="text-amber-200 font-bold">{inputMonth}</strong></span>
+              <span>•</span>
+              <span className="text-emerald-100 font-bold">Bisa Edit Iuran, Baksos & Tunggakan</span>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse border border-slate-300 whitespace-nowrap">
+              <thead>
+                <tr className="bg-slate-100 text-slate-800 font-extrabold border-b border-slate-300">
+                  <th className="py-3 px-2 text-center w-10 border border-slate-300 bg-slate-100 text-slate-800">No</th>
+                  <th className="py-3 px-2.5 text-center w-24 border border-slate-300 bg-slate-100 text-slate-800">No Blok</th>
+                  <th className="py-3 px-3 min-w-[200px] border border-slate-300 bg-slate-100 text-slate-800">
+                    Kepala Keluarga / Penanggung Jawab
+                    <span className="block text-[10px] text-slate-500 font-normal">
+                      (Bisa diedit khusus penarikan)
+                    </span>
+                  </th>
+                  <th className="py-3 px-2.5 text-center border border-slate-300 bg-slate-100 text-slate-800">Status Rumah</th>
+                  <th className="py-3 px-3 text-right border border-slate-300 bg-emerald-100/80 text-emerald-950">
+                    <div className="flex items-center justify-end gap-1">
+                      <span>1. Iuran Bulanan</span>
+                      <Edit2 className="w-3 h-3 text-emerald-700" />
+                    </div>
+                    <span className="block text-[10px] text-emerald-800 font-normal">
+                      (Kosong = Rp 0, Belum Ditempati = Edit)
+                    </span>
+                  </th>
+                  <th className="py-3 px-3 text-right border border-slate-300 bg-purple-100/80 text-purple-950">
+                    <div className="flex items-center justify-end gap-1">
+                      <span>2. Tunggakan Lalu</span>
+                      <Edit2 className="w-3 h-3 text-purple-700" />
+                    </div>
+                    <span className="block text-[10px] text-purple-800 font-normal">
+                      (Bisa diedit nominalnya)
+                    </span>
+                  </th>
+                  <th className="py-3 px-3 text-right border border-slate-300 bg-amber-100/80 text-amber-950">
+                    <div className="flex items-center justify-end gap-1">
+                      <span>3. Denda Baksos</span>
+                      <Edit2 className="w-3 h-3 text-amber-700" />
+                    </div>
+                    <span className="block text-[10px] text-amber-800 font-normal">
+                      (Bisa diedit nominalnya)
+                    </span>
+                  </th>
+                  <th className="py-3 px-3 text-right border border-slate-300 bg-rose-100/80 text-rose-950 font-black">
+                    Total Tagihan
+                  </th>
+                  <th className="py-3 px-3 text-center min-w-[240px] border border-slate-300 bg-slate-100 text-slate-800">
+                    Pilihan Pembayaran & Aksi
+                  </th>
                 </tr>
-              ) : (
-                filteredBillingList.map((item, idx) => {
-                  const { house, displayName, isVacant, isUnoccupied, monthlyDuesNominal, isDuesPaid, remainingDues, previousArrears, previousArrearsNote, baksosFineAmount, unpaidBaksosList, totalBillRemaining } = item;
+              </thead>
+              <tbody className="divide-y divide-slate-300">
+                {filteredBillingList.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center text-slate-400 text-xs italic border border-slate-300">
+                      Tidak ada data kavling rumah yang cocok dengan filter pencarian.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredBillingList.map((item, idx) => {
+                    const {
+                      house,
+                      displayName,
+                      isVacant,
+                      isUnoccupied,
+                      monthlyDuesNominal,
+                      isDuesPaid,
+                      remainingDues,
+                      isAdvancePaidForInputMonth,
+                      paidMonthsCount,
+                      previousArrears,
+                      previousArrearsNote,
+                      baksosFineAmount,
+                      unpaidBaksosList,
+                      totalBillRemaining,
+                    } = item;
 
-                  const isAllPaid = totalBillRemaining === 0;
+                    const isAllPaid = totalBillRemaining === 0;
 
-                  return (
-                    <tr
-                      key={house.id}
-                      className={`transition-colors ${
-                        isVacant
-                          ? 'bg-slate-50/70 text-slate-600'
-                          : isAllPaid
-                          ? 'hover:bg-emerald-50/30'
-                          : 'bg-rose-50/15 hover:bg-rose-50/30'
-                      }`}
-                    >
-                      {/* No */}
-                      <td className="py-3 px-2 text-center font-mono text-slate-400">
-                        {idx + 1}
-                      </td>
+                    // Kriteria pewarnaan otomatis sama persis dengan Rekap Iuran Per KK:
+                    // 1. Rumah kosong murni (tanpa pembayaran) ATAU belum ditempati tanpa pembayaran -> Hitam pekat
+                    // 2. Bayar Lebih dari 1 bulan atau Lunas di Muka -> Biru Muda
+                    // 3. Lunas (sudah bayar 1 bulan / semua komponen lunas) -> Hijau Muda
+                    // 4. Belum Bayar / Menunggak -> Merah Muda
+                    const isRumahKosongHitam = (isVacant && !isDuesPaid) || (isUnoccupied && !isDuesPaid);
 
-                      {/* No Blok */}
-                      <td className="py-3 px-2.5 text-center">
-                        <span
-                          className={`font-mono font-bold text-xs px-2.5 py-1 rounded-xl shadow-2xs ${
-                            isVacant
-                              ? 'bg-slate-200 text-slate-700'
-                              : isAllPaid
-                              ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                              : 'bg-rose-100 text-rose-800 border border-rose-200'
-                          }`}
-                        >
-                          {house.blockNumber}
-                        </span>
-                      </td>
+                    const isBayarLebih =
+                      !isRumahKosongHitam &&
+                      (isAdvancePaidForInputMonth ||
+                       paidMonthsCount > 1 ||
+                       house.duesStatus === 'Bayar Lebih' ||
+                       (house.duesPaidMonths || 0) > 1);
 
-                      {/* Kepala Keluarga (Bisa diedit khusus penarikan) */}
-                      <td className="py-3 px-3">
-                        <div className="flex items-center justify-between gap-2">
-                          <div>
-                            <div className="font-extrabold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
-                              <span>{displayName}</span>
-                              {house.duesHeadNameOverride && (
-                                <span className="px-1.5 py-0.2 rounded text-[10px] bg-amber-100 text-amber-800 border border-amber-300 font-bold">
-                                  Disesuaikan
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(house)}
-                            className="p-1 text-slate-400 hover:text-emerald-700 rounded transition-colors cursor-pointer"
-                            title="Edit nama penanggung jawab atau 3 komponen keuangan"
+                    const isSudahBayar =
+                      !isRumahKosongHitam &&
+                      !isBayarLebih &&
+                      (isDuesPaid || house.duesStatus === 'Lunas' || (house.duesPaidAmount || 0) > 0 || isAllPaid);
+
+                    const rowCellClass = isRumahKosongHitam
+                      ? 'bg-black text-white border-neutral-800 font-medium'
+                      : isBayarLebih
+                      ? 'bg-sky-50 text-sky-950 border-sky-300 font-medium'
+                      : isSudahBayar
+                      ? 'bg-emerald-50 text-emerald-950 border-emerald-300 font-medium'
+                      : 'bg-rose-50 text-rose-950 border-rose-300 font-medium';
+
+                    return (
+                      <tr
+                        key={house.id}
+                        className={`transition-colors border-b ${
+                          isRumahKosongHitam
+                            ? 'bg-black text-white border-neutral-800 hover:bg-neutral-900'
+                            : isBayarLebih
+                            ? 'bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100/60'
+                            : isSudahBayar
+                            ? 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100/60'
+                            : 'bg-rose-50 text-rose-950 border-rose-300 hover:bg-rose-100/60'
+                        }`}
+                      >
+                        {/* 1. No */}
+                        <td className={`py-3 px-2 text-center font-mono border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : 'text-slate-600'}`}>
+                          {idx + 1}
+                        </td>
+
+                        {/* 2. No Blok */}
+                        <td className={`py-3 px-2.5 text-center border ${rowCellClass}`}>
+                          <span
+                            className={`font-mono font-bold text-xs px-2.5 py-1 rounded-xl shadow-2xs border ${
+                              isRumahKosongHitam
+                                ? 'bg-neutral-900 text-white border-neutral-700'
+                                : isBayarLebih
+                                ? 'bg-sky-200/90 text-sky-950 border-sky-400'
+                                : isSudahBayar
+                                ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400'
+                                : 'bg-rose-200/90 text-rose-950 border-rose-400'
+                            }`}
                           >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
+                            Blok {house.blockNumber}
+                          </span>
+                        </td>
 
-                      {/* Status Rumah */}
-                      <td className="py-3 px-2.5 text-center">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                            isVacant
-                              ? 'bg-slate-200 text-slate-700'
-                              : isUnoccupied
-                              ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                              : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          }`}
-                        >
-                          {house.occupancy}
-                        </span>
-                      </td>
-
-                      {/* 1. IURAN BULANAN (Bisa diedit) */}
-                      <td className="py-3 px-3 text-right font-mono bg-emerald-50/20 border-l border-emerald-100">
-                        {isVacant && !isDuesPaid ? (
-                          <div className="flex items-center justify-end gap-1">
-                            <span className="text-slate-400 italic text-[11px]">Rp 0 (Bebas)</span>
+                        {/* 3. Kepala Keluarga (Bisa diedit khusus penarikan) */}
+                        <td className={`py-3 px-3 border ${rowCellClass}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <div
+                                className={`font-extrabold text-xs sm:text-sm flex items-center gap-1.5 ${
+                                  isRumahKosongHitam
+                                    ? 'text-white'
+                                    : isBayarLebih
+                                    ? 'text-sky-950'
+                                    : isSudahBayar
+                                    ? 'text-emerald-950'
+                                    : 'text-rose-950'
+                                }`}
+                              >
+                                <span>{displayName}</span>
+                                {house.duesHeadNameOverride && (
+                                  <span
+                                    className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${
+                                      isRumahKosongHitam
+                                        ? 'bg-neutral-800 text-amber-300 border-neutral-700'
+                                        : 'bg-amber-100 text-amber-800 border-amber-300'
+                                    }`}
+                                  >
+                                    Disesuaikan
+                                  </span>
+                                )}
+                              </div>
+                            </div>
                             <button
                               type="button"
                               onClick={() => handleOpenEdit(house)}
-                              className="p-0.5 text-slate-400 hover:text-emerald-700 rounded cursor-pointer"
-                              title="Edit Jumlah Iuran Bulanan"
+                              className={`p-1 rounded transition-colors cursor-pointer ${
+                                isRumahKosongHitam
+                                  ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                  : 'text-slate-500 hover:text-emerald-700 hover:bg-emerald-100/60'
+                              }`}
+                              title="Edit nama penanggung jawab atau 3 komponen keuangan"
                             >
-                              <Edit2 className="w-2.5 h-2.5" />
+                              <Edit2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
-                        ) : (
-                          <div>
+                        </td>
+
+                        {/* 4. Status Rumah */}
+                        <td className={`py-3 px-2.5 text-center border ${rowCellClass}`}>
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                              isRumahKosongHitam
+                                ? 'bg-neutral-900 text-slate-300 border-neutral-700'
+                                : isVacant
+                                ? 'bg-slate-200 text-slate-700 border-slate-300'
+                                : isUnoccupied
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : isBayarLebih
+                                ? 'bg-sky-100 text-sky-950 border-sky-300'
+                                : isSudahBayar
+                                ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
+                                : 'bg-rose-100 text-rose-950 border-rose-300'
+                            }`}
+                          >
+                            {house.occupancy}
+                          </span>
+                        </td>
+
+                        {/* 5. 1. IURAN BULANAN (Bisa diedit) */}
+                        <td className={`py-3 px-3 text-right font-mono border ${rowCellClass}`}>
+                          {isRumahKosongHitam ? (
                             <div className="flex items-center justify-end gap-1">
-                              <span className="font-bold text-slate-900">
-                                {formatRupiah(monthlyDuesNominal)}
-                              </span>
+                              <span className="text-slate-400 italic text-[11px]">Rp 0 (Bebas)</span>
                               <button
                                 type="button"
                                 onClick={() => handleOpenEdit(house)}
-                                className="p-0.5 text-slate-400 hover:text-emerald-700 rounded cursor-pointer"
+                                className="p-0.5 text-slate-400 hover:text-white rounded cursor-pointer"
                                 title="Edit Jumlah Iuran Bulanan"
                               >
                                 <Edit2 className="w-2.5 h-2.5" />
                               </button>
                             </div>
-                            <div className="mt-0.5">
-                              {isDuesPaid ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickToggleStatus(house)}
-                                  className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all hover:scale-105 ${
-                                    item.isAdvancePaidForInputMonth
-                                      ? 'bg-indigo-100 text-indigo-900 border border-indigo-200 hover:bg-indigo-200'
-                                      : item.paidMonthsCount > 1
-                                      ? 'bg-teal-100 text-teal-900 border border-teal-200 hover:bg-teal-200'
-                                      : 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                                  }`}
-                                  title="Klik untuk ubah kembali status menjadi Belum Bayar (Otomatis bersihkan data di Rekap KK & Buku Kas)"
-                                >
-                                  {item.isAdvancePaidForInputMonth ? (
-                                    <>
-                                      <span>✓ Lunas di Muka</span>
-                                      <span className="text-[9px] font-normal text-indigo-700">(Otomatis)</span>
-                                    </>
-                                  ) : item.paidMonthsCount > 1 ? (
-                                    <>
-                                      <span>✓ Lunas ({item.paidMonthsCount} Bln)</span>
-                                    </>
-                                  ) : (
-                                    <span>✓ Lunas (Klik Batal)</span>
-                                  )}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickToggleStatus(house)}
-                                  className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-rose-100 text-rose-800 font-bold hover:bg-rose-200 cursor-pointer transition-all hover:scale-105"
-                                  title="Klik untuk tandai Lunas 1 bulan ini"
-                                >
-                                  Belum Bayar (Klik Lunas)
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* 2. TUNGGAKAN LALU (Bisa diedit) */}
-                      <td className="py-3 px-3 text-right font-mono bg-purple-50/20 border-l border-purple-100">
-                        <div className="flex items-center justify-end gap-1">
-                          <span className={previousArrears > 0 ? 'font-bold text-purple-900' : 'text-slate-400 font-sans text-[11px]'}>
-                            {previousArrears > 0 ? formatRupiah(previousArrears) : '-'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(house)}
-                            className="p-0.5 text-slate-400 hover:text-purple-700 rounded cursor-pointer"
-                            title="Edit Tunggakan Sebelumnya & Keterangannya"
-                          >
-                            <Edit2 className="w-2.5 h-2.5" />
-                          </button>
-                        </div>
-                        {previousArrearsNote && (
-                          <span className="block text-[10px] text-slate-500 font-sans truncate max-w-[140px] text-right" title={previousArrearsNote}>
-                            {previousArrearsNote}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* 3. DENDA BAKSOS (Bisa diedit) */}
-                      <td className="py-3 px-3 text-right font-mono bg-amber-50/20 border-l border-amber-100">
-                        <div className="flex items-center justify-end gap-1">
-                          <span className={baksosFineAmount > 0 ? 'font-bold text-amber-900' : 'text-slate-400 font-sans text-[11px]'}>
-                            {baksosFineAmount > 0 ? formatRupiah(baksosFineAmount) : '-'}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(house)}
-                            className="p-0.5 text-slate-400 hover:text-amber-700 rounded cursor-pointer"
-                            title="Edit Denda Bakti Sosial"
-                          >
-                            <Edit2 className="w-2.5 h-2.5" />
-                          </button>
-                        </div>
-                        {baksosFineAmount > 0 && unpaidBaksosList.length > 0 && (
-                          <span className="block text-[10px] text-amber-700 font-sans font-medium text-right">
-                            ({unpaidBaksosList.length}x Absen)
-                          </span>
-                        )}
-                      </td>
-
-                      {/* TOTAL TAGIHAN */}
-                      <td className="py-3 px-3 text-right font-mono font-black text-sm bg-rose-50/20 border-l border-rose-100 tabular-nums">
-                        {totalBillRemaining > 0 ? (
-                          <span className="text-rose-700">{formatRupiah(totalBillRemaining)}</span>
-                        ) : (
-                          <span className="text-emerald-700 text-xs">Rp 0 (Lunas)</span>
-                        )}
-                      </td>
-
-                      {/* PILIHAN PEMBAYARAN & AKSI: BISA MEMILIH SALAH SATU ATAU SEMUA */}
-                      <td className="py-3 px-3 text-center">
-                        <div className="flex flex-wrap items-center justify-center gap-1">
-                          {isAllPaid ? (
-                            <div className="flex items-center gap-1">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>{item.isAdvancePaidForInputMonth ? 'Lunas di Muka' : 'Semua Lunas'}</span>
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRevertHouseToUnpaid(house)}
-                                className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-bold cursor-pointer flex items-center gap-1"
-                                title="Batalkan input pembayaran KK ini & otomatis hapus dari Rekap KK dan Buku Kas"
-                              >
-                                <RotateCcw className="w-3 h-3 text-rose-600" />
-                                <span>Batal Bayar</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenPaymentModal(item, 'custom')}
-                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold cursor-pointer"
-                                title="Buka dialog untuk membayar iuran bulan berikutnya atau rincian lainnya"
-                              >
-                                + Bayar Lagi
-                              </button>
-                            </div>
                           ) : (
-                            <>
-                              {/* Tombol Utama Pembayaran Fleksibel (Pilih salah satu / semua) */}
-                              <button
-                                type="button"
-                                onClick={() => handleOpenPaymentModal(item, 'all')}
-                                className="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer"
-                                title="Buka dialog pembayaran untuk memilih bayar salah satu atau semua"
-                              >
-                                Bayar / Pilih
-                              </button>
-
-                              {/* Pilihan Bayar Hanya Iuran */}
-                              {remainingDues > 0 && (
+                            <div>
+                              <div className="flex items-center justify-end gap-1">
+                                <span
+                                  className={`font-bold ${
+                                    isBayarLebih
+                                      ? 'text-sky-900'
+                                      : isSudahBayar
+                                      ? 'text-emerald-800'
+                                      : 'text-rose-950'
+                                  }`}
+                                >
+                                  {formatRupiah(monthlyDuesNominal)}
+                                </span>
                                 <button
                                   type="button"
-                                  onClick={() => handleOpenPaymentModal(item, 'dues_only')}
-                                  className="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-300 rounded-lg text-[10px] font-bold cursor-pointer"
-                                  title="Hanya bayar Iuran Bulanan saja"
+                                  onClick={() => handleOpenEdit(house)}
+                                  className={`p-0.5 rounded cursor-pointer ${
+                                    isBayarLebih
+                                      ? 'text-sky-700 hover:text-sky-950'
+                                      : isSudahBayar
+                                      ? 'text-emerald-700 hover:text-emerald-950'
+                                      : 'text-rose-700 hover:text-rose-950'
+                                  }`}
+                                  title="Edit Jumlah Iuran Bulanan"
                                 >
-                                  Iuran Saja
+                                  <Edit2 className="w-2.5 h-2.5" />
                                 </button>
-                              )}
-
-                              {/* Pilihan Bayar Hanya Baksos */}
-                              {baksosFineAmount > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenPaymentModal(item, 'baksos_only')}
-                                  className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-[10px] font-bold cursor-pointer"
-                                  title="Hanya bayar Denda Baksos saja"
-                                >
-                                  Baksos Saja
-                                </button>
-                              )}
-
-                              {/* Pilihan Bayar Hanya Tunggakan Lalu */}
-                              {previousArrears > 0 && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenPaymentModal(item, 'arrears_only')}
-                                  className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-300 rounded-lg text-[10px] font-bold cursor-pointer"
-                                  title="Hanya bayar Tunggakan Lalu saja"
-                                >
-                                  Lalu Saja
-                                </button>
-                              )}
-                            </>
+                              </div>
+                              <div className="mt-0.5">
+                                {isDuesPaid ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickToggleStatus(house)}
+                                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all hover:scale-105 border ${
+                                      isAdvancePaidForInputMonth
+                                        ? 'bg-sky-200 text-sky-950 border-sky-400 hover:bg-sky-300'
+                                        : paidMonthsCount > 1
+                                        ? 'bg-sky-200 text-sky-950 border-sky-400 hover:bg-sky-300'
+                                        : 'bg-emerald-200 text-emerald-950 border-emerald-400 hover:bg-emerald-300'
+                                    }`}
+                                    title="Klik untuk ubah kembali status menjadi Belum Bayar (Otomatis bersihkan data di Rekap KK & Buku Kas)"
+                                  >
+                                    {isAdvancePaidForInputMonth ? (
+                                      <>
+                                        <span>✓ Lunas di Muka</span>
+                                        <span className="text-[9px] font-normal text-sky-800">(Otomatis)</span>
+                                      </>
+                                    ) : paidMonthsCount > 1 ? (
+                                      <span>✓ Lunas ({paidMonthsCount} Bln)</span>
+                                    ) : (
+                                      <span>✓ Lunas (Klik Batal)</span>
+                                    )}
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickToggleStatus(house)}
+                                    className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-rose-200 text-rose-950 border border-rose-400 font-bold hover:bg-rose-300 cursor-pointer transition-all hover:scale-105"
+                                    title="Klik untuk tandai Lunas 1 bulan ini"
+                                  >
+                                    Belum Bayar (Klik Lunas)
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           )}
+                        </td>
 
-                          {/* Tombol Edit Rincian Komponen */}
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(house)}
-                            className="p-1 rounded-lg border border-slate-200 text-slate-500 hover:text-emerald-700 hover:bg-slate-50 cursor-pointer"
-                            title="Edit Jumlah Iuran, Denda Baksos & Tunggakan"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
+                        {/* 6. 2. TUNGGAKAN LALU (Bisa diedit) */}
+                        <td className={`py-3 px-3 text-right font-mono border ${rowCellClass}`}>
+                          <div className="flex items-center justify-end gap-1">
+                            <span
+                              className={
+                                previousArrears > 0
+                                  ? isRumahKosongHitam
+                                    ? 'font-bold text-amber-300'
+                                    : 'font-bold text-purple-900'
+                                  : isRumahKosongHitam
+                                  ? 'text-neutral-500 font-sans text-[11px]'
+                                  : 'text-slate-400 font-sans text-[11px]'
+                              }
+                            >
+                              {previousArrears > 0 ? formatRupiah(previousArrears) : '-'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(house)}
+                              className={`p-0.5 rounded cursor-pointer ${
+                                isRumahKosongHitam
+                                  ? 'text-slate-400 hover:text-white'
+                                  : 'text-slate-400 hover:text-purple-700'
+                              }`}
+                              title="Edit Tunggakan Sebelumnya & Keterangannya"
+                            >
+                              <Edit2 className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                          {previousArrearsNote && (
+                            <span
+                              className={`block text-[10px] font-sans truncate max-w-[140px] text-right ${
+                                isRumahKosongHitam ? 'text-slate-400' : 'text-slate-500'
+                              }`}
+                              title={previousArrearsNote}
+                            >
+                              {previousArrearsNote}
+                            </span>
+                          )}
+                        </td>
 
-                          {/* Tombol Hapus Manual Per Kepala Keluarga */}
-                          <button
-                            type="button"
-                            onClick={() => setDeletingHouse(house)}
-                            className="p-1 rounded-lg border border-rose-200 text-rose-500 hover:text-rose-700 hover:bg-rose-50 cursor-pointer"
-                            title={`Hapus manual / Clear tagihan KK ${displayName} (Blok ${house.blockNumber})`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        {/* 7. 3. DENDA BAKSOS (Bisa diedit) */}
+                        <td className={`py-3 px-3 text-right font-mono border ${rowCellClass}`}>
+                          <div className="flex items-center justify-end gap-1">
+                            <span
+                              className={
+                                baksosFineAmount > 0
+                                  ? isRumahKosongHitam
+                                    ? 'font-bold text-rose-400'
+                                    : 'font-bold text-amber-900'
+                                  : isRumahKosongHitam
+                                  ? 'text-neutral-500 font-sans text-[11px]'
+                                  : 'text-slate-400 font-sans text-[11px]'
+                              }
+                            >
+                              {baksosFineAmount > 0 ? formatRupiah(baksosFineAmount) : '-'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(house)}
+                              className={`p-0.5 rounded cursor-pointer ${
+                                isRumahKosongHitam
+                                  ? 'text-slate-400 hover:text-white'
+                                  : 'text-slate-400 hover:text-amber-700'
+                              }`}
+                              title="Edit Denda Bakti Sosial"
+                            >
+                              <Edit2 className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                          {baksosFineAmount > 0 && unpaidBaksosList.length > 0 && (
+                            <span
+                              className={`block text-[10px] font-sans font-medium text-right ${
+                                isRumahKosongHitam ? 'text-rose-300' : 'text-amber-700'
+                              }`}
+                            >
+                              ({unpaidBaksosList.length}x Absen)
+                            </span>
+                          )}
+                        </td>
+
+                        {/* 8. TOTAL TAGIHAN */}
+                        <td className={`py-3 px-3 text-right font-mono font-black text-sm border tabular-nums ${rowCellClass}`}>
+                          {totalBillRemaining > 0 ? (
+                            <span className={isRumahKosongHitam ? 'text-rose-400' : 'text-rose-700'}>
+                              {formatRupiah(totalBillRemaining)}
+                            </span>
+                          ) : (
+                            <span
+                              className={`text-xs ${
+                                isRumahKosongHitam
+                                  ? 'text-slate-300'
+                                  : isBayarLebih
+                                  ? 'text-sky-900'
+                                  : 'text-emerald-800'
+                              }`}
+                            >
+                              {isRumahKosongHitam ? 'Rp 0' : 'Rp 0 (Lunas)'}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* 9. PILIHAN PEMBAYARAN & AKSI */}
+                        <td className={`py-3 px-3 text-center border ${rowCellClass}`}>
+                          <div className="flex flex-wrap items-center justify-center gap-1">
+                            {isAllPaid ? (
+                              <div className="flex items-center gap-1">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold border ${
+                                    isRumahKosongHitam
+                                      ? 'bg-neutral-900 text-slate-300 border-neutral-700'
+                                      : isBayarLebih
+                                      ? 'bg-sky-200 text-sky-950 border-sky-400'
+                                      : 'bg-emerald-200 text-emerald-950 border-emerald-400'
+                                  }`}
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>
+                                    {isRumahKosongHitam
+                                      ? 'Bebas Tagihan'
+                                      : item.isAdvancePaidForInputMonth
+                                      ? 'Lunas di Muka'
+                                      : 'Semua Lunas'}
+                                  </span>
+                                </span>
+                                {!isRumahKosongHitam && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRevertHouseToUnpaid(house)}
+                                    className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-bold cursor-pointer flex items-center gap-1 shadow-2xs"
+                                    title="Batalkan input pembayaran KK ini & otomatis hapus dari Rekap KK dan Buku Kas"
+                                  >
+                                    <RotateCcw className="w-3 h-3 text-rose-600" />
+                                    <span>Batal Bayar</span>
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenPaymentModal(item, 'custom')}
+                                  className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer border shadow-2xs ${
+                                    isRumahKosongHitam
+                                      ? 'bg-neutral-800 hover:bg-neutral-700 text-white border-neutral-600'
+                                      : 'bg-white hover:bg-emerald-50 text-emerald-900 border-emerald-300'
+                                  }`}
+                                  title="Buka dialog untuk membayar iuran bulan berikutnya atau rincian lainnya"
+                                >
+                                  + Bayar Lagi
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                {/* Tombol Utama Pembayaran Fleksibel (Pilih salah satu / semua) */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenPaymentModal(item, 'all')}
+                                  className="px-2.5 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                                  title="Buka dialog pembayaran untuk memilih bayar salah satu atau semua"
+                                >
+                                  Bayar / Pilih
+                                </button>
+
+                                {/* Pilihan Bayar Hanya Iuran */}
+                                {remainingDues > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenPaymentModal(item, 'dues_only')}
+                                    className="px-2 py-1 bg-white hover:bg-teal-50 text-teal-900 border border-teal-300 rounded-lg text-[10px] font-bold cursor-pointer shadow-2xs"
+                                    title="Hanya bayar Iuran Bulanan saja"
+                                  >
+                                    Iuran Saja
+                                  </button>
+                                )}
+
+                                {/* Pilihan Bayar Hanya Baksos */}
+                                {baksosFineAmount > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenPaymentModal(item, 'baksos_only')}
+                                    className="px-2 py-1 bg-white hover:bg-amber-50 text-amber-900 border border-amber-300 rounded-lg text-[10px] font-bold cursor-pointer shadow-2xs"
+                                    title="Hanya bayar Denda Baksos saja"
+                                  >
+                                    Baksos Saja
+                                  </button>
+                                )}
+
+                                {/* Pilihan Bayar Hanya Tunggakan Lalu */}
+                                {previousArrears > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenPaymentModal(item, 'arrears_only')}
+                                    className="px-2 py-1 bg-white hover:bg-purple-50 text-purple-900 border border-purple-300 rounded-lg text-[10px] font-bold cursor-pointer shadow-2xs"
+                                    title="Hanya bayar Tunggakan Lalu saja"
+                                  >
+                                    Lalu Saja
+                                  </button>
+                                )}
+                              </>
+                            )}
+
+                            {/* Tombol Edit Rincian Komponen */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(house)}
+                              className={`p-1 rounded-lg border cursor-pointer ${
+                                isRumahKosongHitam
+                                  ? 'border-neutral-700 text-slate-300 hover:text-white hover:bg-neutral-800'
+                                  : 'border-slate-300 text-slate-700 hover:text-emerald-700 hover:bg-white shadow-2xs'
+                              }`}
+                              title="Edit Jumlah Iuran, Denda Baksos & Tunggakan"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* Tombol Hapus Manual Per Kepala Keluarga */}
+                            <button
+                              type="button"
+                              onClick={() => setDeletingHouse(house)}
+                              className={`p-1 rounded-lg border cursor-pointer ${
+                                isRumahKosongHitam
+                                  ? 'border-neutral-700 text-rose-400 hover:text-rose-300 hover:bg-neutral-800'
+                                  : 'border-rose-200 text-rose-600 hover:text-rose-800 hover:bg-white shadow-2xs'
+                              }`}
+                              title={`Hapus manual / Clear tagihan KK ${displayName} (Blok ${house.blockNumber})`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
