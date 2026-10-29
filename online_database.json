@@ -1,10 +1,10 @@
 {
   "version": 5,
-  "revision": 1045,
+  "revision": 1070,
   "isDefaultSeed": false,
-  "updatedAt": "2026-10-29T07:57:14.707Z",
-  "updatedBy": "Sistem Sinkronisasi Gang Mandor",
-  "clientId": "portal-system-admin",
+  "updatedAt": "2026-10-29T10:45:18.040Z",
+  "updatedBy": "Pengurus Gang Mandor (Online Test)",
+  "clientId": "client-1a25ach5-mvtalai8",
   "siteConfig": {
     "brandName": "GANG MANDOR PRO",
     "title": "GANG MANDOR PRO",
@@ -207,12 +207,12 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Tidak Pasang",
       "wifiProvider": "-",
-      "duesStatus": "Lunas",
+      "duesStatus": "Bayar Lebih",
       "customDuesAmount": 15000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 1,
-      "duesPrepaidBalance": 0,
-      "duesPaidDate": "2026-10-25",
+      "duesPaidMonths": 2,
+      "duesPrepaidBalance": 15000,
+      "duesPaidDate": "2026-05-01",
       "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
@@ -228,7 +228,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-25T17:12:50.469Z"
+      "updatedAt": "2026-10-29T08:47:15.969Z"
     },
     {
       "id": "warga-k2-27",
@@ -2605,6 +2605,33 @@
   ],
   "transactions": [
     {
+      "id": "tx-init-mei-kas",
+      "date": "2026-04-30",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Kas Utama",
+      "description": "Saldo Awal Inputan Periode Mei 2026",
+      "amount": 275000
+    },
+    {
+      "id": "tx-init-mei-sampah",
+      "date": "2026-04-30",
+      "type": "masuk",
+      "pool": "Cashback Sampah",
+      "category": "Cashback Sampah",
+      "description": "Saldo Awal Cashback Sampah Bulan Sebelumnya (Periode Mei 2026)",
+      "amount": 1265000
+    },
+    {
+      "date": "2026-05-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Kas Bayar Lebih 2 Bulan (September 2026, Oktober 2026) Warga Blok K2/26 (Rumah Kosong - Ibnu Fauzi)",
+      "amount": 30000,
+      "id": "tx-1793263635987-pins"
+    },
+    {
       "id": "tx-1792947947044-9hu0",
       "date": "2026-08-07",
       "type": "masuk",
@@ -2978,7 +3005,7 @@
       "date": "2026-08-01",
       "type": "masuk",
       "pool": "Kas Utama",
-      "category": "Iuran Warga",
+      "category": "Pembayaran Tunggakan",
       "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/34 (Rahmad Sanusi) (Iuran Juni 2026: Rp 40.000; Iuran Juli 2026: Rp 40.000)",
       "amount": 80000
     },
@@ -3140,7 +3167,7 @@
       "date": "2026-07-05",
       "type": "masuk",
       "pool": "Kas Utama",
-      "category": "Iuran Warga",
+      "category": "Pembayaran Tunggakan",
       "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K3/20 (Denny Putu Sanjaya) (Iuran Mei 2026: Rp 40.000; Iuran Juni 2026: Rp 40.000)",
       "amount": 80000
     },
@@ -3188,15 +3215,6 @@
       "category": "Iuran Warga",
       "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K3/12 (Sunardi)",
       "amount": 40000
-    },
-    {
-      "id": "tx-1792848637540-w7sb",
-      "date": "2026-07-11",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan Lebih dari 1 Bulan (Juli 2026 - Desember 2026 (6 Bulan)) Blok K3/11 (Asep Deni Susanto)",
-      "amount": 240000
     },
     {
       "id": "tx-1792848606405-1h4e",
@@ -3329,7 +3347,7 @@
       "date": "2026-07-13",
       "type": "masuk",
       "pool": "Kas Utama",
-      "category": "Iuran Warga",
+      "category": "Pembayaran Tunggakan",
       "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/40 (Affriajan Sitohang) (Iuran Juni 2026: Rp 40.000)",
       "amount": 40000
     },
@@ -3413,15 +3431,6 @@
       "category": "Iuran Warga",
       "description": "Penarikan Iuran Bulanan (Juli 2026) Blok K2/27 (Adi Dwi Juniardi)",
       "amount": 40000
-    },
-    {
-      "id": "tx-1792847653245-3cvf",
-      "date": "2026-07-06",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan Lebih dari 1 Bulan (Juli 2026 - Desember 2026 (6 Bulan)) Blok K2/26 (Ibnu Fauzi)",
-      "amount": 90000
     },
     {
       "id": "tx-1792847539948-hn1a",
@@ -3820,15 +3829,6 @@
       "amount": 100000
     },
     {
-      "id": "tx-1792830675386-vby6",
-      "date": "2026-05-01",
-      "type": "masuk",
-      "pool": "Cashback Sampah",
-      "category": "Cashback Sampah",
-      "description": "Cashback Sampah Pengurus Sebelumnya",
-      "amount": 1265000
-    },
-    {
       "id": "tx-1792830574310-uw6g",
       "date": "2026-05-28",
       "type": "keluar",
@@ -3899,15 +3899,6 @@
       "category": "Pengeluaran Gang",
       "description": "Pembelian Ban Dalam (Perbaikan Alat Penarikan Got) ",
       "amount": 45000
-    },
-    {
-      "id": "tx-adj-1792829892034-huzw",
-      "date": "2026-05-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Kas Utama",
-      "description": "Penyesuaian Saldo Kas Utama: Koreksi saldo akhir Mei 2026",
-      "amount": 275000
     },
     {
       "id": "tx-1792828171717-3wye",
@@ -4112,7 +4103,7 @@
       "date": "2026-05-10",
       "type": "masuk",
       "pool": "Kas Utama",
-      "category": "Iuran Warga",
+      "category": "Pembayaran Tunggakan",
       "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/40 (Affriajan Sitohang) (Iuran Bulan Maret, April)",
       "amount": 80000
     },
@@ -4214,15 +4205,6 @@
       "category": "Iuran Warga",
       "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/27 (Adi Dwi Juniardi)",
       "amount": 40000
-    },
-    {
-      "id": "tx-1792797246728-3yvs",
-      "date": "2026-05-02",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan Lebih dari 1 Bulan (Mei 2026 - Juni 2026 (2 Bulan)) Blok K2/26 (Ibnu Fauzi)",
-      "amount": 30000
     }
   ],
   "baksosAgendas": [

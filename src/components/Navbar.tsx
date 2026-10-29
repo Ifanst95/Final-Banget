@@ -185,43 +185,38 @@ export const Navbar: React.FC<NavbarProps> = ({
       : INITIAL_NAV_MENUS
   ).filter((m) => !m.isHidden);
 
-  const navItems = [
-    ...activeMenus.map((item) => {
-      const colors = getMenuColorStyles(item.colorScheme);
-      const IconComponent = getMenuIcon(item.icon);
-      return {
-        id: item.id,
-        label: item.label,
-        shortLabel: item.shortLabel || item.label,
-        icon: IconComponent,
-        activeGradient: colors.active,
-        inactiveColor: colors.inactive,
-        iconColor: colors.icon,
-        count:
-          item.id === 'tunggakan' && totalArrearsCount > 0
-            ? totalArrearsCount
-            : undefined,
-        subMenus: item.subMenus || [],
-      };
-    }),
-    ...(isAdmin
-      ? [
-          {
-            id: 'penarikan',
-            label: 'Penarikan Keuangan',
-            shortLabel: 'Penarikan',
-            icon: Banknote,
-            activeGradient:
-              'bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 text-white shadow-md shadow-emerald-500/30 ring-2 ring-emerald-300/60',
-            inactiveColor:
-              'bg-emerald-100/85 hover:bg-emerald-200/90 text-emerald-950 border border-emerald-300/80',
-            iconColor: 'text-emerald-700',
-            count: undefined,
-            subMenus: [],
-          },
-        ]
-      : []),
-  ];
+  // Deduplicate activeMenus by id and label to ensure no double menus appear in navigation
+  const seenMenuIds = new Set<string>();
+  const seenMenuLabels = new Set<string>();
+  const uniqueActiveMenus = activeMenus.filter((m) => {
+    if (m.id === 'penarikan') return false; // Terintegrasi di Buku Kas & Iuran KK
+    if (seenMenuIds.has(m.id)) return false;
+    const normLabel = (m.label || '').toLowerCase().trim();
+    if (normLabel && seenMenuLabels.has(normLabel)) return false;
+    seenMenuIds.add(m.id);
+    if (normLabel) seenMenuLabels.add(normLabel);
+    return true;
+  });
+
+  const navItems = uniqueActiveMenus.map((item) => {
+    const colors = getMenuColorStyles(item.colorScheme);
+    const IconComponent = getMenuIcon(item.icon);
+    return {
+      id: item.id,
+      label: item.label,
+      shortLabel: item.shortLabel || item.label,
+      icon: IconComponent,
+      activeGradient: colors.active,
+      inactiveColor: colors.inactive,
+      iconColor: colors.icon,
+      count:
+        item.id === 'tunggakan' && totalArrearsCount > 0
+          ? totalArrearsCount
+          : undefined,
+      subMenus: item.subMenus || [],
+    };
+  });
+
 
   return (
     <>

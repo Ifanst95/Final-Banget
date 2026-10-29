@@ -190,8 +190,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [selectedTxMonth, setSelectedTxMonth] = useState<string>(() => defaultMonthKey);
   const [searchTx, setSearchTx] = useState<string>('');
 
-
-  // Period management modal state
   const [isPeriodModalOpen, setIsPeriodModalOpen] = useState(false);
   const [periodModalTab, setPeriodModalTab] = useState<'tambah' | 'hapus'>('tambah');
   const [newPeriodMonthIndex, setNewPeriodMonthIndex] = useState<number>(new Date().getMonth());
@@ -774,72 +772,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     });
   }, [filteredTransactions, prevMonthSummary]);
 
-  // Aggregate totals for the table footer and summary cards
-  const tableTotals = useMemo(() => {
-    let sumMasukIuran = 0;
-    let sumMasukDenda = 0;
-    let sumMasukTunggakan = 0;
-    let sumMasukKasLain = 0;
-    let sumMasukWifi = 0;
-    let sumMasukSampah = 0;
-    let sumKeluarKasUtama = 0;
-    let sumKeluarWifi = 0;
-    let sumKeluarSampah = 0;
-
-    classifiedTransactions.forEach((item) => {
-      sumMasukIuran += item.masukIuran;
-      sumMasukDenda += item.masukDenda;
-      sumMasukTunggakan += item.masukTunggakan;
-      sumMasukKasLain += item.masukKasLain;
-      sumMasukWifi += item.masukWifi;
-      sumMasukSampah += item.masukSampah;
-      sumKeluarKasUtama += item.keluarKasUtama;
-      sumKeluarWifi += item.keluarWifi;
-      sumKeluarSampah += item.keluarSampah;
-    });
-
-    const sumMasukKasUtama = sumMasukIuran + sumMasukDenda + sumMasukTunggakan + sumMasukKasLain;
-    const sumMasukCashback = sumMasukWifi + sumMasukSampah;
-    const sumKeluarCashback = sumKeluarWifi + sumKeluarSampah;
-
-    const netKasUtama = sumMasukKasUtama - sumKeluarKasUtama;
-    const netWifi = sumMasukWifi - sumKeluarWifi;
-    const netSampah = sumMasukSampah - sumKeluarSampah;
-    const netCashback = sumMasukCashback - sumKeluarCashback;
-    const netPeriod = (sumMasukKasUtama + sumMasukCashback) - (sumKeluarKasUtama + sumKeluarCashback);
-
-    const finalKasUtama = prevMonthSummary.kasUtama + netKasUtama;
-    const finalWifi = prevMonthSummary.wifiCashback + netWifi;
-    const finalSampah = prevMonthSummary.sampahCashback + netSampah;
-    const finalCashback = finalWifi + finalSampah;
-    const finalSaldo = prevMonthSummary.total + netPeriod;
-
-    return {
-      sumMasukIuran,
-      sumMasukDenda,
-      sumMasukTunggakan,
-      sumMasukKasLain,
-      sumMasukKasUtama,
-      sumMasukWifi,
-      sumMasukSampah,
-      sumMasukCashback,
-      sumKeluarKasUtama,
-      sumKeluarWifi,
-      sumKeluarSampah,
-      sumKeluarCashback,
-      netKasUtama,
-      netWifi,
-      netSampah,
-      netCashback,
-      netPeriod,
-      finalKasUtama,
-      finalWifi,
-      finalSampah,
-      finalCashback,
-      finalSaldo,
-    };
-  }, [classifiedTransactions, prevMonthSummary]);
-
   // Per KK recap list
   const perKKRecapList = useMemo<PerKKRecapItem[]>(() => {
     return residents.map((house) => {
@@ -1341,6 +1273,373 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       totalCollected,
     };
   }, [residents]);
+
+  // DATA STRUKTUR TABEL BUKU KAS YANG DISEMPURNAKAN & DISEDERHANAKAN:
+  // 1. Sisa saldo bulan sebelumnya
+  // 1. Sisa saldo bulan sebelumnya
+  // 2. Total penerimaan kas (gabungan Iuran Kas Seluruh KK + Denda Baksos + Pembayaran Tunggakan)
+  // 3. Uraian pengeluaran gang
+  // 4. Uraian pengeluaran dan penerimaan cashback wifi & sampah serta kas lainnya
+  const simplifiedCashbookData = useMemo(() => {
+    // 1. Baris Sisa Saldo Bulan Sebelumnya
+    const saldoAwalKasUtama = prevMonthSummary.kasUtama;
+    const saldoAwalWifi = prevMonthSummary.wifiCashback;
+    const saldoAwalSampah = prevMonthSummary.sampahCashback;
+    const saldoAwalTotal = prevMonthSummary.total;
+
+    // Periode aktif terpilih
+    const activePeriodLabel =
+      effectiveMonthKey !== 'semua'
+        ? formatMonthYearFromKey(effectiveMonthKey)
+        : defaultMonthLabel;
+
+    // 2. Data Total Penerimaan Rekap Iuran Per KK untuk periode ini
+    // Transaksi iuran yang ada di periode ini (iuran rutin)
+    const iuranTxsInPeriod = filteredTransactions.filter((tx) => {
+      const cat = tx.category || '';
+      const desc = (tx.description || '').toLowerCase();
+      return (
+        tx.type === 'masuk' &&
+        (cat === 'Iuran Warga' ||
+          (!cat.includes('Cashback') &&
+            !cat.includes('Denda') &&
+            !cat.includes('Tunggakan') &&
+            !cat.includes('Pengeluaran') &&
+            (desc.includes('iuran') || desc.includes('rekap iuran'))))
+      );
+    });
+
+    const totalIuranFromTxs = iuranTxsInPeriod.reduce((sum, t) => sum + t.amount, 0);
+
+    // Hitung juga total nominal iuran yang tercatat dari rekapitulasi data KK
+    const totalIuranFromRecap = perKKRecapList.reduce((sum, item) => {
+      if (item.isEmptyHouse) return sum;
+      if (effectiveMonthKey !== 'semua') {
+        const s = getHouseStatusForPeriod(item.house, activePeriodLabel);
+        if (s.status === 'Lunas' || s.status === 'Bayar Lebih') {
+          return sum + (s.amount || item.nominalPerMonth);
+        }
+        return sum + (s.amount || 0);
+      }
+      return sum + (item.isLunas || item.isAdvancePaid ? item.totalPaidAmount : item.house.duesPaidAmount || 0);
+    }, 0);
+
+    // Prioritaskan total dari transaksi pembukuan kas jika ada, atau sinkron dari rekap KK
+    const effectiveTotalIuran = totalIuranFromTxs > 0 ? totalIuranFromTxs : totalIuranFromRecap;
+
+    // Transaksi Denda Baksos di periode ini
+    const dendaTxsInPeriod = filteredTransactions.filter((tx) => {
+      const cat = tx.category || '';
+      const desc = (tx.description || '').toLowerCase();
+      return tx.type === 'masuk' && (cat === 'Denda Baksos' || desc.includes('denda'));
+    });
+    const totalDendaFromTxs = dendaTxsInPeriod.reduce((sum, t) => sum + t.amount, 0);
+    const effectiveTotalDenda = totalDendaFromTxs > 0 ? totalDendaFromTxs : (recapTotals.sumDenda || 0);
+
+    // Transaksi Pembayaran Tunggakan di periode ini
+    const tunggakanTxsInPeriod = filteredTransactions.filter((tx) => {
+      const cat = tx.category || '';
+      const desc = (tx.description || '').toLowerCase();
+      return tx.type === 'masuk' && (cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan'));
+    });
+    const totalTunggakanFromTxs = tunggakanTxsInPeriod.reduce((sum, t) => sum + t.amount, 0);
+    const effectiveTotalTunggakan = totalTunggakanFromTxs > 0 ? totalTunggakanFromTxs : (recapTotals.sumTunggakan || 0);
+
+    // Total gabungan seluruh penerimaan kas warga
+    const effectiveTotalPenerimaanKas = effectiveTotalIuran + effectiveTotalDenda + effectiveTotalTunggakan;
+
+    const lunasCount = perKKRecapList.filter((item) => {
+      if (item.isEmptyHouse) return false;
+      if (effectiveMonthKey !== 'semua') {
+        const s = getHouseStatusForPeriod(item.house, activePeriodLabel);
+        return s.status === 'Lunas' || s.status === 'Bayar Lebih';
+      }
+      return item.isLunas || item.isAdvancePaid;
+    }).length;
+
+    const occupiedCount = perKKRecapList.filter((item) => !item.isEmptyHouse).length;
+
+    // 3. Uraian Pengeluaran Kas Gang (nota/biaya operasional gang)
+    const pengeluaranGangTxs = filteredTransactions.filter((tx) => {
+      if (tx.type !== 'keluar') return false;
+      const cat = tx.category || '';
+      if (
+        cat === 'Pengeluaran Cashback WiFi' ||
+        cat === 'Pengeluaran Cashback Sampah' ||
+        cat === 'Cashback WiFi' ||
+        cat === 'Cashback Sampah' ||
+        tx.pool === 'Cashback WiFi' ||
+        tx.pool === 'Cashback Sampah'
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    // 4. Uraian Pengeluaran & Penerimaan Cashback (WiFi & Sampah) serta Kas Lainnya
+    const cashbackDanKasLainTxs = filteredTransactions.filter((tx) => {
+      // Exclude transaksi yang sudah dirangkum dalam baris total penerimaan kas (iuran, denda, tunggakan)
+      if (iuranTxsInPeriod.some((it) => it.id === tx.id)) return false;
+      if (dendaTxsInPeriod.some((dt) => dt.id === tx.id)) return false;
+      if (tunggakanTxsInPeriod.some((tt) => tt.id === tx.id)) return false;
+      const cat = tx.category || '';
+      const desc = (tx.description || '').toLowerCase();
+      if (cat === 'Iuran Warga' || cat === 'Denda Baksos' || cat === 'Pembayaran Tunggakan') return false;
+      if (desc.includes('iuran bulanan') || desc.includes('pelunasan denda baksos')) return false;
+
+      // Exclude transaksi pengeluaran gang
+      if (pengeluaranGangTxs.some((gt) => gt.id === tx.id)) return false;
+      return true;
+    });
+
+    // Hitung Saldo Berjalan berurutan secara transparan
+    let running = saldoAwalTotal;
+
+    const saldoAwalRow = {
+      id: 'row-saldo-awal',
+      no: '-',
+      date: effectiveMonthKey === 'semua' ? 'Awal Catatan' : 'Awal Bulan',
+      description:
+        effectiveMonthKey === 'semua'
+          ? 'Saldo Awal Pembukuan (Awal Catatan Kas)'
+          : `Sisa Saldo Bulan Sebelumnya (${prevMonthSummary.prevMonthLabel})`,
+      subDescription: `Kas Utama: ${formatRupiah(saldoAwalKasUtama)} | WiFi: ${formatRupiah(saldoAwalWifi)} | Sampah: ${formatRupiah(saldoAwalSampah)}`,
+      category: 'Saldo Awal',
+      pool: 'Kas Utama' as const,
+      masuk: 0,
+      keluar: 0,
+      runningBalance: running,
+    };
+
+    // Filter check untuk row total penerimaan kas
+    const showPenerimaanRow =
+      (filterPool === 'semua' || filterPool === 'Iuran Warga' || filterPool === 'Kas Utama' || filterPool === 'Denda Baksos') &&
+      (!searchTx.trim() ||
+        'iuran'.includes(searchTx.toLowerCase()) ||
+        'denda'.includes(searchTx.toLowerCase()) ||
+        'tunggakan'.includes(searchTx.toLowerCase()) ||
+        'rekap'.includes(searchTx.toLowerCase()) ||
+        'penerimaan'.includes(searchTx.toLowerCase()) ||
+        'warga'.includes(searchTx.toLowerCase()));
+
+    let rekapIuranRow: any = null;
+    if (showPenerimaanRow) {
+      running += effectiveTotalPenerimaanKas;
+      const firstTxDate =
+        iuranTxsInPeriod.length > 0
+          ? formatDateDDMMYYYY(iuranTxsInPeriod[0].date)
+          : dendaTxsInPeriod.length > 0
+          ? formatDateDDMMYYYY(dendaTxsInPeriod[0].date)
+          : tunggakanTxsInPeriod.length > 0
+          ? formatDateDDMMYYYY(tunggakanTxsInPeriod[0].date)
+          : '01/10/2026';
+
+      rekapIuranRow = {
+        id: 'row-rekap-penerimaan-kas',
+        no: 1,
+        date: firstTxDate,
+        description:
+          effectiveMonthKey === 'semua'
+            ? 'Total Penerimaan Kas (Iuran Warga, Denda Baksos & Pembayaran Tunggakan Seluruh KK)'
+            : `Total Penerimaan Kas (Iuran Warga, Denda Baksos & Pembayaran Tunggakan Periode ${activePeriodLabel})`,
+        subDescription: `Iuran Warga: ${formatRupiah(effectiveTotalIuran)} • Denda Baksos: ${formatRupiah(effectiveTotalDenda)} • Pembayaran Tunggakan: ${formatRupiah(effectiveTotalTunggakan)} • (${lunasCount} dari ${occupiedCount} KK Lunas / Bayar Lebih)`,
+        category: 'Penerimaan Kas Warga',
+        pool: 'Kas Utama' as const,
+        masukIuran: effectiveTotalIuran,
+        masukDenda: effectiveTotalDenda,
+        masukTunggakan: effectiveTotalTunggakan,
+        masuk: effectiveTotalPenerimaanKas,
+        keluar: 0,
+        runningBalance: running,
+        lunasCount,
+        occupiedCount,
+      };
+    }
+
+    // Gabungkan seluruh transaksi sisa (pengeluaran gang + cashback wifi & sampah + kas lainnya)
+    // yang BELUM dimasukkan ke baris Total Penerimaan Kas
+    const remainingRawTxs = [...pengeluaranGangTxs, ...cashbackDanKasLainTxs].sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    let itemNumber = rekapIuranRow ? 2 : 1;
+    const remainingCashbookRows = remainingRawTxs
+      .filter((tx) => {
+        const cat = tx.category || '';
+        const isWifi = cat.includes('WiFi') || tx.pool === 'Cashback WiFi';
+        const isSampah = cat.includes('Sampah') || tx.pool === 'Cashback Sampah';
+
+        if (filterPool === 'Iuran Warga') return false;
+        if (filterPool === 'Cashback WiFi') return isWifi;
+        if (filterPool === 'Cashback Sampah') return isSampah;
+        if (filterPool === 'keluar') return tx.type === 'keluar';
+        if (filterPool === 'Kas Utama') return tx.pool === 'Kas Utama' && !isWifi && !isSampah;
+        if (searchTx.trim()) {
+          const q = searchTx.toLowerCase();
+          const matchDesc = (tx.description || '').toLowerCase().includes(q);
+          const matchCat = (tx.category || '').toLowerCase().includes(q);
+          if (!matchDesc && !matchCat) return false;
+        }
+        return true;
+      })
+      .map((tx) => {
+        const isMasuk = tx.type === 'masuk';
+        const cat = tx.category || '';
+        const isWifi =
+          cat === 'Cashback WiFi' ||
+          cat === 'Pengeluaran Cashback WiFi' ||
+          (tx.pool === 'Cashback WiFi' && cat !== 'Pengeluaran Gang' && cat !== 'Kas Utama');
+        const isSampah =
+          cat === 'Cashback Sampah' ||
+          cat === 'Pengeluaran Cashback Sampah' ||
+          (tx.pool === 'Cashback Sampah' && cat !== 'Pengeluaran Gang' && cat !== 'Kas Utama');
+
+        let masukWifi = 0;
+        let masukSampah = 0;
+        let keluarKasUtama = 0;
+        let keluarWifi = 0;
+        let keluarSampah = 0;
+
+        if (isMasuk) {
+          running += tx.amount;
+          if (isWifi) masukWifi = tx.amount;
+          else if (isSampah) masukSampah = tx.amount;
+        } else {
+          running -= tx.amount;
+          if (isWifi) keluarWifi = tx.amount;
+          else if (isSampah) keluarSampah = tx.amount;
+          else keluarKasUtama = tx.amount;
+        }
+
+        return {
+          id: tx.id,
+          tx,
+          no: itemNumber++,
+          date: formatDateDDMMYYYY(tx.date),
+          description: tx.description,
+          subCategoryLabel: isWifi
+            ? isMasuk ? 'Cashback WiFi' : 'Pengeluaran WiFi'
+            : isSampah
+            ? isMasuk ? 'Cashback Sampah' : 'Pengeluaran Sampah'
+            : cat || 'Pengeluaran Gang',
+          isMasuk,
+          isWifi,
+          isSampah,
+          masukWifi,
+          masukSampah,
+          keluarKasUtama,
+          keluarWifi,
+          keluarSampah,
+          masuk: isMasuk ? tx.amount : 0,
+          keluar: isMasuk ? 0 : tx.amount,
+          runningBalance: running,
+        };
+      });
+
+    const totalPengeluaranGang = pengeluaranGangTxs.reduce((s, t) => s + t.amount, 0);
+    const totalCashbackDanLainMasuk = cashbackDanKasLainTxs
+      .filter((t) => t.type === 'masuk')
+      .reduce((s, t) => s + t.amount, 0);
+    const totalCashbackDanLainKeluar = cashbackDanKasLainTxs
+      .filter((t) => t.type === 'keluar')
+      .reduce((s, t) => s + t.amount, 0);
+
+    const totalPemasukanPeriod = (rekapIuranRow ? rekapIuranRow.masuk : 0) + totalCashbackDanLainMasuk;
+    const totalPengeluaranPeriod = totalPengeluaranGang + totalCashbackDanLainKeluar;
+
+    return {
+      saldoAwalRow,
+      rekapIuranRow,
+      remainingCashbookRows,
+      effectiveTotalIuran,
+      effectiveTotalDenda,
+      effectiveTotalTunggakan,
+      effectiveTotalPenerimaanKas,
+      totalPengeluaranGang,
+      totalCashbackDanLainMasuk,
+      totalCashbackDanLainKeluar,
+      totalPemasukanPeriod,
+      totalPengeluaranPeriod,
+      finalCalculatedSaldo: running,
+    };
+  }, [
+    filteredTransactions,
+    prevMonthSummary,
+    effectiveMonthKey,
+    defaultMonthLabel,
+    perKKRecapList,
+    recapTotals,
+    getHouseStatusForPeriod,
+    filterPool,
+    searchTx,
+  ]);
+
+  // Aggregate totals for the table footer and summary cards
+  const tableTotals = useMemo(() => {
+    const sumMasukIuran = simplifiedCashbookData.effectiveTotalIuran;
+    const sumMasukDenda = simplifiedCashbookData.effectiveTotalDenda;
+    const sumMasukTunggakan = simplifiedCashbookData.effectiveTotalTunggakan;
+
+    let sumMasukKasLain = 0;
+    let sumMasukWifi = 0;
+    let sumMasukSampah = 0;
+    let sumKeluarKasUtama = 0;
+    let sumKeluarWifi = 0;
+    let sumKeluarSampah = 0;
+
+    simplifiedCashbookData.remainingCashbookRows.forEach((item) => {
+      sumMasukWifi += item.masukWifi;
+      sumMasukSampah += item.masukSampah;
+      sumKeluarKasUtama += item.keluarKasUtama;
+      sumKeluarWifi += item.keluarWifi;
+      sumKeluarSampah += item.keluarSampah;
+      if (item.isMasuk && !item.isWifi && !item.isSampah) {
+        sumMasukKasLain += item.tx.amount;
+      }
+    });
+
+    const sumMasukKasUtama = sumMasukIuran + sumMasukDenda + sumMasukTunggakan + sumMasukKasLain;
+    const sumMasukCashback = sumMasukWifi + sumMasukSampah;
+    const sumKeluarCashback = sumKeluarWifi + sumKeluarSampah;
+
+    const netKasUtama = sumMasukKasUtama - sumKeluarKasUtama;
+    const netWifi = sumMasukWifi - sumKeluarWifi;
+    const netSampah = sumMasukSampah - sumKeluarSampah;
+    const netCashback = sumMasukCashback - sumKeluarCashback;
+    const netPeriod = (sumMasukKasUtama + sumMasukCashback) - (sumKeluarKasUtama + sumKeluarCashback);
+
+    const finalKasUtama = prevMonthSummary.kasUtama + netKasUtama;
+    const finalWifi = prevMonthSummary.wifiCashback + netWifi;
+    const finalSampah = prevMonthSummary.sampahCashback + netSampah;
+    const finalCashback = finalWifi + finalSampah;
+    const finalSaldo = prevMonthSummary.total + netPeriod;
+
+    return {
+      sumMasukIuran,
+      sumMasukDenda,
+      sumMasukTunggakan,
+      sumMasukKasLain,
+      sumMasukKasUtama,
+      sumMasukWifi,
+      sumMasukSampah,
+      sumMasukCashback,
+      sumKeluarKasUtama,
+      sumKeluarWifi,
+      sumKeluarSampah,
+      sumKeluarCashback,
+      netKasUtama,
+      netWifi,
+      netSampah,
+      netCashback,
+      netPeriod,
+      finalKasUtama,
+      finalWifi,
+      finalSampah,
+      finalCashback,
+      finalSaldo,
+    };
+  }, [simplifiedCashbookData, prevMonthSummary]);
+
 
   // Helper to remove recorded transactions for a house and period in Buku Kas & Rekap KK
   const removeTransactionsForHousePeriod = (house: ResidentHouse, targetPeriod: string) => {
@@ -2187,8 +2486,393 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </div>
           </div>
 
+          {/* HEADER TABEL BUKU KAS MULTI-KOLOM (DITEMPATKAN DI PALING ATAS) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <div>
+              <h3 className="font-black text-slate-900 text-sm sm:text-base flex items-center gap-2">
+                <Table className="w-4 h-4 text-emerald-700" />
+                <span>Tabel Buku Keluar Masuk Kas</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  Multi-Kolom
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Menampilkan Saldo Bulan Sebelumnya, Total Penerimaan Rekap Iuran Per KK, Uraian Pengeluaran Gang, serta Uraian Cashback &amp; Kas Lainnya.
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-300/90 shadow-sm bg-white">
+            <table className="w-full text-center text-xs border-collapse border border-slate-300">
+              <thead>
+                <tr className="border-b border-slate-300 bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white font-extrabold">
+                  <th rowSpan={2} className="py-3 px-2 text-center w-12 border border-slate-300/80 text-white">
+                    No
+                  </th>
+                  <th rowSpan={2} className="py-3 px-3 text-center w-28 border border-slate-300/80 text-white">
+                    Tanggal
+                  </th>
+                  <th rowSpan={2} className="py-3 px-4 text-center min-w-[220px] border border-slate-300/80 text-white">
+                    Detail & Uraian Transaksi
+                  </th>
+                  <th colSpan={5} className="py-2.5 px-3 text-center bg-emerald-700/95 text-white border border-slate-300/80 font-black tracking-wide">
+                    PEMASUKAN (+)
+                  </th>
+                  <th colSpan={3} className="py-2.5 px-3 text-center bg-rose-700/95 text-white border border-slate-300/80 font-black tracking-wide">
+                    PENGELUARAN (-)
+                  </th>
+                  <th rowSpan={2} className="py-3 px-3 text-center w-28 border border-slate-300/80 text-white">
+                    Jumlah
+                  </th>
+                  <th rowSpan={2} className="py-3 px-3 text-center w-32 border border-slate-300/80 text-white">
+                    Saldo Berjalan
+                  </th>
+                  <th rowSpan={2} className="py-3 px-2 text-center w-20 border border-slate-300/80 text-white">
+                    {isAdmin ? 'Aksi' : 'Status'}
+                  </th>
+                </tr>
+
+                <tr className="border-b border-slate-300 text-[11px] font-black bg-slate-100">
+                  <th className="py-2 px-2 text-center text-emerald-950 bg-emerald-100/90 border border-slate-300">
+                    Iuran Warga
+                  </th>
+                  <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
+                    Denda Baksos
+                  </th>
+                  <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
+                    Pembayaran Tunggakan
+                  </th>
+                  <th className="py-2 px-2 text-center text-blue-950 bg-blue-100/90 border border-slate-300">
+                    Cashback WiFi
+                  </th>
+                  <th className="py-2 px-2 text-center text-teal-950 bg-teal-100/90 border border-slate-300">
+                    Cashback Sampah
+                  </th>
+                  <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
+                    Kas Utama / Gang
+                  </th>
+                  <th className="py-2 px-2 text-center text-blue-950 bg-blue-100/90 border border-slate-300">
+                    Cashback WiFi
+                  </th>
+                  <th className="py-2 px-2 text-center text-teal-950 bg-teal-100/90 border border-slate-300">
+                    Cashback Sampah
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-300">
+                {/* BARIS SALDO BULAN SEBELUMNYA */}
+                <tr className="bg-gradient-to-r from-amber-100/90 via-amber-50 to-amber-100/90 font-semibold text-slate-800 border-b-2 border-amber-300 text-center">
+                  <td className="py-2.5 px-2 text-center text-amber-900 font-bold border border-slate-300">-</td>
+                  <td className="py-2.5 px-3 text-center font-mono text-amber-900 whitespace-nowrap border border-slate-300">
+                    {effectiveMonthKey === 'semua' ? 'Awal Catatan' : 'Awal Bulan'}
+                  </td>
+                  <td className="py-2.5 px-4 text-center border border-slate-300">
+                    <div className="font-extrabold text-amber-950 flex items-center justify-center gap-1.5">
+                      <span>
+                        {effectiveMonthKey === 'semua'
+                          ? 'Saldo Awal Pembukuan (Awal Catatan Kas)'
+                          : `Saldo Bulan Sebelumnya (${prevMonthSummary.prevMonthLabel})`}
+                      </span>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={handleOpenMayBalanceModal}
+                          className="p-1 rounded text-amber-700 hover:text-amber-950 hover:bg-amber-200/80 cursor-pointer"
+                          title={
+                            effectiveMonthKey === '2026-05' || prevMonthSummary.prevMonthKey === '2026-04'
+                              ? 'Edit Saldo Bulan Sebelumnya Periode Mei 2026 (Saldo Awal Inputan Baseline)'
+                              : 'Edit Saldo Awal Baseline (April 2026)'
+                          }
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-amber-800 font-normal">
+                      Kas Utama: {formatRupiah(prevMonthSummary.kasUtama)} | WiFi: {formatRupiah(prevMonthSummary.wifiCashback)} | Sampah: {formatRupiah(prevMonthSummary.sampahCashback)}
+                    </div>
+                  </td>
+
+                  <td className="py-2.5 px-2 text-center font-mono text-emerald-800 font-bold border border-slate-300">
+                    {formatRupiah(prevMonthSummary.kasUtama)}
+                  </td>
+                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                  <td className="py-2.5 px-2 text-center font-mono text-blue-600 font-bold border border-slate-300">
+                    {formatRupiah(prevMonthSummary.wifiCashback)}
+                  </td>
+                  <td className="py-2.5 px-2 text-center font-mono text-teal-800 font-bold border border-slate-300">
+                    {formatRupiah(prevMonthSummary.sampahCashback)}
+                  </td>
+                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                  <td className="py-2.5 px-3 text-center font-mono font-bold text-amber-900 border border-slate-300">
+                    {formatRupiah(prevMonthSummary.total)}
+                  </td>
+                  <td className="py-2.5 px-3 text-center font-mono font-extrabold text-amber-950 border border-slate-300">
+                    {formatRupiah(prevMonthSummary.total)}
+                  </td>
+                  <td className="py-2.5 px-2 text-center text-slate-400 font-mono text-[10px] border border-slate-300">-</td>
+                </tr>
+
+                {/* BARIS TOTAL PENERIMAAN KAS DARI REKAP IURAN PER KK, DENDA BAKSOS & PEMBAYARAN TUNGGAKAN */}
+                {simplifiedCashbookData.rekapIuranRow && (
+                  <tr className="bg-emerald-50/70 font-semibold text-slate-800 text-center hover:bg-emerald-100/50 transition-colors">
+                    <td className="py-2.5 px-2 text-center font-mono font-bold text-emerald-900 border border-slate-300">
+                      {simplifiedCashbookData.rekapIuranRow.no}
+                    </td>
+                    <td className="py-2.5 px-3 text-center font-mono text-slate-700 whitespace-nowrap border border-slate-300">
+                      {simplifiedCashbookData.rekapIuranRow.date}
+                    </td>
+                    <td className="py-2.5 px-4 text-center border border-slate-300">
+                      <div className="font-extrabold text-emerald-950 flex items-center justify-center gap-1.5 flex-wrap">
+                        <Users className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>{simplifiedCashbookData.rekapIuranRow.description}</span>
+                      </div>
+                      <div className="text-[10px] text-emerald-800 font-medium mt-0.5">
+                        {simplifiedCashbookData.rekapIuranRow.subDescription}
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-2 text-center font-mono font-bold text-emerald-700 tabular-nums border border-slate-300">
+                      +{formatRupiah(simplifiedCashbookData.rekapIuranRow.masukIuran)}
+                    </td>
+                    <td className="py-2.5 px-2 text-center font-mono font-bold text-amber-700 tabular-nums border border-slate-300">
+                      {simplifiedCashbookData.rekapIuranRow.masukDenda > 0 ? (
+                        `+${formatRupiah(simplifiedCashbookData.rekapIuranRow.masukDenda)}`
+                      ) : (
+                        <span className="text-slate-300">-</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-2 text-center font-mono font-bold text-rose-700 tabular-nums border border-slate-300">
+                      {simplifiedCashbookData.rekapIuranRow.masukTunggakan > 0 ? (
+                        `+${formatRupiah(simplifiedCashbookData.rekapIuranRow.masukTunggakan)}`
+                      ) : (
+                        <span className="text-slate-300">-</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                    <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                    <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                    <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                    <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                    <td className="py-2.5 px-3 text-center font-mono font-bold text-emerald-800 border border-slate-300">
+                      +{formatRupiah(simplifiedCashbookData.rekapIuranRow.masuk)}
+                    </td>
+                    <td className="py-2.5 px-3 text-center font-mono font-extrabold text-slate-900 border border-slate-300">
+                      {formatRupiah(simplifiedCashbookData.rekapIuranRow.runningBalance)}
+                    </td>
+                    <td className="py-2.5 px-2 text-center whitespace-nowrap border border-slate-300">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentSubTab('per_kk');
+                          if (onSwitchMode) onSwitchMode('iuran_kk');
+                        }}
+                        className="px-2 py-0.5 rounded bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold cursor-pointer"
+                      >
+                        Rekap KK
+                      </button>
+                    </td>
+                  </tr>
+                )}
+
+                {/* BARIS-BARIS URAIAN PENGELUARAN GANG, CASHBACK WIFI & SAMPAH, SERTA KAS LAINNYA */}
+                {simplifiedCashbookData.remainingCashbookRows.map((item, idx) => {
+                  const {
+                    tx,
+                    no,
+                    date,
+                    description,
+                    subCategoryLabel,
+                    isMasuk,
+                    isWifi,
+                    isSampah,
+                    masukWifi,
+                    masukSampah,
+                    keluarKasUtama,
+                    keluarWifi,
+                    keluarSampah,
+                    runningBalance,
+                  } = item;
+
+                  return (
+                    <tr
+                      key={tx.id}
+                      className={`hover:bg-teal-50/40 transition-colors text-center ${
+                        idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
+                      }`}
+                    >
+                      <td className="py-2.5 px-2 text-center font-mono text-slate-500 border border-slate-300">
+                        {no}
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-mono text-slate-700 whitespace-nowrap border border-slate-300">
+                        {date}
+                      </td>
+                      <td className="py-2.5 px-4 text-center border border-slate-300">
+                        <div className="font-semibold text-slate-800 leading-snug">{description}</div>
+                        <div className="mt-1 flex items-center justify-center gap-1.5 flex-wrap">
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                              isWifi
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                : isSampah
+                                ? 'bg-cyan-100 text-cyan-800 border border-cyan-200'
+                                : 'bg-rose-100 text-rose-800 border border-rose-300'
+                            }`}
+                          >
+                            {subCategoryLabel}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                      <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                      <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">-</td>
+                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
+                        {masukWifi > 0 ? (
+                          <span className="text-blue-600 font-bold">+{formatRupiah(masukWifi)}</span>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
+                        {masukSampah > 0 ? (
+                          <span className="text-teal-700 font-bold">+{formatRupiah(masukSampah)}</span>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
+                        {keluarKasUtama > 0 ? (
+                          <span className="text-rose-600">-{formatRupiah(keluarKasUtama)}</span>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
+                        {keluarWifi > 0 ? (
+                          <span className="text-blue-600 font-bold">-{formatRupiah(keluarWifi)}</span>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
+                        {keluarSampah > 0 ? (
+                          <span className="text-teal-700 font-bold">-{formatRupiah(keluarSampah)}</span>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
+                        <span className={isMasuk ? 'text-emerald-700' : 'text-rose-600'}>
+                          {isMasuk ? '+' : '-'}{formatRupiah(tx.amount)}
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-3 text-center font-mono font-extrabold whitespace-nowrap tabular-nums text-slate-900 border border-slate-300">
+                        {formatRupiah(runningBalance)}
+                      </td>
+                      <td className="py-2.5 px-2 text-center whitespace-nowrap border border-slate-300">
+                        {isAdmin ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditTx(tx)}
+                              className="p-1 text-slate-400 hover:text-emerald-700 rounded transition-colors cursor-pointer"
+                              title="Edit Transaksi"
+                            >
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                            {deleteConfirmId === tx.id ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    onDeleteTransaction(tx.id);
+                                    setDeleteConfirmId(null);
+                                  }}
+                                  className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[10px] font-bold cursor-pointer"
+                                >
+                                  Hapus
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteConfirmId(null)}
+                                  className="px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-[10px] cursor-pointer"
+                                >
+                                  Batal
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmId(tx.id)}
+                                className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                                title="Hapus Transaksi"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                            <span>Sah</span>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+
+              <tfoot>
+                <tr className="bg-gradient-to-r from-slate-200 via-teal-100/70 to-emerald-100/70 text-slate-950 font-extrabold border-t-2 border-teal-400 text-center">
+                  <td className="py-3 px-2 text-center border border-slate-300">-</td>
+                  <td className="py-3 px-3 text-center font-mono border border-slate-300 font-bold">Akhir Bulan</td>
+                  <td className="py-3 px-4 text-center font-black text-slate-900 border border-slate-300">
+                    TOTAL TRANSAKSI & SALDO AKHIR
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono font-black text-emerald-800 border border-slate-300">
+                    +{formatRupiah(tableTotals.sumMasukIuran)}
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono font-black text-amber-600 border border-slate-300">
+                    +{formatRupiah(tableTotals.sumMasukDenda)}
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono font-black text-rose-600 border border-slate-300">
+                    +{formatRupiah(tableTotals.sumMasukTunggakan)}
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
+                    +{formatRupiah(tableTotals.sumMasukWifi)}
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono font-black text-teal-800 border border-slate-300">
+                    +{formatRupiah(tableTotals.sumMasukSampah)}
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono font-black text-rose-700 border border-slate-300">
+                    -{formatRupiah(tableTotals.sumKeluarKasUtama)}
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
+                    -{formatRupiah(tableTotals.sumKeluarWifi)}
+                  </td>
+                  <td className="py-3 px-2 text-center font-mono font-black text-teal-800 border border-slate-300">
+                    -{formatRupiah(tableTotals.sumKeluarSampah)}
+                  </td>
+                  <td className="py-3 px-3 text-center font-mono font-black border border-slate-300">
+                    <span className={tableTotals.netPeriod >= 0 ? 'text-emerald-700' : 'text-rose-700'}>
+                      {tableTotals.netPeriod >= 0 ? '+' : ''}{formatRupiah(tableTotals.netPeriod)}
+                    </span>
+                  </td>
+                  <td className="py-3 px-3 text-center font-mono font-black text-emerald-950 text-sm border border-slate-300">
+                    {formatRupiah(tableTotals.finalSaldo)}
+                  </td>
+                  <td className="py-3 px-2 text-center text-slate-400 font-mono text-[10px] border border-slate-300">-</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
           {/* PEMISAHAN DETAIL SALDO KAS UTAMA, WIFI, SAMPAH & PENJELASAN PENGELUARAN (Tampil Sama untuk Warga & Pengurus) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-center pt-2">
             {/* 1. Saldo Bulan Sebelumnya */}
             <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50/70 to-amber-100/70 border-2 border-amber-300 text-amber-950 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
               <div className="absolute top-0 right-0 w-24 h-24 bg-amber-400/10 rounded-full blur-xl pointer-events-none" />
@@ -2373,402 +3057,34 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </div>
           </div>
 
-          {/* TABEL BUKU KAS KELUAR MASUK DENGAN GARIS-GARIS (GRID) */}
-          <div className="overflow-x-auto rounded-2xl border border-slate-300/90 shadow-sm bg-white">
-            <table className="w-full text-center text-xs border-collapse border border-slate-300">
-              <thead>
-                <tr className="border-b border-slate-300 bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white font-extrabold">
-                  <th rowSpan={2} className="py-3 px-2 text-center w-12 border border-slate-300/80 text-white">
-                    No
-                  </th>
-                  <th rowSpan={2} className="py-3 px-3 text-center w-28 border border-slate-300/80 text-white">
-                    Tanggal
-                  </th>
-                  <th rowSpan={2} className="py-3 px-4 text-center min-w-[220px] border border-slate-300/80 text-white">
-                    Detail & Uraian Transaksi
-                  </th>
-                  <th colSpan={5} className="py-2.5 px-3 text-center bg-emerald-700/95 text-white border border-slate-300/80 font-black tracking-wide">
-                    PEMASUKAN (+)
-                  </th>
-                  <th colSpan={3} className="py-2.5 px-3 text-center bg-rose-700/95 text-white border border-slate-300/80 font-black tracking-wide">
-                    PENGELUARAN (-)
-                  </th>
-                  <th rowSpan={2} className="py-3 px-3 text-center w-28 border border-slate-300/80 text-white">
-                    Jumlah
-                  </th>
-                  <th rowSpan={2} className="py-3 px-3 text-center w-32 border border-slate-300/80 text-white">
-                    Saldo Berjalan
-                  </th>
-                  <th rowSpan={2} className="py-3 px-2 text-center w-20 border border-slate-300/80 text-white">
-                    {isAdmin ? 'Aksi' : 'Status'}
-                  </th>
-                </tr>
-
-                <tr className="border-b border-slate-300 text-[11px] font-black bg-slate-100">
-                  <th className="py-2 px-2 text-center text-emerald-950 bg-emerald-100/90 border border-slate-300">
-                    Iuran Warga
-                  </th>
-                  <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
-                    Denda Baksos
-                  </th>
-                  <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
-                    Pembayaran Tunggakan
-                  </th>
-                  <th className="py-2 px-2 text-center text-blue-950 bg-blue-100/90 border border-slate-300">
-                    Cashback WiFi
-                  </th>
-                  <th className="py-2 px-2 text-center text-teal-950 bg-teal-100/90 border border-slate-300">
-                    Cashback Sampah
-                  </th>
-                  <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
-                    Kas Utama / Gang
-                  </th>
-                  <th className="py-2 px-2 text-center text-blue-950 bg-blue-100/90 border border-slate-300">
-                    Cashback WiFi
-                  </th>
-                  <th className="py-2 px-2 text-center text-teal-950 bg-teal-100/90 border border-slate-300">
-                    Cashback Sampah
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-slate-300">
-                {/* BARIS SALDO BULAN SEBELUMNYA */}
-                <tr className="bg-gradient-to-r from-amber-100/90 via-amber-50 to-amber-100/90 font-semibold text-slate-800 border-b-2 border-amber-300 text-center">
-                  <td className="py-2.5 px-2 text-center text-amber-900 font-bold border border-slate-300">
-                    -
-                  </td>
-                  <td className="py-2.5 px-3 text-center font-mono text-amber-900 whitespace-nowrap border border-slate-300">
-                    {effectiveMonthKey === 'semua' ? 'Awal Catatan' : 'Awal Bulan'}
-                  </td>
-                  <td className="py-2.5 px-4 text-center border border-slate-300">
-                    <div className="font-extrabold text-amber-950 flex items-center justify-center gap-1.5">
-                      <span>
-                        {effectiveMonthKey === 'semua'
-                          ? 'Saldo Awal Pembukuan (Awal Catatan Kas)'
-                          : `Saldo Bulan Sebelumnya (${prevMonthSummary.prevMonthLabel})`}
-                      </span>
-                      {isAdmin && (
-                        <button
-                          type="button"
-                          onClick={handleOpenMayBalanceModal}
-                          className="p-1 rounded text-amber-700 hover:text-amber-950 hover:bg-amber-200/80 cursor-pointer"
-                          title={
-                            effectiveMonthKey === '2026-05' || prevMonthSummary.prevMonthKey === '2026-04'
-                              ? 'Edit Saldo Bulan Sebelumnya Periode Mei 2026 (Saldo Awal Inputan Baseline)'
-                              : 'Edit Saldo Awal Baseline (April 2026)'
-                          }
-                        >
-                          <Edit2 className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="text-[10px] text-amber-800 font-normal">
-                      Kas Utama: {formatRupiah(prevMonthSummary.kasUtama)} | WiFi: {formatRupiah(prevMonthSummary.wifiCashback)} | Sampah: {formatRupiah(prevMonthSummary.sampahCashback)}
-                    </div>
-                  </td>
-
-                  <td className="py-2.5 px-2 text-center font-mono text-emerald-800 font-bold border border-slate-300">
-                    {formatRupiah(prevMonthSummary.kasUtama)}
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">
-                    -
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">
-                    -
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-blue-600 font-bold border border-slate-300">
-                    {formatRupiah(prevMonthSummary.wifiCashback)}
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-blue-600 font-bold border border-slate-300">
-                    {formatRupiah(prevMonthSummary.sampahCashback)}
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">
-                    -
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">
-                    -
-                  </td>
-                  <td className="py-2.5 px-2 text-center font-mono text-slate-400 border border-slate-300">
-                    -
-                  </td>
-                  <td className="py-2.5 px-3 text-center font-mono font-bold text-amber-900 border border-slate-300">
-                    {formatRupiah(prevMonthSummary.total)}
-                  </td>
-                  <td className="py-2.5 px-3 text-center font-mono font-extrabold text-amber-950 border border-slate-300">
-                    {formatRupiah(prevMonthSummary.total)}
-                  </td>
-                  <td className="py-2.5 px-2 text-center text-slate-400 font-mono text-[10px] border border-slate-300">-</td>
-                </tr>
-
-                {/* BARIS TRANSAKSI BULAN BERJALAN */}
-                {classifiedTransactions.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={14}
-                      className="py-8 text-center text-slate-400 text-xs italic border border-slate-300"
-                    >
-                      Tidak ada transaksi mutasi kas pada periode ini.
-                    </td>
-                  </tr>
-                ) : (
-                  classifiedTransactions.map((item, idx) => {
-                    const {
-                      tx,
-                      isMasuk,
-                      isIuran,
-                      isDenda,
-                      isTunggakan,
-                      isWifi,
-                      isSampah,
-                      masukIuran,
-                      masukDenda,
-                      masukTunggakan,
-                      masukWifi,
-                      masukSampah,
-                      keluarKasUtama,
-                      keluarWifi,
-                      keluarSampah,
-                      subCategoryLabel,
-                      runningTotal,
-                    } = item;
-                    return (
-                      <tr
-                        key={tx.id}
-                        className={`hover:bg-teal-50/40 transition-colors text-center ${
-                          idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
-                        }`}
-                      >
-                        {/* No */}
-                        <td className="py-2.5 px-2 text-center font-mono text-slate-500 border border-slate-300">
-                          {idx + 1}
-                        </td>
-
-                        {/* Tanggal */}
-                        <td className="py-2.5 px-3 text-center font-mono text-slate-700 whitespace-nowrap border border-slate-300">
-                          {formatDateDDMMYYYY(tx.date)}
-                        </td>
-
-                        {/* Detail Transaksi & Badge */}
-                        <td className="py-2.5 px-4 text-center border border-slate-300">
-                          <div className="font-semibold text-slate-800 leading-snug">
-                            {tx.description}
-                          </div>
-                          <div className="mt-1 flex items-center justify-center gap-1.5 flex-wrap">
-                            <span
-                              className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                                isTunggakan
-                                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                                  : isDenda
-                                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                                  : isIuran
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                  : isWifi
-                                  ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                                  : isSampah
-                                  ? 'bg-cyan-100 text-cyan-800 border border-cyan-200'
-                                  : tx.category === 'Pengeluaran Gang'
-                                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                  : tx.category === 'Pengeluaran Lingkungan'
-                                  ? 'bg-teal-100 text-teal-900 border border-teal-300'
-                                  : 'bg-slate-100 text-slate-700'
-                              }`}
-                            >
-                              {subCategoryLabel || tx.category || tx.pool}
-                            </span>
-                            {tx.category && tx.category !== tx.pool && tx.category !== subCategoryLabel && (
-                              <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600">
-                                {tx.category}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        {/* Pemasukan: 1. Iuran Warga */}
-                        <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                          {masukIuran > 0 ? (
-                            <span className="text-emerald-700">+{formatRupiah(masukIuran)}</span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-
-                        {/* Pemasukan: 2. Denda Baksos (MERAH) */}
-                        <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                          {masukDenda > 0 ? (
-                            <span className="text-rose-600 font-bold">+{formatRupiah(masukDenda)}</span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-
-                        {/* Pemasukan: 3. Pembayaran Tunggakan (MERAH) */}
-                        <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                          {masukTunggakan > 0 ? (
-                            <span className="text-rose-600 font-bold">+{formatRupiah(masukTunggakan)}</span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-
-                        {/* Pemasukan: 4. Cashback WiFi (BIRU) */}
-                        <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                          {masukWifi > 0 ? (
-                            <span className="text-blue-600 font-bold">+{formatRupiah(masukWifi)}</span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-
-                        {/* Pemasukan: 5. Cashback Sampah (BIRU) */}
-                        <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                          {masukSampah > 0 ? (
-                            <span className="text-blue-600 font-bold">+{formatRupiah(masukSampah)}</span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-
-                        {/* Pengeluaran: 1. Kas Utama */}
-                        <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                          {keluarKasUtama > 0 ? (
-                            <span className="text-rose-600">-{formatRupiah(keluarKasUtama)}</span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-
-                        {/* Pengeluaran: 2. Cashback WiFi (BIRU) */}
-                        <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                          {keluarWifi > 0 ? (
-                            <span className="text-blue-600 font-bold">-{formatRupiah(keluarWifi)}</span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-
-                        {/* Pengeluaran: 3. Cashback Sampah (BIRU) */}
-                        <td className="py-2.5 px-2 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                          {keluarSampah > 0 ? (
-                            <span className="text-blue-600 font-bold">-{formatRupiah(keluarSampah)}</span>
-                          ) : (
-                            <span className="text-slate-300">-</span>
-                          )}
-                        </td>
-
-                        {/* Jumlah Transaksi */}
-                        <td className="py-2.5 px-3 text-center font-mono font-bold whitespace-nowrap tabular-nums border border-slate-300">
-                          <span className={isMasuk ? 'text-emerald-700' : 'text-rose-600'}>
-                            {isMasuk ? '+' : '-'}{formatRupiah(tx.amount)}
-                          </span>
-                        </td>
-
-                        {/* Saldo Berjalan (Kumulatif) */}
-                        <td className="py-2.5 px-3 text-center font-mono font-extrabold whitespace-nowrap tabular-nums text-slate-900 border border-slate-300">
-                          {formatRupiah(runningTotal)}
-                        </td>
-
-                        {/* Aksi (Pengurus) / Status (Warga) */}
-                        <td className="py-2.5 px-2 text-center whitespace-nowrap border border-slate-300">
-                          {isAdmin ? (
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditTx(tx)}
-                                className="p-1 text-slate-400 hover:text-emerald-700 rounded transition-colors cursor-pointer"
-                                title="Edit Transaksi"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              {deleteConfirmId === tx.id ? (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      onDeleteTransaction(tx.id);
-                                      setDeleteConfirmId(null);
-                                    }}
-                                    className="px-1.5 py-0.5 bg-rose-600 text-white rounded text-[10px] font-bold cursor-pointer"
-                                  >
-                                    Hapus
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setDeleteConfirmId(null)}
-                                    className="px-1.5 py-0.5 bg-slate-200 text-slate-600 rounded text-[10px] cursor-pointer"
-                                  >
-                                    Batal
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteConfirmId(tx.id)}
-                                  className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
-                                  title="Hapus Transaksi"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>Sah</span>
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-
-              {/* FOOTER TOTAL & SALDO AKHIR DENGAN GARIS-GARIS (GRID) */}
-              <tfoot>
-                <tr className="bg-gradient-to-r from-slate-200 via-teal-100/70 to-emerald-100/70 text-slate-950 font-extrabold border-t-2 border-teal-400 text-center">
-                  <td className="py-3 px-2 text-center border border-slate-300">-</td>
-                  <td className="py-3 px-3 text-center font-mono border border-slate-300 font-bold">Akhir Bulan</td>
-                  <td className="py-3 px-4 text-center font-black text-slate-900 border border-slate-300">
-                    TOTAL TRANSAKSI & SALDO AKHIR
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-emerald-800 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukIuran)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-rose-600 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukDenda)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-rose-600 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukTunggakan)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukWifi)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-teal-800 border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukSampah)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-rose-700 border border-slate-300">
-                    -{formatRupiah(tableTotals.sumKeluarKasUtama)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
-                    -{formatRupiah(tableTotals.sumKeluarWifi)}
-                  </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-teal-800 border border-slate-300">
-                    -{formatRupiah(tableTotals.sumKeluarSampah)}
-                  </td>
-                  <td className="py-3 px-3 text-center font-mono font-black border border-slate-300">
-                    <span className={tableTotals.netPeriod >= 0 ? 'text-emerald-700' : 'text-rose-700'}>
-                      {tableTotals.netPeriod >= 0 ? '+' : ''}{formatRupiah(tableTotals.netPeriod)}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-center font-mono font-black text-emerald-950 text-sm border border-slate-300">
-                    {formatRupiah(tableTotals.finalSaldo)}
-                  </td>
-                  <td className="py-3 px-2 text-center text-slate-400 font-mono text-[10px] border border-slate-300">-</td>
-                </tr>
-              </tfoot>
-            </table>
+          {/* CHIP RINGKASAN SALDO AKHIR PER POS KAS DI BAWAH TABEL */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 text-center shadow-2xs">
+              <span className="text-[10px] font-bold text-emerald-800 uppercase block">Saldo Kas Utama</span>
+              <span className="font-mono text-sm font-black text-emerald-950 tabular-nums">
+                {formatRupiah(tableTotals.finalKasUtama)}
+              </span>
+            </div>
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-sky-50 to-blue-50 border border-blue-200 text-center shadow-2xs">
+              <span className="text-[10px] font-bold text-blue-800 uppercase block">Saldo Cashback WiFi</span>
+              <span className="font-mono text-sm font-black text-blue-950 tabular-nums">
+                {formatRupiah(tableTotals.finalWifi)}
+              </span>
+            </div>
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-teal-50 to-cyan-50 border border-teal-200 text-center shadow-2xs">
+              <span className="text-[10px] font-bold text-teal-800 uppercase block">Saldo Cashback Sampah</span>
+              <span className="font-mono text-sm font-black text-teal-950 tabular-nums">
+                {formatRupiah(tableTotals.finalSampah)}
+              </span>
+            </div>
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 text-white border border-teal-500 text-center shadow-sm">
+              <span className="text-[10px] font-bold text-amber-300 uppercase block">Total Saldo Kas Akhir</span>
+              <span className="font-mono text-sm font-black text-emerald-300 tabular-nums">
+                {formatRupiah(tableTotals.finalSaldo)}
+              </span>
+            </div>
           </div>
+
         </div>
       )}
 

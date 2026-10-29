@@ -5,6 +5,7 @@ import {
   BaksosAttendanceStatus,
   CashTransaction,
   CommitteeContact,
+  MenuItemConfig,
   PortalDatabasePayload,
   ResidentHouse,
   SiteConfig,
@@ -59,11 +60,26 @@ function replaceLingkunganWithGang<T>(obj: T): T {
       .replace(/Lingkungan Gang/g, 'Gang')
       .replace(/lingkungan Gang/g, 'Gang')
       .replace(/Lingkungan/g, 'Gang')
-      .replace(/lingkungan/g, 'gang');
     return JSON.parse(replaced) as T;
   } catch {
     return obj;
   }
+}
+
+function sanitizeNavigationMenus(menus?: MenuItemConfig[]): MenuItemConfig[] {
+  if (!Array.isArray(menus) || menus.length === 0) return INITIAL_NAV_MENUS;
+  const seenIds = new Set<string>();
+  const seenLabels = new Set<string>();
+  const sanitized = menus.filter((m) => {
+    if (!m || !m.id || m.id === 'penarikan') return false;
+    if (seenIds.has(m.id)) return false;
+    const norm = (m.label || '').toLowerCase().trim();
+    if (norm && seenLabels.has(norm)) return false;
+    seenIds.add(m.id);
+    if (norm) seenLabels.add(norm);
+    return true;
+  });
+  return sanitized.length > 0 ? sanitized : INITIAL_NAV_MENUS;
 }
 
 function isStateDifferentFromInitial(state: {
@@ -199,10 +215,7 @@ function loadInitialSnapshot(): PortalDatabasePayload {
           updatedBy: parsed.updatedBy || 'Cache Perangkat Lokal',
           siteConfig: {
             ...parsed.siteConfig,
-            navigationMenus:
-              parsed.siteConfig.navigationMenus && parsed.siteConfig.navigationMenus.length > 0
-                ? parsed.siteConfig.navigationMenus
-                : INITIAL_NAV_MENUS,
+            navigationMenus: sanitizeNavigationMenus(parsed.siteConfig.navigationMenus),
           },
           residents: parsed.residents,
           transactions: syncedTransactions,
@@ -227,10 +240,7 @@ function loadInitialSnapshot(): PortalDatabasePayload {
   const rawConfig = readKey(STORAGE_KEYS.CONFIG, INITIAL_SITE_CONFIG);
   const siteConfig: SiteConfig = {
     ...rawConfig,
-    navigationMenus:
-      rawConfig.navigationMenus && rawConfig.navigationMenus.length > 0
-        ? rawConfig.navigationMenus
-        : INITIAL_NAV_MENUS,
+    navigationMenus: sanitizeNavigationMenus(rawConfig.navigationMenus),
   };
   const residents = readKey(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
   const transactions = ensureSeptemberDefaultTransactions(
@@ -350,12 +360,9 @@ export function useStorage() {
       clientId: clean.clientId,
       siteConfig: {
         ...(clean.siteConfig || dbStateRef.current.siteConfig),
-        navigationMenus:
-          clean.siteConfig?.navigationMenus && clean.siteConfig.navigationMenus.length > 0
-            ? clean.siteConfig.navigationMenus
-            : dbStateRef.current.siteConfig?.navigationMenus && dbStateRef.current.siteConfig.navigationMenus.length > 0
-            ? dbStateRef.current.siteConfig.navigationMenus
-            : INITIAL_NAV_MENUS,
+        navigationMenus: sanitizeNavigationMenus(
+          clean.siteConfig?.navigationMenus || dbStateRef.current.siteConfig?.navigationMenus
+        ),
       },
       residents: Array.isArray(clean.residents) ? clean.residents : dbStateRef.current.residents,
       transactions: ensureSeptemberDefaultTransactions(

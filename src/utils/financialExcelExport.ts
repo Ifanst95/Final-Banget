@@ -299,6 +299,38 @@ export function exportFinancialReportToExcel({
         ? 'Bebas Iuran (Kosong)'
         : basePeriod;
 
+      const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+      const dendaTxs = transactions.filter((t) =>
+        t.type === 'masuk' &&
+        (t.category === 'Denda Baksos' || t.description.toLowerCase().includes('denda')) &&
+        blockRegex.test(t.description)
+      );
+      const dendaFromTxs = dendaTxs.reduce((s, t) => s + t.amount, 0);
+
+      const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
+      const unpaidBaksos = baksosAgendas.filter((agenda) => {
+        const att =
+          agenda.attendance?.[house.id] ||
+          (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
+        const paid = agenda.finesPaid?.[house.id];
+        return att === 'Tidak Hadir' && !paid;
+      });
+      const baksosFineArrears = unpaidBaksos.length * 10000;
+      const dendaBaksosAmount =
+        dendaFromTxs > 0
+          ? dendaFromTxs
+          : house.customBaksosFineAmount !== undefined
+          ? house.customBaksosFineAmount
+          : baksosFineArrears;
+
+      const tunggakanTxs = transactions.filter((t) =>
+        t.type === 'masuk' &&
+        (t.category === 'Pembayaran Tunggakan' || t.description.toLowerCase().includes('tunggakan')) &&
+        blockRegex.test(t.description)
+      );
+      const tunggakanPaid = tunggakanTxs.reduce((s, t) => s + t.amount, 0);
+      const totalSemuaPenerimaan = paidThisMonth + dendaFromTxs + tunggakanPaid;
+
       return {
         No: idx + 1,
         'No Blok': house.blockNumber,
@@ -320,7 +352,10 @@ export function exportFinancialReportToExcel({
           ? `Bayar Lebih (${paidMonths} Bulan)`
           : house.duesStatus,
         'Jumlah Bulan Dibayar': paidMonths,
-        'Total Kas Diterima (Rp)': paidThisMonth,
+        'Iuran Kas Diterima (Rp)': paidThisMonth,
+        'Denda Baksos (Rp)': dendaBaksosAmount,
+        'Pembayaran Tunggakan (Rp)': tunggakanPaid,
+        'Total Pembayaran Diterima (Rp)': totalSemuaPenerimaan,
         'Saldo Deposit Bulan Depan (Rp)': prepaidDeposit,
         'Cicilan Berjalan (Rp)': !isLunas && !isEmpty ? house.duesPaidAmount || 0 : 0,
         'Sisa Tagihan Bulan Ini (Rp)': remainingThisMonth,
@@ -343,6 +378,9 @@ export function exportFinancialReportToExcel({
       { wch: 22 },
       { wch: 18 },
       { wch: 22 },
+      { wch: 20 },
+      { wch: 22 },
+      { wch: 24 },
       { wch: 24 },
       { wch: 18 },
       { wch: 22 },
