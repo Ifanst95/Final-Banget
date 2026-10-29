@@ -56,6 +56,8 @@ const getMenuIcon = (iconName?: string) => {
       return Users;
     case 'Wallet':
       return Wallet;
+    case 'Banknote':
+      return Banknote;
     case 'CheckCircle2':
       return CheckCircle2;
     case 'FileSpreadsheet':
@@ -189,7 +191,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   const seenMenuIds = new Set<string>();
   const seenMenuLabels = new Set<string>();
   const uniqueActiveMenus = activeMenus.filter((m) => {
-    if (m.id === 'penarikan') return false; // Terintegrasi di Buku Kas & Iuran KK
     if (seenMenuIds.has(m.id)) return false;
     const normLabel = (m.label || '').toLowerCase().trim();
     if (normLabel && seenMenuLabels.has(normLabel)) return false;

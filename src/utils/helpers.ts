@@ -556,6 +556,67 @@ export function getSubsequentMonthLabels(startLabel: string, count: number): str
   return result;
 }
 
+/**
+ * Cek apakah sebuah periode tertentu (misal: "November 2026") tercakup dalam inputan bulan iuran warga.
+ * Tidak ada perhitungan otomatis bulan berikutnya lunas, tetapi murni mengikuti apa yang diinput oleh pengurus.
+ */
+export function isPeriodCoveredInDuesNote(duesMonthNote: string | undefined, periodLabel: string): boolean {
+  if (!duesMonthNote || !duesMonthNote.trim() || !periodLabel || !periodLabel.trim()) return false;
+  const noteLower = duesMonthNote.toLowerCase().trim();
+  const periodLower = periodLabel.toLowerCase().trim();
+
+  // 1. Exact atau persis match
+  if (noteLower === periodLower) return true;
+
+  // 2. Substring match langsung (misal: "Oktober 2026, November 2026")
+  if (noteLower.includes(periodLower)) return true;
+
+  const pKey = parseIndonesianMonthYearToKey(periodLabel);
+  if (!pKey) return false;
+  const [pYearStr, pMonthStr] = pKey.split('-');
+  const pYear = parseInt(pYearStr, 10);
+  const pMonth = parseInt(pMonthStr, 10);
+
+  const indonesianMonths = [
+    'januari', 'februari', 'maret', 'april', 'mei', 'juni',
+    'juli', 'agustus', 'september', 'oktober', 'november', 'desember'
+  ];
+  const targetMonthName = indonesianMonths[pMonth - 1];
+
+  // 3. Rentang bulan yang ditulis eksplisit seperti: "Oktober - Desember 2026" atau "Oktober s/d Desember 2026"
+  const rangeMatch = noteLower.match(/([a-z]+)\s*(?:-|s\/d|sampai|hingga)\s*([a-z]+)(?:\s*(\d{4}))?/);
+  if (rangeMatch) {
+    const startMonthName = rangeMatch[1];
+    const endMonthName = rangeMatch[2];
+    const rangeYear = rangeMatch[3] ? parseInt(rangeMatch[3], 10) : pYear;
+
+    const startIdx = indonesianMonths.indexOf(startMonthName);
+    const endIdx = indonesianMonths.indexOf(endMonthName);
+
+    if (startIdx !== -1 && endIdx !== -1) {
+      const yearMatches = !noteLower.includes('20') || noteLower.includes(String(pYear)) || rangeYear === pYear;
+      if (yearMatches) {
+        const minIdx = Math.min(startIdx, endIdx);
+        const maxIdx = Math.max(startIdx, endIdx);
+        const currIdx = pMonth - 1;
+        if (currIdx >= minIdx && currIdx <= maxIdx) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // 4. Daftar bulan dipisah koma/dan/garis miring tanpa tahun berulang, misal: "Oktober, November, Desember 2026"
+  if (noteLower.includes(targetMonthName)) {
+    const yearMatches = !noteLower.includes('20') || noteLower.includes(String(pYear));
+    if (yearMatches) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function getPreviousMonthKey(monthKeyOrLabel: string): string {
   const key = parseIndonesianMonthYearToKey(monthKeyOrLabel) || '2026-10';
   const [yStr, mStr] = key.split('-');

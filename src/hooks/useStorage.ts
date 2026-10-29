@@ -71,7 +71,7 @@ function sanitizeNavigationMenus(menus?: MenuItemConfig[]): MenuItemConfig[] {
   const seenIds = new Set<string>();
   const seenLabels = new Set<string>();
   const sanitized = menus.filter((m) => {
-    if (!m || !m.id || m.id === 'penarikan') return false;
+    if (!m || !m.id) return false;
     if (seenIds.has(m.id)) return false;
     const norm = (m.label || '').toLowerCase().trim();
     if (norm && seenLabels.has(norm)) return false;
@@ -79,6 +79,27 @@ function sanitizeNavigationMenus(menus?: MenuItemConfig[]): MenuItemConfig[] {
     if (norm) seenLabels.add(norm);
     return true;
   });
+
+  // Pastikan menu penarikan selalu dikembalikan
+  if (!sanitized.some((m) => m.id === 'penarikan')) {
+    const penarikanMenu = INITIAL_NAV_MENUS.find((m) => m.id === 'penarikan') || {
+      id: 'penarikan',
+      label: 'Penarikan Keuangan',
+      shortLabel: 'Penarikan',
+      title: 'Data Penarikan Keuangan & Iuran Rutin Warga',
+      description: 'Pencatatan penarikan iuran rutin warga, kelunasan per KK, dan pembukuan kas gang.',
+      icon: 'Banknote',
+      colorScheme: 'indigo',
+      subMenus: [],
+    };
+    const kasIdx = sanitized.findIndex((m) => m.id === 'kas');
+    if (kasIdx !== -1) {
+      sanitized.splice(kasIdx + 1, 0, penarikanMenu);
+    } else {
+      sanitized.push(penarikanMenu);
+    }
+  }
+
   return sanitized.length > 0 ? sanitized : INITIAL_NAV_MENUS;
 }
 
@@ -202,8 +223,13 @@ function loadInitialSnapshot(): PortalDatabasePayload {
         const syncedTransactions = ensureSeptemberDefaultTransactions(
           Array.isArray(parsed.transactions) ? parsed.transactions : INITIAL_TRANSACTIONS
         );
+        const validResidents =
+          parsed.residents.length > 0 && parsed.residents[0].headName === 'Bambang Sutrisno'
+            ? INITIAL_RESIDENTS
+            : parsed.residents;
         const customized = isStateDifferentFromInitial({
           ...parsed,
+          residents: validResidents,
           transactions: syncedTransactions,
         });
         const rev = Number(parsed.revision) || (customized ? 1 : 0);
@@ -217,7 +243,7 @@ function loadInitialSnapshot(): PortalDatabasePayload {
             ...parsed.siteConfig,
             navigationMenus: sanitizeNavigationMenus(parsed.siteConfig.navigationMenus),
           },
-          residents: parsed.residents,
+          residents: validResidents,
           transactions: syncedTransactions,
           baksosAgendas: Array.isArray(parsed.baksosAgendas) ? parsed.baksosAgendas : INITIAL_BAKSOS_AGENDAS,
           committees: Array.isArray(parsed.committees) ? parsed.committees : INITIAL_COMMITTEES,
@@ -242,7 +268,11 @@ function loadInitialSnapshot(): PortalDatabasePayload {
     ...rawConfig,
     navigationMenus: sanitizeNavigationMenus(rawConfig.navigationMenus),
   };
-  const residents = readKey(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
+  const rawResidents = readKey(STORAGE_KEYS.RESIDENTS, INITIAL_RESIDENTS);
+  const residents =
+    rawResidents.length > 0 && rawResidents[0].headName === 'Bambang Sutrisno'
+      ? INITIAL_RESIDENTS
+      : rawResidents;
   const transactions = ensureSeptemberDefaultTransactions(
     readKey(STORAGE_KEYS.TRANSACTIONS, INITIAL_TRANSACTIONS)
   );
@@ -1236,6 +1266,207 @@ export function useStorage() {
     }));
   };
 
+  const deleteTransactions = (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const idSet = new Set(ids);
+    commitLocalMutation((cur) => ({
+      transactions: cur.transactions.filter((t) => !idSet.has(t.id)),
+    }));
+  };
+
+  // Sync edits on a house's dues payment with transactions in Buku Kas Keluar Masuk atomically
+  const syncHouseDuesEditAndTransactions = (
+    updatedHouse: ResidentHouse,
+    newTransactions: Omit<CashTransaction, 'id'>[],
+    oldTxIdsToDelete: string[] = []
+  ) => {
+    commitLocalMutation((cur) => {
+      const stamped: ResidentHouse = { ...updatedHouse, updatedAt: new Date().toISOString() };
+      const deleteSet = new Set(oldTxIdsToDelete);
+      const filteredTxs = cur.transactions.filter((t) => !deleteSet.has(t.id));
+      const preparedNewTxs: CashTransaction[] = newTransactions.map((tx, idx) => ({
+        ...tx,
+        id: `tx-dues-sync-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+      }));
+
+      return {
+        residents: cur.residents.map((h) => (h.id === stamped.id ? stamped : h)),
+        transactions: [...preparedNewTxs, ...filteredTxs],
+        baksosAgendas: computeSyncedBaksosAgendas(cur.baksosAgendas, stamped),
+      };
+    });
+  };
+
+  // Hapus & batalkan semua pembayaran untuk 1 KK pada periode tertentu (otomatis bersihkan transaksi di Buku Kas)
+  const resetSingleHousePaymentAndSync = (
+    houseId: string,
+    periodLabel: string,
+    unmarkBaksosFines: boolean = true
+  ) => {
+    const trimmedPeriod = periodLabel.trim();
+    const periodKey = parseIndonesianMonthYearToKey(trimmedPeriod);
+    const periodLower = trimmedPeriod.toLowerCase();
+
+    commitLocalMutation((cur) => {
+      const targetHouse = cur.residents.find((h) => h.id === houseId);
+      if (!targetHouse) return {};
+
+      const blockRegex = new RegExp(`\\b${targetHouse.blockNumber.replace('/', '\\/')}\\b`, 'i');
+
+      // 1. Reset status pembayaran KK
+      const updatedResidents = cur.residents.map((h) => {
+        if (h.id !== houseId) return h;
+        return {
+          ...h,
+          duesStatus: 'Belum Bayar' as const,
+          duesPaidAmount: 0,
+          duesPaidMonths: 0,
+          duesPrepaidBalance: 0,
+          duesPaidDate: '',
+          updatedAt: new Date().toISOString(),
+        };
+      });
+
+      // 2. Hapus transaksi terkait di Buku Kas (Iuran Warga, Denda Baksos, Pembayaran Tunggakan periode ini)
+      const updatedTransactions = cur.transactions.filter((tx) => {
+        if (tx.type !== 'masuk') return true;
+        if (!blockRegex.test(tx.description)) return true;
+
+        const mKey = getMonthKeyFromDate(tx.date);
+        const descLower = tx.description.toLowerCase();
+        const isIuran = tx.category === 'Iuran Warga' || descLower.includes('iuran');
+        const isDenda = tx.category === 'Denda Baksos' || descLower.includes('denda');
+        const isTunggakan = tx.category === 'Pembayaran Tunggakan' || descLower.includes('tunggakan');
+
+        if (!isIuran && !isDenda && !isTunggakan) return true;
+
+        const matchesPeriod =
+          trimmedPeriod === 'semua' ||
+          descLower.includes(periodLower) ||
+          (periodKey && mKey === periodKey);
+
+        return !matchesPeriod;
+      });
+
+      // 3. Batalkan status denda baksos lunas jika ada di periode ini
+      let updatedBaksos = cur.baksosAgendas;
+      if (unmarkBaksosFines) {
+        updatedBaksos = cur.baksosAgendas.map((agenda) => {
+          const agendaKey = getMonthKeyFromDate(agenda.date);
+          const matchesAgendaPeriod =
+            trimmedPeriod === 'semua' || (periodKey && agendaKey === periodKey);
+          if (!matchesAgendaPeriod) return agenda;
+
+          if (agenda.finesPaid?.[houseId]) {
+            const newFinesPaid = { ...agenda.finesPaid };
+            delete newFinesPaid[houseId];
+            return {
+              ...agenda,
+              finesPaid: newFinesPaid,
+            };
+          }
+          return agenda;
+        });
+      }
+
+      return {
+        residents: updatedResidents,
+        transactions: updatedTransactions,
+        baksosAgendas: updatedBaksos,
+      };
+    });
+  };
+
+  // Hapus total semua pembayaran periode tertentu (mengosongkan status pembayaran KK & menghapus transaksi dari Buku Kas)
+  const resetAllDuesPaymentsForPeriod = (
+    periodLabel: string,
+    options: {
+      deleteDuesTransactions?: boolean;
+      resetBaksosFines?: boolean;
+      resetTunggakanTxs?: boolean;
+    } = {
+      deleteDuesTransactions: true,
+      resetBaksosFines: true,
+      resetTunggakanTxs: false,
+    }
+  ) => {
+    const trimmed = periodLabel.trim();
+    const periodKey = parseIndonesianMonthYearToKey(trimmed);
+    const periodLower = trimmed.toLowerCase();
+    const isAllPeriods = trimmed === 'semua' || !trimmed;
+
+    commitLocalMutation((cur) => {
+      // 1. Reset status pembayaran seluruh KK yang terdaftar di periode ini (atau seluruh KK jika 'semua')
+      const updatedResidents = cur.residents.map((house) => {
+        const housePeriod = house.duesMonthNote || cur.siteConfig.duesCurrentMonth || 'Oktober 2026';
+        const matches =
+          isAllPeriods ||
+          housePeriod === trimmed ||
+          house.duesMonthNote?.toLowerCase().includes(periodLower);
+
+        if (!matches && !isAllPeriods) return house;
+
+        return {
+          ...house,
+          duesStatus: 'Belum Bayar' as const,
+          duesPaidAmount: 0,
+          duesPaidMonths: 0,
+          duesPrepaidBalance: 0,
+          duesPaidDate: '',
+          updatedAt: new Date().toISOString(),
+        };
+      });
+
+      // 2. Hapus seluruh transaksi iuran warga (dan denda/tunggakan bila dipilih) di periode ini dari Buku Kas
+      let updatedTransactions = cur.transactions;
+      if (options.deleteDuesTransactions !== false) {
+        updatedTransactions = cur.transactions.filter((tx) => {
+          if (tx.type !== 'masuk') return true;
+
+          const mKey = getMonthKeyFromDate(tx.date);
+          const descLower = (tx.description || '').toLowerCase();
+          const cat = tx.category || '';
+
+          const isIuran = cat === 'Iuran Warga' || descLower.includes('iuran');
+          const isDenda = cat === 'Denda Baksos' || descLower.includes('denda');
+          const isTunggakan = cat === 'Pembayaran Tunggakan' || descLower.includes('tunggakan');
+
+          if (!isIuran && (!options.resetBaksosFines || !isDenda) && (!options.resetTunggakanTxs || !isTunggakan)) {
+            return true;
+          }
+
+          const matchesPeriod =
+            isAllPeriods ||
+            descLower.includes(periodLower) ||
+            (periodKey && mKey === periodKey);
+
+          return !matchesPeriod;
+        });
+      }
+
+      // 3. Batalkan status pelunasan denda baksos untuk agenda pada periode ini jika dipilih
+      let updatedBaksos = cur.baksosAgendas;
+      if (options.resetBaksosFines) {
+        updatedBaksos = cur.baksosAgendas.map((agenda) => {
+          const agendaKey = getMonthKeyFromDate(agenda.date);
+          const matchesAgenda = isAllPeriods || (periodKey && agendaKey === periodKey);
+          if (!matchesAgenda) return agenda;
+
+          return {
+            ...agenda,
+            finesPaid: {},
+          };
+        });
+      }
+
+      return {
+        residents: updatedResidents,
+        transactions: updatedTransactions,
+        baksosAgendas: updatedBaksos,
+      };
+    });
+  };
+
   // Balance adjustment via transaction
   const adjustBalance = (
     pool: 'Kas Utama' | 'Cashback WiFi' | 'Cashback Sampah',
@@ -1564,6 +1795,10 @@ export function useStorage() {
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    deleteTransactions,
+    syncHouseDuesEditAndTransactions,
+    resetSingleHousePaymentAndSync,
+    resetAllDuesPaymentsForPeriod,
     adjustBalance,
     saveAprilInitialBalance,
     saveMayInitialBalance,

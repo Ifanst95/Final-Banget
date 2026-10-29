@@ -41,6 +41,10 @@ export default function App() {
     addTransaction,
     updateTransaction,
     deleteTransaction,
+    deleteTransactions,
+    syncHouseDuesEditAndTransactions,
+    resetSingleHousePaymentAndSync,
+    resetAllDuesPaymentsForPeriod,
     adjustBalance,
     saveAprilInitialBalance,
     saveMayInitialBalance,
@@ -174,6 +178,10 @@ export default function App() {
               onAddTransaction={addTransaction}
               onEditTransaction={updateTransaction}
               onDeleteTransaction={deleteTransaction}
+              onDeleteTransactions={deleteTransactions}
+              onSyncHouseDuesEditAndTransactions={syncHouseDuesEditAndTransactions}
+              onResetSingleHousePaymentAndSync={resetSingleHousePaymentAndSync}
+              onResetAllDuesPaymentsForPeriod={resetAllDuesPaymentsForPeriod}
               onAdjustBalance={adjustBalance}
               onUpdateResident={updateResident}
               onMarkFinePaid={markBaksosFinePaid}

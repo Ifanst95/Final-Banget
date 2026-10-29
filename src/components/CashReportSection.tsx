@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import confetti from 'canvas-confetti';
 import {
+  AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
   BarChart3,
@@ -50,6 +51,7 @@ import {
   getPreviousMonthLabel,
   getSubsequentMonthLabels,
   isHouseVacant,
+  isPeriodCoveredInDuesNote,
   openWhatsAppShare,
   parseIndonesianMonthYearToKey,
 } from '../utils/helpers';
@@ -68,6 +70,25 @@ interface CashReportSectionProps {
   onAddTransaction: (tx: Omit<CashTransaction, 'id'>) => void;
   onEditTransaction: (tx: CashTransaction) => void;
   onDeleteTransaction: (id: string) => void;
+  onDeleteTransactions?: (ids: string[]) => void;
+  onSyncHouseDuesEditAndTransactions?: (
+    updatedHouse: ResidentHouse,
+    newTransactions: Omit<CashTransaction, 'id'>[],
+    oldTxIdsToDelete: string[]
+  ) => void;
+  onResetSingleHousePaymentAndSync?: (
+    houseId: string,
+    periodLabel: string,
+    unmarkBaksosFines?: boolean
+  ) => void;
+  onResetAllDuesPaymentsForPeriod?: (
+    periodLabel: string,
+    options?: {
+      deleteDuesTransactions?: boolean;
+      resetBaksosFines?: boolean;
+      resetTunggakanTxs?: boolean;
+    }
+  ) => void;
   onAdjustBalance: (
     pool: 'Kas Utama' | 'Cashback WiFi' | 'Cashback Sampah',
     targetAmount: number,
@@ -152,6 +173,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   onAddTransaction,
   onEditTransaction,
   onDeleteTransaction,
+  onDeleteTransactions,
+  onSyncHouseDuesEditAndTransactions,
+  onResetSingleHousePaymentAndSync,
+  onResetAllDuesPaymentsForPeriod,
   onAdjustBalance,
   onUpdateResident,
   onMarkFinePaid,
@@ -173,6 +198,19 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [editMaySampah, setEditMaySampah] = useState<number>(0);
   const [editMayNote, setEditMayNote] = useState<string>('Saldo Awal Inputan Periode Mei 2026');
 
+  // Modal Hapus Total Semua Pembayaran (Batch Reset Periode yang berdampak ke Buku Kas)
+  const [isResetAllModalOpen, setIsResetAllModalOpen] = useState(false);
+  const [resetAllTargetPeriod, setResetAllTargetPeriod] = useState<string>('Oktober 2026');
+  const [resetAllDeleteTxs, setResetAllDeleteTxs] = useState(true);
+  const [resetAllResetBaksos, setResetAllResetBaksos] = useState(true);
+  const [resetAllResetTunggakan, setResetAllResetTunggakan] = useState(false);
+
+  // Modal / Konfirmasi Hapus Pembayaran 1 KK
+  const [deletingSingleHouse, setDeletingSingleHouse] = useState<{
+    house: ResidentHouse;
+    period: string;
+  } | null>(null);
+
   // Unified Sub-tab selection: 'mutasi' (Buku Kas) or 'per_kk' (Iuran Per KK)
   const [currentSubTab, setCurrentSubTab] = useState<'mutasi' | 'per_kk'>(
     mode === 'per_kk' ? 'per_kk' : 'mutasi'
@@ -191,6 +229,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
   // Filters for Buku Kas Keluar Masuk
   const [filterPool, setFilterPool] = useState<string>('semua');
+  // Di tampilan warga (!isAdmin), sembunyikan filter dan pastikan filter transaksi selalu 'semua'
+  React.useEffect(() => {
+    if (!isAdmin && filterPool !== 'semua') {
+      setFilterPool('semua');
+    }
+  }, [isAdmin, filterPool]);
   // Inisialisasi periode awal ke bulan berjalan aktif agar kartu dan tabel saldo bulan sebelumnya langsung mengambil data dari bulan sebelumnya
   const [selectedTxMonth, setSelectedTxMonth] = useState<string>(() => defaultMonthKey);
   const [searchTx, setSearchTx] = useState<string>('');
@@ -802,7 +846,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         : 0;
       const periodLabel = getHousePeriodLabel(house);
       const coveredMonths = isLunas
-        ? getSubsequentMonthLabels(periodLabel, Math.max(1, paidMonthsCount))
+        ? house.duesMonthNote
+          ? house.duesMonthNote.split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean)
+          : [periodLabel]
         : [];
 
       const currentMonthPaid = isLunas
@@ -959,18 +1005,17 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     const currentKey = parseIndonesianMonthYearToKey(defaultMonthLabel) || '2026-10';
 
     const houseBasePeriod = house.duesMonthNote || defaultMonthLabel;
-    const paidMonths = house.duesPaidMonths || 1;
     const isPaidState = house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih';
-    const coveredMonths = isPaidState
-      ? getSubsequentMonthLabels(houseBasePeriod, Math.max(1, paidMonths))
-      : [];
 
-    // Prioritas 1: Jika periode yang dicek sama persis dengan periode penagihan rumah (houseBasePeriod)
-    if (periodLabel === houseBasePeriod) {
-      if (house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih') {
-        const isAdvance = house.duesStatus === 'Bayar Lebih';
+    // Ketentuan: Mengikuti bulan yang diinputkan (duesMonthNote), jangan otomatis menghitung bulan yang lunas jika tidak diinput
+    const isCoveredByInput = isPaidState && isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel);
+
+    // Prioritas 1: Jika periode cocok dengan bulan yang diinputkan atau sama persis dengan periode dasar rumah
+    if (isCoveredByInput || periodLabel === houseBasePeriod) {
+      if (isPaidState) {
+        const isAdvance = house.duesStatus === 'Bayar Lebih' || (house.duesPaidMonths && house.duesPaidMonths > 1);
         return {
-          status: house.duesStatus,
+          status: isAdvance ? ('Bayar Lebih' as const) : ('Lunas' as const),
           amount: nominal,
           label: isAdvance
             ? isEmpty
@@ -983,7 +1028,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             ? 'bg-indigo-600 text-white border border-indigo-500 font-bold shadow-xs'
             : 'bg-emerald-600 text-white border border-emerald-500 font-bold shadow-xs',
           paidDate: house.duesPaidDate,
-          note: isAdvance ? `Deposit +${formatRupiah(house.duesPrepaidBalance || 0)}` : undefined,
+          note: isAdvance
+            ? house.duesMonthNote
+              ? `Tercakup: ${house.duesMonthNote}`
+              : `Deposit +${formatRupiah(house.duesPrepaidBalance || 0)}`
+            : undefined,
         };
       }
       if (isEmpty) {
@@ -1003,18 +1052,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         label: paidPart > 0 ? `Cicil ${formatRupiah(paidPart)}` : 'Belum Bayar',
         badgeClass: 'bg-rose-100 text-rose-800 border border-rose-200 font-bold',
         note: paidPart > 0 ? `Sisa ${formatRupiah(Math.max(0, nominal - paidPart))}` : 'Belum Bayar',
-      };
-    }
-
-    // Prioritas 2: Advance payment / multi-month check (tercakup dalam bulan-bulan berikutnya)
-    if (coveredMonths.includes(periodLabel)) {
-      return {
-        status: 'Bayar Lebih' as const,
-        amount: nominal,
-        label: isEmpty ? 'Bayar Lebih (Kosong)' : 'Bayar Lebih',
-        badgeClass: 'bg-indigo-600 text-white border border-indigo-500 font-bold shadow-xs',
-        paidDate: house.duesPaidDate,
-        note: `Terbayar di Muka (${paidMonths} Bulan)`,
       };
     }
 
@@ -1736,14 +1773,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   }, [simplifiedCashbookData, prevMonthSummary]);
 
 
-  // Helper to remove recorded transactions for a house and period in Buku Kas & Rekap KK
-  const removeTransactionsForHousePeriod = (house: ResidentHouse, targetPeriod: string) => {
-    if (!onDeleteTransaction || !transactions || transactions.length === 0) return;
+  // Helper to find recorded transactions for a house and period in Buku Kas & Rekap KK
+  const findTransactionsForHousePeriod = (house: ResidentHouse, targetPeriod: string): CashTransaction[] => {
+    if (!transactions || transactions.length === 0) return [];
     const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
     const targetKey = parseIndonesianMonthYearToKey(targetPeriod);
     const targetPeriodLower = targetPeriod.toLowerCase();
 
-    const matchingTxs = transactions.filter((tx) => {
+    return transactions.filter((tx) => {
       if (tx.type !== 'masuk') return false;
       if (!blockRegex.test(tx.description)) return false;
 
@@ -1752,21 +1789,88 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
       const isIuran = tx.category === 'Iuran Warga' || descLower.includes('iuran');
       const isDenda = tx.category === 'Denda Baksos' || descLower.includes('denda');
-      const isTunggakan = descLower.includes('tunggakan');
+      const isTunggakan = tx.category === 'Pembayaran Tunggakan' || descLower.includes('tunggakan');
 
       if (!isIuran && !isDenda && !isTunggakan) return false;
 
       return (
+        targetPeriod === 'semua' ||
         descLower.includes(targetPeriodLower) ||
-        mKey === targetKey ||
+        (targetKey && mKey === targetKey) ||
         (isDenda && descLower.includes(house.blockNumber.toLowerCase())) ||
         (isTunggakan && descLower.includes(house.blockNumber.toLowerCase()))
       );
     });
+  };
 
-    matchingTxs.forEach((tx) => {
-      onDeleteTransaction(tx.id);
-    });
+  // Helper to remove recorded transactions for a house and period in Buku Kas & Rekap KK
+  const removeTransactionsForHousePeriod = (house: ResidentHouse, targetPeriod: string) => {
+    const matchingTxs = findTransactionsForHousePeriod(house, targetPeriod);
+    if (matchingTxs.length === 0) return;
+    if (onDeleteTransactions) {
+      onDeleteTransactions(matchingTxs.map((t) => t.id));
+    } else if (onDeleteTransaction) {
+      matchingTxs.forEach((tx) => onDeleteTransaction(tx.id));
+    }
+  };
+
+  // Helper untuk reset/hapus semua pembayaran 1 KK (dan hapus dari Buku Kas)
+  const handleResetSingleHousePayment = (house: ResidentHouse, targetPeriod: string) => {
+    if (!isAdmin) return;
+    const period = targetPeriod || selectedKKPeriod || defaultMonthLabel;
+
+    if (onResetSingleHousePaymentAndSync) {
+      onResetSingleHousePaymentAndSync(house.id, period, true);
+    } else {
+      onUpdateResident({
+        ...house,
+        duesStatus: 'Belum Bayar',
+        duesPaidAmount: 0,
+        duesPaidMonths: 0,
+        duesPrepaidBalance: 0,
+        duesPaidDate: '',
+      });
+      removeTransactionsForHousePeriod(house, period);
+    }
+
+    try {
+      confetti({ particleCount: 30, spread: 50, origin: { y: 0.7 } });
+    } catch {}
+
+    setDeletingSingleHouse(null);
+    setEditingHouseDues(null);
+  };
+
+  // Helper untuk konfirmasi hapus total semua pembayaran pada periode tertentu
+  const handleConfirmResetAllDues = () => {
+    if (!isAdmin) return;
+    const targetPeriod = resetAllTargetPeriod || selectedKKPeriod || defaultMonthLabel;
+
+    if (onResetAllDuesPaymentsForPeriod) {
+      onResetAllDuesPaymentsForPeriod(targetPeriod, {
+        deleteDuesTransactions: resetAllDeleteTxs,
+        resetBaksosFines: resetAllResetBaksos,
+        resetTunggakanTxs: resetAllResetTunggakan,
+      });
+    } else {
+      residents.forEach((h) => {
+        onUpdateResident({
+          ...h,
+          duesStatus: 'Belum Bayar',
+          duesPaidAmount: 0,
+          duesPaidMonths: 0,
+          duesPrepaidBalance: 0,
+          duesPaidDate: '',
+        });
+        removeTransactionsForHousePeriod(h, targetPeriod);
+      });
+    }
+
+    try {
+      confetti({ particleCount: 40, spread: 60, origin: { y: 0.7 } });
+    } catch {}
+
+    setIsResetAllModalOpen(false);
   };
 
   // TOGGLE DUES STATUS (1-Click Action)
@@ -1883,7 +1987,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         ? trimmedHeadInput
         : undefined;
 
-    onUpdateResident({
+    const updatedResident: ResidentHouse = {
       ...editingHouseDues,
       duesHeadNameOverride: finalHeadNameOverride,
       customDuesAmount: amountNum,
@@ -1895,47 +1999,54 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       duesMonthNote: monthLabel,
       previousArrears: newPrevArrears,
       previousArrearsNote: isVacant ? '' : houseDuesPrevNoteInput.trim(),
-    });
+    };
 
     const displayName = finalHeadNameOverride || editingHouseDues.headName;
     const houseDescLabel = isVacant
       ? `(Rumah Kosong - ${displayName})`
       : `(${displayName})`;
 
-    // 1. Masukkan Pembayaran Iuran Kas Bulanan ke Laporan Kas Keluar Masuk (termasuk untuk rumah kosong sukarela)
+    // Cari transaksi lama untuk rumah & periode ini agar tidak ada duplikasi transaksi di Buku Kas
+    const oldMatchingTxs = findTransactionsForHousePeriod(editingHouseDues, monthLabel);
+    const oldTxIdsToDelete = oldMatchingTxs.map((t) => t.id);
+
+    const newTxs: Omit<CashTransaction, 'id'>[] = [];
+
+    // 1. Masukkan Pembayaran Iuran Kas Bulanan ke Laporan Kas Keluar Masuk jika status lunas/bayar lebih
     if (totalReceived > 0 && isNowPaid) {
       try {
         confetti({ particleCount: 45, spread: 60, origin: { y: 0.7 } });
       } catch {}
-      const coveredMonths = getSubsequentMonthLabels(monthLabel, Math.max(1, monthsCount));
-
-      onAddTransaction({
+      newTxs.push({
         date: paidDateVal,
         type: 'masuk',
         pool: 'Kas Utama',
         category: 'Iuran Warga',
         description: isAdvancePay
-          ? `Iuran Kas Warga Bayar Lebih ${Math.max(1, monthsCount - 1)} Bulan (${monthLabel} s/d ${coveredMonths[coveredMonths.length - 1]} (Total ${monthsCount} Bulan)) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`
+          ? `Iuran Kas Warga Bayar Lebih (${monthLabel}) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`
           : isNowPaid
           ? `Iuran Bulanan (${monthLabel}) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`
           : `Cicilan Iuran Bulanan (${monthLabel}) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`,
         amount: totalReceived,
       });
 
-      // Otomatis daftarkan bulan berikutnya jika bayar lebih
+      // Daftarkan periode yang diinputkan jika belum ada
       if (onCreatePeriod && isAdvancePay) {
-        coveredMonths.forEach((m) => {
-          onCreatePeriod(m, { setActiveCurrentMonth: false, resetNonAdvanceDues: false });
+        const explicitMonths = monthLabel.split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
+        explicitMonths.forEach((m) => {
+          if (m.length >= 4) {
+            onCreatePeriod(m, { setActiveCurrentMonth: false, resetNonAdvanceDues: false });
+          }
         });
       }
     }
 
-    // 2. Masukkan Pelunasan Tunggakan Lalu ke Laporan Kas Keluar Masuk (sebagai Pembayaran Tunggakan)
+    // 2. Masukkan Pelunasan Tunggakan Lalu ke Laporan Kas Keluar Masuk jika ada pembayaran tunggakan
     if (paidArrearsAmount > 0 && !isVacant) {
       try {
         confetti({ particleCount: 40, spread: 55, origin: { y: 0.7 } });
       } catch {}
-      onAddTransaction({
+      newTxs.push({
         date: paidDateVal,
         type: 'masuk',
         pool: 'Kas Utama',
@@ -1945,8 +2056,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         }`,
         amount: paidArrearsAmount,
       });
-    } else if (houseDuesStatusInput === 'Belum Bayar') {
-      removeTransactionsForHousePeriod(editingHouseDues, monthLabel);
+    }
+
+    if (onSyncHouseDuesEditAndTransactions) {
+      onSyncHouseDuesEditAndTransactions(updatedResident, newTxs, oldTxIdsToDelete);
+    } else {
+      if (oldTxIdsToDelete.length > 0) {
+        if (onDeleteTransactions) {
+          onDeleteTransactions(oldTxIdsToDelete);
+        } else if (onDeleteTransaction) {
+          oldTxIdsToDelete.forEach((id) => onDeleteTransaction(id));
+        }
+      }
+      onUpdateResident(updatedResident);
+      newTxs.forEach((tx) => onAddTransaction(tx));
     }
 
     setEditingHouseDues(null);
@@ -2428,89 +2551,91 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
             {/* Category / Pool Filter + Search */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-200/70">
-              {/* Category / Pool Filter Buttons (Semua, Iuran Warga, Denda Baksos, Kas Utama, WiFi, Sampah, Pengeluaran) */}
-              <div className="flex flex-wrap items-center gap-1 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setFilterPool('semua')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                    filterPool === 'semua'
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs'
-                  }`}
-                >
-                  Semua ({filteredTransactions.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterPool('Iuran Warga')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                    filterPool === 'Iuran Warga'
-                      ? 'bg-emerald-700 text-white shadow-xs'
-                      : 'bg-emerald-50/90 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 shadow-2xs'
-                  }`}
-                >
-                  Iuran Warga
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterPool('Denda Baksos')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                    filterPool === 'Denda Baksos'
-                      ? 'bg-amber-600 text-white shadow-xs'
-                      : 'bg-amber-50/90 text-amber-900 hover:bg-amber-100 border border-amber-300 shadow-2xs'
-                  }`}
-                >
-                  Denda Baksos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterPool('Kas Utama')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                    filterPool === 'Kas Utama'
-                      ? 'bg-teal-700 text-white shadow-xs'
-                      : 'bg-teal-50/90 text-teal-900 hover:bg-teal-100 border border-teal-300 shadow-2xs'
-                  }`}
-                >
-                  Kas Utama
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterPool('Cashback WiFi')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                    filterPool === 'Cashback WiFi'
-                      ? 'bg-cyan-700 text-white shadow-xs'
-                      : 'bg-sky-50/90 text-sky-900 hover:bg-sky-100 border border-sky-300 shadow-2xs'
-                  }`}
-                >
-                  WiFi
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterPool('Cashback Sampah')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                    filterPool === 'Cashback Sampah'
-                      ? 'bg-teal-700 text-white shadow-xs'
-                      : 'bg-teal-50/90 text-teal-900 hover:bg-teal-100 border border-teal-300 shadow-2xs'
-                  }`}
-                >
-                  Sampah
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFilterPool('keluar')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                    filterPool === 'keluar'
-                      ? 'bg-rose-700 text-white shadow-xs'
-                      : 'bg-rose-50/90 text-rose-800 hover:bg-rose-100 border border-rose-300 shadow-2xs'
-                  }`}
-                >
-                  Pengeluaran (-)
-                </button>
-              </div>
+              {/* Category / Pool Filter Buttons (Khusus Admin: disembunyikan di tampilan warga sesuai instruksi) */}
+              {isAdmin && (
+                <div className="flex flex-wrap items-center gap-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setFilterPool('semua')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      filterPool === 'semua'
+                        ? 'bg-slate-900 text-white shadow-xs'
+                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs'
+                    }`}
+                  >
+                    Semua ({filteredTransactions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterPool('Iuran Warga')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      filterPool === 'Iuran Warga'
+                        ? 'bg-emerald-700 text-white shadow-xs'
+                        : 'bg-emerald-50/90 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 shadow-2xs'
+                    }`}
+                  >
+                    Iuran Warga
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterPool('Denda Baksos')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      filterPool === 'Denda Baksos'
+                        ? 'bg-amber-600 text-white shadow-xs'
+                        : 'bg-amber-50/90 text-amber-900 hover:bg-amber-100 border border-amber-300 shadow-2xs'
+                    }`}
+                  >
+                    Denda Baksos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterPool('Kas Utama')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      filterPool === 'Kas Utama'
+                        ? 'bg-teal-700 text-white shadow-xs'
+                        : 'bg-teal-50/90 text-teal-900 hover:bg-teal-100 border border-teal-300 shadow-2xs'
+                    }`}
+                  >
+                    Kas Utama
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterPool('Cashback WiFi')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      filterPool === 'Cashback WiFi'
+                        ? 'bg-cyan-700 text-white shadow-xs'
+                        : 'bg-sky-50/90 text-sky-900 hover:bg-sky-100 border border-sky-300 shadow-2xs'
+                    }`}
+                  >
+                    WiFi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterPool('Cashback Sampah')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      filterPool === 'Cashback Sampah'
+                        ? 'bg-teal-700 text-white shadow-xs'
+                        : 'bg-teal-50/90 text-teal-900 hover:bg-teal-100 border border-teal-300 shadow-2xs'
+                    }`}
+                  >
+                    Sampah
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFilterPool('keluar')}
+                    className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                      filterPool === 'keluar'
+                        ? 'bg-rose-700 text-white shadow-xs'
+                        : 'bg-rose-50/90 text-rose-800 hover:bg-rose-100 border border-rose-300 shadow-2xs'
+                    }`}
+                  >
+                    Pengeluaran (-)
+                  </button>
+                </div>
+              )}
 
               {/* Search Box */}
-              <div className="relative w-full sm:w-64">
+              <div className={`relative ${isAdmin ? 'w-full sm:w-64' : 'w-full sm:w-80 ml-auto'}`}>
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
@@ -3141,6 +3266,18 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     <Trash2 className="w-3.5 h-3.5" />
                     <span>Hapus Periode</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetAllTargetPeriod(selectedKKPeriod !== 'semua' ? selectedKKPeriod : defaultMonthLabel);
+                      setIsResetAllModalOpen(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold cursor-pointer shadow-xs transition-all font-sans"
+                    title="Hapus / Kosongkan Total Semua Pembayaran Periode Terpilih & Bersihkan dari Buku Kas"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-rose-200" />
+                    <span>Hapus Total Semua Pembayaran</span>
+                  </button>
                 </>
               )}
             </div>
@@ -3280,7 +3417,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   </span>
                 </span>
                 <span className="text-[11px] text-slate-500 font-medium">
-                  Data tersinkronisasi otomatis dengan Buku Induk & Tunggakan Warga
+                  Rekapitulasi Iuran Kas Per Kepala Keluarga Gang Mandor Blok K2/25 s/d K3/24
                 </span>
               </div>
 
@@ -3290,19 +3427,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     <tr className="bg-gradient-to-r from-slate-900 via-teal-950 to-indigo-950 text-white font-extrabold border-b border-slate-300">
                       <th className="py-3 px-2 text-center w-12 border border-slate-300/70 text-white">No</th>
                       <th className="py-3 px-3 text-center border border-slate-300/70 text-white">No Blok</th>
-                      <th className="py-3 px-4 min-w-[200px] border border-slate-300/70 text-white">Nama Kepala Keluarga</th>
+                      <th className="py-3 px-4 min-w-[180px] border border-slate-300/70 text-white">Nama Kepala Keluarga</th>
                       <th className="py-3 px-3 text-center border border-slate-300/70 text-white">Periode Iuran</th>
                       <th className="py-3 px-3 text-right border border-slate-300/70 text-white">Iuran Bulanan</th>
                       <th className="py-3 px-3 text-center border border-slate-300/70 text-white">Pembayaran Denda Baksos</th>
                       <th className="py-3 px-3 text-right border border-slate-300/70 text-white">Pembayaran Tunggakan</th>
                       <th className="py-3 px-3 text-center border border-slate-300/70 text-white">Tanggal Pembayaran</th>
                       <th className="py-3 px-4 text-right border border-slate-300/70 text-white">Total Semua Pembayaran</th>
+                      <th className="py-3 px-3 text-center border border-slate-300/70 text-white w-28">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-300">
                     {filteredPerKKList.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-8 text-center text-slate-400 italic border border-slate-300">
+                        <td colSpan={10} className="py-8 text-center text-slate-400 italic border border-slate-300">
                           Tidak ada data rekap pembayaran untuk filter ini.
                         </td>
                       </tr>
@@ -3337,11 +3475,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         const isRumahKosongHitam = (isPureKosong && !hasIuranPaid) || (isUnoccupied && !hasIuranPaid);
 
                         const payerName = isPureKosong
-                          ? house.duesHeadNameOverride &&
-                            house.duesHeadNameOverride !== house.headName &&
-                            !house.duesHeadNameOverride.toLowerCase().includes(house.headName.toLowerCase())
-                            ? house.duesHeadNameOverride
-                            : 'Rumah Kosong'
+                          ? house.duesHeadNameOverride ||
+                            (house.headName && house.headName !== 'Kosong' && house.headName !== '-'
+                              ? house.headName
+                              : 'Rumah Kosong')
                           : isUnoccupied
                           ? house.duesHeadNameOverride ||
                             (house.headName && house.headName !== 'Kosong' && house.headName !== '-'
@@ -3586,6 +3723,43 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                 )}
                               </div>
                             </td>
+
+                            {/* 10. Aksi Edit & Hapus Pembayaran */}
+                            <td className={`py-2 px-2.5 text-center border ${rowCellClass}`}>
+                              {isAdmin ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditHouseDues(house, false)}
+                                    className="px-2 py-1 text-[11px] font-bold bg-white/95 hover:bg-white text-indigo-700 hover:text-indigo-900 border border-indigo-200 hover:border-indigo-400 rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
+                                    title="Edit Iuran & Catatan Pembayaran KK Ini"
+                                  >
+                                    <Edit2 className="w-3 h-3" />
+                                    <span>Edit</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeletingSingleHouse({ house, period: periodStr })}
+                                    disabled={!isSudahBayar && !isBayarLebih && totalSemua === 0 && house.duesStatus === 'Belum Bayar'}
+                                    className={`px-2 py-1 text-[11px] font-bold rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
+                                      isSudahBayar || isBayarLebih || totalSemua > 0 || house.duesStatus !== 'Belum Bayar'
+                                        ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 hover:border-rose-400'
+                                        : 'bg-slate-100/60 text-slate-400 border-slate-200 cursor-not-allowed opacity-40'
+                                    }`}
+                                    title={
+                                      isSudahBayar || isBayarLebih || totalSemua > 0 || house.duesStatus !== 'Belum Bayar'
+                                        ? "Hapus & Batalkan Pembayaran KK Ini (Otomatis bersihkan dari Buku Kas)"
+                                        : "Tidak ada pembayaran untuk dihapus"
+                                    }
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    <span>Hapus</span>
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 font-mono text-center block text-[11px]">-</span>
+                              )}
+                            </td>
                           </tr>
                         );
                       })
@@ -3610,6 +3784,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       </td>
                       <td className="py-3 px-4 text-right font-mono text-emerald-950 font-black text-sm border border-slate-300">
                         +{formatRupiah(recapTotals.sumTotal)}
+                      </td>
+                      <td className="py-3 px-3 text-center text-slate-400 border border-slate-300">
+                        -
                       </td>
                     </tr>
                   </tfoot>
@@ -3798,9 +3975,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           r.occupancy === 'Kosong' ||
                           r.occupancy === 'Belum Ditempati' ||
                           isHouseVacant(r);
-                        const displayName = r.duesHeadNameOverride
-                          ? `${r.duesHeadNameOverride} (Induk: ${r.headName})`
-                          : r.headName;
+                        const displayName = r.duesHeadNameOverride || r.headName;
                         return (
                           <option key={r.id} value={r.id}>
                             Blok {r.blockNumber} — {displayName} {isVacant ? '(Rumah Kosong)' : ''}
@@ -4089,149 +4264,167 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   </div>
                 </div>
 
-                {houseDuesStatusInput === 'Bayar Lebih' && (() => {
-                  const mLabel = houseDuesMonthInput.trim() || defaultMonthLabel;
-                  const monthsCount = Math.max(2, houseDuesPaidMonthsInput);
-                  const extraMonths = Math.max(1, monthsCount - 1);
-                  const covered = getSubsequentMonthLabels(mLabel, monthsCount);
-                  const rangeTxt = `${mLabel} s/d ${covered[covered.length - 1]} (Total ${monthsCount} Bulan)`;
-                  const payerName = houseDuesHeadNameInput.trim() || editingHouseDues.headName;
-                  const houseTag = isEditingVacant ? `(Rumah Kosong - ${payerName})` : `(${payerName})`;
-                  const autoNotePreview = `Iuran Kas Warga Bayar Lebih ${extraMonths} Bulan (${rangeTxt}) Warga Blok ${editingHouseDues.blockNumber} ${houseTag}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`;
-
-                  return (
-                    <div className="p-3.5 bg-indigo-50/90 border border-indigo-200 rounded-xl space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
-                          <CheckCircle2 className="w-4 h-4 text-indigo-600" />
-                          <span>Pilihan Bayar Lebih ({extraMonths} Bulan Lebih)</span>
-                        </span>
-                        <span className="text-[10px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
-                          Total {monthsCount} Bulan Tercover
-                        </span>
-                      </div>
-
-                      {/* Info Banner: Penjelasan Hitungan Bayar Lebih */}
-                      <div className="p-2.5 bg-indigo-100/80 rounded-lg border border-indigo-300 text-[11px] text-indigo-950 leading-relaxed">
-                        💡 <strong>Hitungan Bayar Lebih:</strong> Bayar lebih <strong>{extraMonths} bulan</strong> sudah otomatis termasuk pembayaran bulan dia membayar (<strong>{mLabel}</strong>) ditambah {extraMonths} bulan berikutnya ({covered.slice(1).join(', ')}), sehingga total yang dicakup adalah <strong>{monthsCount} Bulan</strong> ({formatRupiah(houseDuesAmountInput * monthsCount)}).
-                      </div>
-
-                      {/* Presets Cepat Bulan */}
-                      <div className="space-y-1">
-                        <label className="block text-[11px] font-bold text-indigo-900">
-                          Pilihan Cepat Bayar Lebih:
-                        </label>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[11px]">
-                          {[
-                            { cnt: 2, extra: 1, label: '+1 Bln (Total 2 Bln)' },
-                            { cnt: 3, extra: 2, label: '+2 Bln (Total 3 Bln)' },
-                            { cnt: 4, extra: 3, label: '+3 Bln (Total 4 Bln)' },
-                            { cnt: 6, extra: 5, label: '+5 Bln (Total 6 Bln)' },
-                            { cnt: 12, extra: 11, label: '1 Thn (Total 12 Bln)' },
-                          ].map((preset) => (
-                            <button
-                              key={preset.cnt}
-                              type="button"
-                              onClick={() => {
-                                setHouseDuesPaidMonthsInput(preset.cnt);
-                                setHouseDuesTotalReceivedInput(houseDuesAmountInput * preset.cnt);
-                              }}
-                              className={`py-1.5 px-1 rounded-lg font-bold border transition-all cursor-pointer text-center text-[10.5px] ${
-                                houseDuesPaidMonthsInput === preset.cnt
-                                  ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs ring-1 ring-indigo-400'
-                                  : 'bg-white text-indigo-900 border-indigo-200 hover:bg-indigo-100/70'
-                              }`}
-                            >
-                              {preset.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <label className="block font-semibold text-indigo-900 mb-1">
-                            Total Bulan yang Dibayar
-                          </label>
-                          <input
-                            type="number"
-                            min={2}
-                            max={24}
-                            value={houseDuesPaidMonthsInput}
-                            onChange={(e) => {
-                              const val = Math.max(2, Number(e.target.value) || 2);
-                              setHouseDuesPaidMonthsInput(val);
-                              setHouseDuesTotalReceivedInput(houseDuesAmountInput * val);
-                            }}
-                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                          />
-                          <span className="block text-[10px] text-indigo-700 mt-0.5">
-                            Bulan ini + {extraMonths} bulan lebih
-                          </span>
-                        </div>
-                        <div>
-                          <label className="block font-semibold text-indigo-900 mb-1">
-                            Total Diterima (Rp)
-                          </label>
-                          <input
-                            type="number"
-                            min={houseDuesAmountInput * 2}
-                            step={5000}
-                            value={houseDuesTotalReceivedInput}
-                            onChange={(e) => setHouseDuesTotalReceivedInput(Number(e.target.value) || 0)}
-                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                          />
-                          <span className="block text-[10px] text-slate-500 mt-0.5">
-                            {monthsCount} x {formatRupiah(houseDuesAmountInput)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Daftar Bulan yang Dicakup */}
-                      <div className="space-y-1">
-                        <span className="block text-[11px] font-semibold text-indigo-900">
-                          Bulan yang Otomatis Tercatat Lunas ({monthsCount} Bulan):
-                        </span>
-                        <div className="flex flex-wrap gap-1">
-                          {covered.map((m, idx) => (
-                            <span
-                              key={m}
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
-                                idx === 0
-                                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                                  : 'bg-indigo-100 text-indigo-900 border-indigo-300'
-                              }`}
-                            >
-                              {idx === 0 ? `✓ ${m} (Bulan Berjalan)` : `✓ ${m} (+Lebih ${idx})`}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Catatan Tambahan Transaksi */}
-                      <div>
-                        <label className="block text-[11px] font-bold text-indigo-900 mb-1">
-                          Catatan Tambahan Transaksi (Opsional)
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="Misal: Titip di bendahara / Transfer via BCA..."
-                          value={houseDuesCustomNoteInput}
-                          onChange={(e) => setHouseDuesCustomNoteInput(e.target.value)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg text-slate-800 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                        />
-                      </div>
-
-                      {/* Pratinjau Catatan Transaksi */}
-                      <div className="text-[10px] space-y-1 pt-1 border-t border-indigo-200/70">
-                        <span className="font-bold text-indigo-950 block">📝 Otomatis Dicatat di Buku Kas:</span>
-                        <div className="p-2 bg-white rounded-lg border border-indigo-200 text-indigo-900 font-mono text-[10px] break-words">
-                          {autoNotePreview}
-                        </div>
-                      </div>
+                {/* Input Periode / Bulan Pembayaran (Khusus Lunas & Bayar Lebih) */}
+                {(houseDuesStatusInput === 'Lunas' || houseDuesStatusInput === 'Bayar Lebih') && (
+                  <div className={`p-3 rounded-xl border space-y-2.5 ${
+                    houseDuesStatusInput === 'Bayar Lebih'
+                      ? 'bg-indigo-50/90 border-indigo-200'
+                      : 'bg-emerald-50/90 border-emerald-200'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <label className={`block text-xs font-bold ${
+                        houseDuesStatusInput === 'Bayar Lebih' ? 'text-indigo-950' : 'text-emerald-950'
+                      }`}>
+                        {houseDuesStatusInput === 'Bayar Lebih'
+                          ? 'Bulan Pembayaran yang Diinput (Periode yang Dicakup)'
+                          : 'Bulan / Periode Pembayaran'}
+                      </label>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                        houseDuesStatusInput === 'Bayar Lebih'
+                          ? 'bg-white text-indigo-700 border-indigo-200'
+                          : 'bg-white text-emerald-700 border-emerald-200'
+                      }`}>
+                        Mengikuti Inputan
+                      </span>
                     </div>
-                  );
-                })()}
+
+                    <input
+                      type="text"
+                      value={houseDuesMonthInput}
+                      onChange={(e) => setHouseDuesMonthInput(e.target.value)}
+                      placeholder="Contoh: Oktober 2026, November 2026 (atau Oktober - Desember 2026)"
+                      className={`w-full px-3 py-2 text-xs bg-white rounded-lg font-bold shadow-2xs focus:outline-none focus:ring-2 ${
+                        houseDuesStatusInput === 'Bayar Lebih'
+                          ? 'text-indigo-950 border border-indigo-300 focus:ring-indigo-500'
+                          : 'text-emerald-950 border border-emerald-300 focus:ring-emerald-500'
+                      }`}
+                    />
+
+                    {houseDuesStatusInput === 'Bayar Lebih' && (
+                      <>
+                        <div className="p-2.5 bg-indigo-100/80 rounded-lg border border-indigo-300 text-[11px] text-indigo-950 leading-relaxed">
+                          💡 <strong>Ketentuan Pembayaran:</strong> Status lunas pada rekap iuran dan periode penagihan <strong>hanya mengikuti bulan-bulan yang Anda ketik/inputkan di atas</strong>. Sistem tidak otomatis menghitung bulan lunas jika bulan tersebut tidak diinputkan.
+                        </div>
+
+                        {/* Pilihan Cepat Isi Bulan */}
+                        <div className="space-y-1">
+                          <label className="block text-[11px] font-bold text-indigo-900">
+                            Pilihan Cepat Isi Bulan Pembayaran:
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[11px]">
+                            {[
+                              { cnt: 2, label: '2 Bulan (Bulan Ini + 1)' },
+                              { cnt: 3, label: '3 Bulan (Bulan Ini + 2)' },
+                              { cnt: 4, label: '4 Bulan (Bulan Ini + 3)' },
+                              { cnt: 6, label: '6 Bulan (Setengah Thn)' },
+                              { cnt: 12, label: '12 Bulan (1 Tahun)' },
+                            ].map((preset) => (
+                              <button
+                                key={preset.cnt}
+                                type="button"
+                                onClick={() => {
+                                  const baseMonth = defaultMonthLabel;
+                                  const generatedMonths = getSubsequentMonthLabels(baseMonth, preset.cnt);
+                                  setHouseDuesMonthInput(generatedMonths.join(', '));
+                                  setHouseDuesPaidMonthsInput(preset.cnt);
+                                  setHouseDuesTotalReceivedInput(houseDuesAmountInput * preset.cnt);
+                                }}
+                                className="py-1.5 px-1 rounded-lg font-bold border transition-all cursor-pointer text-center text-[10.5px] bg-white text-indigo-900 border-indigo-200 hover:bg-indigo-100/70 active:scale-95 shadow-2xs"
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Input Jumlah Bulan & Total Diterima */}
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <label className="block font-semibold text-indigo-900 mb-1">
+                              Total Bulan yang Dibayar
+                            </label>
+                            <input
+                              type="number"
+                              min={2}
+                              max={24}
+                              value={houseDuesPaidMonthsInput}
+                              onChange={(e) => {
+                                const val = Math.max(2, Number(e.target.value) || 2);
+                                setHouseDuesPaidMonthsInput(val);
+                                setHouseDuesTotalReceivedInput(houseDuesAmountInput * val);
+                              }}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                            />
+                            <span className="block text-[10px] text-indigo-700 mt-0.5">
+                              Jumlah bulan sesuai yang dibayarkan
+                            </span>
+                          </div>
+                          <div>
+                            <label className="block font-semibold text-indigo-900 mb-1">
+                              Total Diterima (Rp)
+                            </label>
+                            <input
+                              type="number"
+                              min={houseDuesAmountInput * 2}
+                              step={5000}
+                              value={houseDuesTotalReceivedInput}
+                              onChange={(e) => setHouseDuesTotalReceivedInput(Number(e.target.value) || 0)}
+                              className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                            />
+                            <span className="block text-[10px] text-slate-500 mt-0.5">
+                              {houseDuesPaidMonthsInput} x {formatRupiah(houseDuesAmountInput)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Bulan yang Terdeteksi dari Inputan */}
+                        {houseDuesMonthInput.trim() && (
+                          <div className="space-y-1">
+                            <span className="block text-[11px] font-semibold text-indigo-900">
+                              Bulan yang Tercatat Lunas dari Inputan:
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {houseDuesMonthInput
+                                .split(/[,;/+]+/)
+                                .map((s) => s.trim())
+                                .filter(Boolean)
+                                .map((m, idx) => (
+                                  <span
+                                    key={`${m}-${idx}`}
+                                    className="px-2 py-0.5 rounded-md text-[10.5px] font-bold border bg-indigo-100 text-indigo-900 border-indigo-300 shadow-2xs"
+                                  >
+                                    ✓ {m}
+                                  </span>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Catatan Tambahan Transaksi */}
+                        <div>
+                          <label className="block text-[11px] font-bold text-indigo-900 mb-1">
+                            Catatan Tambahan Transaksi (Opsional)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Misal: Titip di bendahara / Transfer via BCA..."
+                            value={houseDuesCustomNoteInput}
+                            onChange={(e) => setHouseDuesCustomNoteInput(e.target.value)}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg text-slate-800 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                          />
+                        </div>
+
+                        {/* Pratinjau Catatan Transaksi */}
+                        <div className="text-[10px] space-y-1 pt-1 border-t border-indigo-200/70">
+                          <span className="font-bold text-indigo-950 block">📝 Otomatis Dicatat di Buku Kas:</span>
+                          <div className="p-2 bg-white rounded-lg border border-indigo-200 text-indigo-900 font-mono text-[10px] break-words">
+                            {`Iuran Kas Warga Bayar Lebih (${houseDuesMonthInput.trim() || defaultMonthLabel}) Warga Blok ${editingHouseDues.blockNumber} ${isEditingVacant ? `(Rumah Kosong - ${houseDuesHeadNameInput.trim() || editingHouseDues.headName})` : `(${houseDuesHeadNameInput.trim() || editingHouseDues.headName})`}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
                   <div>
@@ -4347,24 +4540,259 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   />
                 </div>
 
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeletingSingleHouse({
+                        house: editingHouseDues,
+                        period: houseDuesMonthInput || selectedKKPeriod || defaultMonthLabel,
+                      });
+                    }}
+                    className="px-3 py-1.5 text-xs bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 font-bold border border-rose-200 hover:border-rose-300 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-all"
+                    title="Hapus dan kosongkan pembayaran untuk KK ini (otomatis hapus transaksi di Buku Kas)"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Hapus / Kosongkan Pembayaran KK Ini</span>
+                  </button>
+
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingHouseDues(null)}
+                      className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer font-semibold"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold rounded-lg cursor-pointer shadow-xs"
+                    >
+                      {isEditingVacant && houseDuesStatusInput === 'Belum Bayar'
+                        ? 'Simpan Bebas Iuran'
+                        : 'Simpan & Sinkron Buku Kas'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* MODAL: KONFIRMASI HAPUS PEMBAYARAN 1 KK & BERSIHKAN BUKU KAS */}
+      {deletingSingleHouse && (() => {
+        const { house, period } = deletingSingleHouse;
+        const displayName = house.duesHeadNameOverride || house.headName;
+        const periodLabel = period !== 'semua' ? period : getHousePeriodLabel(house);
+        const matchingTxs = findTransactionsForHousePeriod(house, periodLabel);
+        const totalTxAmount = matchingTxs.reduce((sum, t) => sum + t.amount, 0);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
+              <div className="bg-rose-600 p-4 text-white flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-5 h-5 text-rose-200" />
+                  <h4 className="font-bold text-sm sm:text-base">Hapus Pembayaran KK</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDeletingSingleHouse(null)}
+                  className="text-white/70 hover:text-white cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-2 text-rose-950">
+                  <p className="font-bold">
+                    Konfirmasi pembatalan &amp; penghapusan seluruh pembayaran untuk:
+                  </p>
+                  <div className="bg-white p-2.5 rounded-lg border border-rose-200 space-y-1 font-mono text-[11px]">
+                    <div><strong>No Blok:</strong> Blok {house.blockNumber}</div>
+                    <div><strong>Nama KK:</strong> {displayName}</div>
+                    <div><strong>Periode:</strong> {periodLabel}</div>
+                    <div><strong>Status Saat Ini:</strong> {house.duesStatus}</div>
+                    {totalTxAmount > 0 && (
+                      <div className="text-rose-700 font-bold pt-1 border-t border-rose-100">
+                        <strong>Tercatat di Buku Kas:</strong> {formatRupiah(totalTxAmount)} ({matchingTxs.length} transaksi)
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+                  ⚠️ <strong>Dampak ke Buku Kas:</strong> Status iuran warga untuk KK ini akan kembali ke <strong>Belum Bayar (Rp 0)</strong>, dan seluruh transaksi penerimaan kas terkait untuk KK ini pada periode tersebut akan <strong>otomatis dihapus dari Buku Kas Keluar Masuk</strong>. Saldo kas utama akan langsung berkurang sesuai nominal yang dihapus.
+                </div>
+
                 <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => setEditingHouseDues(null)}
-                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                    onClick={() => setDeletingSingleHouse(null)}
+                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer font-semibold"
                   >
                     Batal
                   </button>
                   <button
-                    type="submit"
-                    className="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer"
+                    type="button"
+                    onClick={() => handleResetSingleHousePayment(house, periodLabel)}
+                    className="px-4 py-2 text-xs bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold rounded-lg cursor-pointer shadow-xs flex items-center gap-1.5"
                   >
-                    {isEditingVacant && houseDuesStatusInput === 'Belum Bayar'
-                      ? 'Simpan Bebas Iuran'
-                      : 'Simpan & Catat Kas'}
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Ya, Hapus &amp; Kurangi Kas</span>
                   </button>
                 </div>
-              </form>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* MODAL: HAPUS TOTAL SEMUA PEMBAYARAN PERIODE & BERSIHKAN BUKU KAS */}
+      {isResetAllModalOpen && (() => {
+        const targetPeriod = resetAllTargetPeriod || selectedKKPeriod || defaultMonthLabel;
+        const isAllPeriods = targetPeriod === 'semua';
+        const periodKey = parseIndonesianMonthYearToKey(targetPeriod);
+        const targetLower = targetPeriod.toLowerCase();
+
+        // Hitung berapa transaksi dan nominal yang akan terhapus
+        const matchingIuranTxs = transactions.filter((tx) => {
+          if (tx.type !== 'masuk') return false;
+          const cat = tx.category || '';
+          const desc = (tx.description || '').toLowerCase();
+          const isIuran = cat === 'Iuran Warga' || desc.includes('iuran');
+          const isDenda = cat === 'Denda Baksos' || desc.includes('denda');
+          const isTunggakan = cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan');
+
+          if (!isIuran && (!resetAllResetBaksos || !isDenda) && (!resetAllResetTunggakan || !isTunggakan)) {
+            return false;
+          }
+
+          if (isAllPeriods) return true;
+          const mKey = getMonthKeyFromDate(tx.date);
+          return desc.includes(targetLower) || (periodKey && mKey === periodKey);
+        });
+
+        const totalNominalHapus = matchingIuranTxs.reduce((sum, t) => sum + t.amount, 0);
+
+        // Hitung jumlah KK yang berstatus bayar pada periode ini
+        const affectedHouses = residents.filter((h) => {
+          if (isAllPeriods) {
+            return h.duesStatus === 'Lunas' || h.duesStatus === 'Bayar Lebih' || (h.duesPaidAmount || 0) > 0;
+          }
+          const st = getHouseStatusForPeriod(h, targetPeriod);
+          return st.status === 'Lunas' || st.status === 'Bayar Lebih' || (st.amount || 0) > 0;
+        });
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95">
+              <div className="bg-gradient-to-r from-rose-600 to-rose-700 p-4 text-white flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-5 h-5 text-rose-200" />
+                  <h4 className="font-bold text-sm sm:text-base">Hapus Total Semua Pembayaran</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsResetAllModalOpen(false)}
+                  className="text-white/70 hover:text-white cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-800">
+                    Pilih Periode Pembayaran yang Ingin Dihapus Total:
+                  </label>
+                  <select
+                    value={resetAllTargetPeriod}
+                    onChange={(e) => setResetAllTargetPeriod(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500/30"
+                  >
+                    {sortedPeriods.map((p) => (
+                      <option key={p} value={p}>
+                        Periode {p} {p === defaultMonthLabel ? '(Bulan Berjalan)' : ''}
+                      </option>
+                    ))}
+                    <option value="semua">Semua Periode (Total Seluruh KK)</option>
+                  </select>
+                </div>
+
+                {/* Rangkuman Dampak */}
+                <div className="p-3.5 bg-rose-50/90 border border-rose-200 rounded-xl space-y-2 text-xs text-rose-950">
+                  <span className="font-bold flex items-center gap-1.5 text-rose-900">
+                    <RotateCcw className="w-4 h-4 text-rose-600" />
+                    <span>Rincian Pembayaran yang Akan Dihapus &amp; Dikosongkan:</span>
+                  </span>
+                  <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
+                    <div className="bg-white p-2.5 rounded-lg border border-rose-200">
+                      <span className="text-[10px] text-slate-500 font-sans block">Jumlah KK Tercatat Lunas:</span>
+                      <span className="font-bold text-slate-900 text-sm">{affectedHouses.length} KK</span>
+                    </div>
+                    <div className="bg-white p-2.5 rounded-lg border border-rose-200">
+                      <span className="text-[10px] text-slate-500 font-sans block">Transaksi Kas Dihapus:</span>
+                      <span className="font-bold text-rose-700 text-sm">{matchingIuranTxs.length} Transaksi</span>
+                    </div>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-lg border border-rose-200 flex items-center justify-between font-mono">
+                    <span className="text-[11px] text-slate-600 font-sans">Total Kas yang Akan Berkurang:</span>
+                    <span className="font-bold text-rose-700 text-sm">-{formatRupiah(totalNominalHapus)}</span>
+                  </div>
+                </div>
+
+                {/* Checkbox Opsi */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                  <label className="flex items-start gap-2 cursor-pointer font-medium text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={resetAllDeleteTxs}
+                      onChange={(e) => setResetAllDeleteTxs(e.target.checked)}
+                      className="mt-0.5 rounded text-rose-600 focus:ring-rose-500"
+                    />
+                    <span>
+                      <strong>Otomatis hapus dari Buku Kas Keluar Masuk</strong> (Saldo kas utama dan riwayat mutasi kas akan langsung disesuaikan berkurang)
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 cursor-pointer font-medium text-slate-800">
+                    <input
+                      type="checkbox"
+                      checked={resetAllResetBaksos}
+                      onChange={(e) => setResetAllResetBaksos(e.target.checked)}
+                      className="mt-0.5 rounded text-rose-600 focus:ring-rose-500"
+                    />
+                    <span>
+                      Batalkan tanda lunas denda baksos untuk periode ini
+                    </span>
+                  </label>
+                </div>
+
+                {/* Peringatan Kritis */}
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+                  ⚠️ <strong>Perhatian:</strong> Tindakan ini akan mengembalikan seluruh status iuran KK pada periode <strong>{targetPeriod}</strong> menjadi <strong>Belum Bayar (Rp 0)</strong>. Semua transaksi iuran terkait di Buku Kas akan langsung dibersihkan sehingga pembukuan kas tetap sinkron dan akurat.
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsResetAllModalOpen(false)}
+                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer font-semibold"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmResetAllDues}
+                    className="px-4 py-2 text-xs bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold rounded-xl cursor-pointer shadow-xs flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Ya, Hapus Total Semua Pembayaran</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         );

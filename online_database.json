@@ -1,10 +1,10 @@
 {
   "version": 5,
-  "revision": 1070,
+  "revision": 1133,
   "isDefaultSeed": false,
-  "updatedAt": "2026-10-29T10:45:18.040Z",
-  "updatedBy": "Pengurus Gang Mandor (Online Test)",
-  "clientId": "client-1a25ach5-mvtalai8",
+  "updatedAt": "2026-10-29T16:09:01.064Z",
+  "updatedBy": "Pengurus Gang Mandor (Online)",
+  "clientId": "client-9cvtdhm1-mvtqhq7y",
   "siteConfig": {
     "brandName": "GANG MANDOR PRO",
     "title": "GANG MANDOR PRO",
@@ -60,6 +60,17 @@
         "description": "Laporan rincian keluar dan masuk kas utama Gang Mandor, terintegrasi langsung dengan penerimaan denda bakti sosial, iuran warga, serta akumulasi saldo cashback WiFi dan cashback sampah."
       },
       {
+        "id": "penarikan",
+        "icon": "Banknote",
+        "label": "Penarikan Keuangan",
+        "title": "Data Penarikan Keuangan & Iuran Rutin Warga",
+        "content": "",
+        "subMenus": [],
+        "shortLabel": "Penarikan",
+        "colorScheme": "indigo",
+        "description": "Pencatatan penarikan iuran rutin warga, kelunasan per KK, dan pembukuan kas gang."
+      },
+      {
         "id": "baksos",
         "icon": "CheckCircle2",
         "label": "Bakti Sosial",
@@ -110,16 +121,12 @@
     "publicContactDescription": "Daftar kontak pengurus dan layanan masyarakat Gang Mandor Blok K2/25 - K3/24 untuk kebutuhan administrasi, keamanan, dan kebersihan.",
     "footerCopyrightText": "Media Informasi Warga Gang Mandor",
     "duesAmountPerMonth": 40000,
-    "duesCurrentMonth": "September 2026",
+    "duesCurrentMonth": "Juni 2026",
     "duesAvailablePeriods": [
-      "Agustus 2026",
-      "Juli 2026",
-      "Desember 2026",
-      "November 2026",
-      "Oktober 2026",
-      "September 2026",
       "Juni 2026",
-      "Mei 2026"
+      "Mei 2026",
+      "Agustus 2026",
+      "Juli 2026"
     ]
   },
   "residents": [
@@ -213,7 +220,7 @@
       "duesPaidMonths": 2,
       "duesPrepaidBalance": 15000,
       "duesPaidDate": "2026-05-01",
-      "duesMonthNote": "September 2026",
+      "duesMonthNote": "Mei 2026, Juni 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "members": [
@@ -228,7 +235,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-29T08:47:15.969Z"
+      "updatedAt": "2026-10-29T16:03:13.239Z"
     },
     {
       "id": "warga-k2-27",
@@ -617,12 +624,12 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Pasang",
       "wifiProvider": "Blessnet",
-      "duesStatus": "Belum Bayar",
+      "duesStatus": "Lunas",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "",
+      "duesPaidDate": "2026-10-29",
       "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
@@ -659,7 +666,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-25T16:43:54.295Z"
+      "updatedAt": "2026-10-29T16:08:09.866Z"
     },
     {
       "id": "warga-k2-35",
@@ -2511,7 +2518,7 @@
       "wifiStatus": "Tidak Pasang",
       "wifiProvider": "-",
       "duesStatus": "Belum Bayar",
-      "customDuesAmount": 30000,
+      "customDuesAmount": 0,
       "duesPaidAmount": 0,
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
@@ -2532,7 +2539,8 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-25T16:51:11.544Z"
+      "updatedAt": "2026-10-29T16:05:23.997Z",
+      "duesHeadNameOverride": "Rumah Kosong"
     },
     {
       "id": "warga-k3-23",
@@ -2605,6 +2613,15 @@
   ],
   "transactions": [
     {
+      "date": "2026-05-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Kas Warga Bayar Lebih (Mei 2026, Juni 2026) Warga Blok K2/26 (Rumah Kosong - Ibnu Fauzi)",
+      "amount": 30000,
+      "id": "tx-dues-sync-1793289793239-0-d6au"
+    },
+    {
       "id": "tx-init-mei-kas",
       "date": "2026-04-30",
       "type": "masuk",
@@ -2621,15 +2638,6 @@
       "category": "Cashback Sampah",
       "description": "Saldo Awal Cashback Sampah Bulan Sebelumnya (Periode Mei 2026)",
       "amount": 1265000
-    },
-    {
-      "date": "2026-05-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Kas Bayar Lebih 2 Bulan (September 2026, Oktober 2026) Warga Blok K2/26 (Rumah Kosong - Ibnu Fauzi)",
-      "amount": 30000,
-      "id": "tx-1793263635987-pins"
     },
     {
       "id": "tx-1792947947044-9hu0",
@@ -4207,64 +4215,7 @@
       "amount": 40000
     }
   ],
-  "baksosAgendas": [
-    {
-      "id": "baksos-1",
-      "title": "Kerja Bakti Rutin Pembersihan Saluran Air & Selokan Blok K2/25 - K3/24",
-      "date": "2026-10-04",
-      "location": "Sepanjang Saluran Gang Mandor K2/25 s/d K3/24",
-      "description": "Gotong royong membersihkan sedimentasi lumpur menjelang musim hujan. Kehadiran dicek per kepala keluarga. Yang tidak hadir dikenakan denda Rp 10.000.",
-      "fineAmount": 10000,
-      "attendance": {
-        "warga-1": "Hadir",
-        "warga-2": "Hadir",
-        "warga-3": "Tidak Wajib",
-        "warga-4": "Hadir",
-        "warga-5": "Tidak Hadir",
-        "warga-6": "Kosong",
-        "warga-7": "Hadir",
-        "warga-8": "Tidak Wajib",
-        "warga-9": "Hadir",
-        "warga-10": "Tidak Wajib",
-        "warga-11": "Tidak Wajib",
-        "warga-k3-22": "Tidak Wajib",
-        "warga-k2-39": "Tidak Wajib",
-        "warga-k3-05": "Tidak Wajib",
-        "warga-k3-09": "Tidak Wajib"
-      },
-      "finesPaid": {
-        "warga-5": false
-      }
-    },
-    {
-      "id": "baksos-2",
-      "title": "Pengecatan Gapura & Pemasangan Umbul-Umbul Gang",
-      "date": "2026-09-20",
-      "location": "Pos Gang Mandor & Gapura Depan",
-      "description": "Peremajaan tampilan gerbang gang dan penataan tanaman pot warga.",
-      "fineAmount": 10000,
-      "attendance": {
-        "warga-1": "Hadir",
-        "warga-2": "Hadir",
-        "warga-3": "Tidak Wajib",
-        "warga-4": "Hadir",
-        "warga-5": "Tidak Hadir",
-        "warga-6": "Kosong",
-        "warga-7": "Hadir",
-        "warga-8": "Tidak Wajib",
-        "warga-9": "Hadir",
-        "warga-10": "Tidak Wajib",
-        "warga-11": "Tidak Wajib",
-        "warga-k3-22": "Tidak Wajib",
-        "warga-k2-39": "Tidak Wajib",
-        "warga-k3-05": "Tidak Wajib",
-        "warga-k3-09": "Tidak Wajib"
-      },
-      "finesPaid": {
-        "warga-5": true
-      }
-    }
-  ],
+  "baksosAgendas": [],
   "committees": [
     {
       "id": "kom-1",
