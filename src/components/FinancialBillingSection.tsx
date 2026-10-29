@@ -487,7 +487,7 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
         date: payDate,
         type: 'masuk',
         pool: 'Kas Utama',
-        category: 'Iuran Warga',
+        category: 'Pembayaran Tunggakan',
         description: `Pelunasan / Cicilan Tunggakan Lalu Blok ${house.blockNumber} ${houseDesc}${
           house.previousArrearsNote ? ` (${house.previousArrearsNote})` : ''
         }`,
@@ -2113,9 +2113,21 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                           ))}
                         </div>
                         {payDuesMonths > 1 && (
-                          <p className="text-[10px] text-indigo-950 bg-indigo-50/80 p-2 rounded-lg border border-indigo-200 leading-relaxed font-medium">
-                            💡 <strong>Otomatis Masuk ke Bulan Berikutnya:</strong> Warga otomatis tercatat <strong>LUNAS</strong> saat Anda memilih bulan-bulan di atas di penarikan keuangan maupun rekap kas per KK tanpa perlu ditagih/diinput ulang.
-                          </p>
+                          <>
+                            <p className="text-[10px] text-indigo-950 bg-indigo-50/80 p-2 rounded-lg border border-indigo-200 leading-relaxed font-medium">
+                              💡 <strong>Otomatis Masuk ke Bulan Berikutnya:</strong> Warga otomatis tercatat <strong>LUNAS</strong> saat Anda memilih bulan-bulan di atas di penarikan keuangan maupun rekap kas per KK tanpa perlu ditagih/diinput ulang.
+                            </p>
+                            <div className="p-2 bg-indigo-50/90 rounded-lg border border-indigo-200 text-[10px] space-y-1">
+                              <span className="font-bold text-indigo-950 block">📝 Catatan Transaksi Kas Otomatis:</span>
+                              <div className="font-mono text-indigo-900 bg-white/90 p-1.5 rounded border border-indigo-200 break-words font-semibold text-[10px]">
+                                {(() => {
+                                  const covList = getSubsequentMonthLabels(inputMonth.trim() || defaultPeriod, payDuesMonths);
+                                  const rangeTxt = `${inputMonth.trim() || defaultPeriod} - ${covList[covList.length - 1]} (${payDuesMonths} Bulan)`;
+                                  return `Iuran Kas Warga Lebih dari 1 Bulan (${rangeTxt}) Blok ${payingBillingItem.house.blockNumber} (${payingBillingItem.displayName})${payNote ? ` - ${payNote}` : ''}`;
+                                })()}
+                              </div>
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>

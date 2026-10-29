@@ -225,6 +225,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     new Date().toISOString().slice(0, 10)
   );
   const [houseDuesMonthInput, setHouseDuesMonthInput] = useState<string>(defaultMonthLabel);
+  const [houseDuesCustomNoteInput, setHouseDuesCustomNoteInput] = useState<string>('');
 
   // Transaction form state
   const [txDate, setTxDate] = useState(new Date().toISOString().slice(0, 10));
@@ -236,6 +237,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [txResidentId, setTxResidentId] = useState<string>('');
   const [txIuranMonths, setTxIuranMonths] = useState<number>(1);
   const [txIuranStartMonth, setTxIuranStartMonth] = useState<string>(defaultMonthLabel);
+  const [txCustomNote, setTxCustomNote] = useState<string>('');
 
   // Balance adjustment modal
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
@@ -338,13 +340,30 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   // Helper to test if a transaction is related to Iuran or Tunggakan
   const isIuranOrTunggakanTx = (tx: CashTransaction) => {
     if (tx.type !== 'masuk') return false;
+    const cat = tx.category || '';
+    const desc = (tx.description || '').toLowerCase();
     return (
-      tx.category === 'Iuran Warga' ||
-      tx.category === 'Pembayaran Tunggakan' ||
-      (tx.category !== 'Pengeluaran Gang' &&
-        tx.category !== 'Pengeluaran Lingkungan' &&
-        (tx.category || '').toLowerCase().includes('iuran'))
+      cat === 'Iuran Warga' ||
+      cat === 'Pembayaran Tunggakan' ||
+      desc.includes('tunggakan') ||
+      (!cat.includes('Pengeluaran') && (cat.toLowerCase().includes('iuran') || desc.includes('iuran')))
     );
+  };
+
+  const isPureIuranTx = (tx: CashTransaction) => {
+    if (tx.type !== 'masuk') return false;
+    const cat = tx.category || '';
+    const desc = (tx.description || '').toLowerCase();
+    if (cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan')) return false;
+    if (cat === 'Denda Baksos' || desc.includes('denda')) return false;
+    return cat === 'Iuran Warga' || desc.includes('iuran');
+  };
+
+  const isTunggakanTx = (tx: CashTransaction) => {
+    if (tx.type !== 'masuk') return false;
+    const cat = tx.category || '';
+    const desc = (tx.description || '').toLowerCase();
+    return cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan');
   };
 
   // List of available periods
@@ -634,20 +653,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const cat = tx.category || '';
 
       // Check if it's Tunggakan
-      const isTunggakan = isMasuk && cat === 'Pembayaran Tunggakan';
+      const isTunggakan =
+        isMasuk &&
+        (cat === 'Pembayaran Tunggakan' ||
+          cat.toLowerCase().includes('tunggakan') ||
+          (tx.description || '').toLowerCase().includes('tunggakan'));
 
       // Check if it's Denda Baksos
-      const isDenda = isMasuk && cat === 'Denda Baksos';
+      const isDenda = isMasuk && (cat === 'Denda Baksos' || (tx.description || '').toLowerCase().includes('denda'));
 
       // Check if it's Iuran Warga
       const isIuran =
         isMasuk &&
+        !isTunggakan &&
+        !isDenda &&
         (cat === 'Iuran Warga' ||
-          (!isTunggakan &&
-            !isDenda &&
-            cat !== 'Pengeluaran Gang' &&
-            cat !== 'Pengeluaran Lingkungan' &&
-            cat.toLowerCase().includes('iuran')));
+          (!cat.includes('Pengeluaran') &&
+            (cat.toLowerCase().includes('iuran') || (tx.description || '').toLowerCase().includes('iuran'))));
 
       // Check WiFi vs Sampah
       const isWifi =
@@ -1044,12 +1066,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       };
     }
 
-    // Prioritas 3: Cek transaksi di Buku Kas yang tercatat untuk rumah ini pada periode tersebut
+    // Prioritas 3: Cek transaksi di Buku Kas yang tercatat untuk rumah ini pada periode tersebut (khusus iuran rutin murni, bukan pembayaran tunggakan)
     const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
     const txMatch = transactions.find(
       (t) =>
         t.type === 'masuk' &&
-        isIuranOrTunggakanTx(t) &&
+        isPureIuranTx(t) &&
         getMonthKeyFromDate(t.date) === targetKey &&
         blockRegex.test(t.description)
     );
@@ -1103,25 +1125,50 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     }
 
     // 5. Past month check (targetKey < currentKey) untuk rumah berpenghuni
+    // KETENTUAN: Jika tunggakan sudah dibayar jangan dimasukkan ke rekap iuran per KK bulan yang sudah lalu.
+    // Tetapi masuk rekap per KK bulan tanggal bayar.
     if (targetKey < currentKey) {
       const prevNote = (house.previousArrearsNote || '').toLowerCase();
       const monthParts = targetKey.split('-');
       const monthIdx = parseInt(monthParts[1], 10) - 1;
       const monthName = (INDONESIAN_MONTHS[monthIdx] || '').toLowerCase();
 
+      // Cari apakah ada transaksi pelunasan tunggakan untuk rumah ini yang dibayar di kemudian hari (misal di bulan tanggal bayar)
+      const paidLaterTungTx = transactions.find((t) => {
+        if (t.type !== 'masuk') return false;
+        if (!isTunggakanTx(t)) return false;
+        if (!blockRegex.test(t.description)) return false;
+        const mKey = getMonthKeyFromDate(t.date);
+        const descLower = t.description.toLowerCase();
+        return (
+          mKey > targetKey &&
+          (descLower.includes(monthName) ||
+            descLower.includes(targetKey) ||
+            descLower.includes('lalu') ||
+            descLower.includes('sebelumnya') ||
+            descLower.includes('tunggakan'))
+        );
+      });
+
       const hasDebtInThisMonth =
-        house.previousArrears > 0 &&
-        (prevNote.includes(monthName) ||
-          prevNote.includes(targetKey) ||
-          (targetKey === getPreviousMonthKey(currentKey) && !prevNote.includes('agustus')));
+        (house.previousArrears > 0 &&
+          (prevNote.includes(monthName) ||
+            prevNote.includes(targetKey) ||
+            (targetKey === getPreviousMonthKey(currentKey) && !prevNote.includes('agustus')))) ||
+        Boolean(paidLaterTungTx);
 
       if (hasDebtInThisMonth) {
         return {
           status: 'Belum Bayar' as const,
           amount: 0,
-          label: 'Tertunggak',
+          label: paidLaterTungTx
+            ? `Tertunggak (Dibayar ${formatDateDDMMYYYY(paidLaterTungTx.date)})`
+            : 'Tertunggak',
           badgeClass: 'bg-rose-100 text-rose-800 border border-rose-200 font-bold',
-          note: house.previousArrearsNote || `Tertunggak ${formatRupiah(house.previousArrears)}`,
+          paidDate: undefined,
+          note: paidLaterTungTx
+            ? `Tunggakan ${formatRupiah(paidLaterTungTx.amount)} telah dibayar pada ${formatDateDDMMYYYY(paidLaterTungTx.date)} (Masuk ke Rekap Periode ${formatMonthYearFromKey(getMonthKeyFromDate(paidLaterTungTx.date))})`
+            : house.previousArrearsNote || `Tertunggak ${formatRupiah(house.previousArrears)}`,
         };
       }
 
@@ -1176,17 +1223,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         ? Math.round((totalPaidCount / occupiedHouses.length) * 100)
         : 0;
 
-      // Check transactions from ledger for this month
+      // Check pure iuran transactions from ledger for this month
       const matchingTxs = transactions.filter(
-        (t) => t.type === 'masuk' && isIuranOrTunggakanTx(t) && getMonthKeyFromDate(t.date) === pKey
+        (t) => t.type === 'masuk' && isPureIuranTx(t) && getMonthKeyFromDate(t.date) === pKey
       );
       const txSum = matchingTxs.reduce((s, t) => s + t.amount, 0);
+
+      // Check tunggakan transactions paid in this month (bulan tanggal bayar)
+      const matchingTungTxs = transactions.filter(
+        (t) => t.type === 'masuk' && isTunggakanTx(t) && getMonthKeyFromDate(t.date) === pKey
+      );
+      const tungSum = matchingTungTxs.reduce((s, t) => s + t.amount, 0);
 
       return {
         periodLabel,
         pKey,
         isCurrentMonth: periodLabel === defaultMonthLabel,
-        totalAmount: Math.max(totalAmount, txSum),
+        totalAmount: Math.max(totalAmount, txSum) + tungSum,
         lunasCount,
         bayarLebihCount,
         totalPaidCount,
@@ -1247,17 +1300,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
       const dendaPaid = item.baksosFineAmount || 0;
 
-      const blockLower = house.blockNumber.toLowerCase();
+      const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
       const tunggakanTxs = transactions.filter((t) => {
         if (t.type !== 'masuk') return false;
-        const d = t.description.toLowerCase();
-        const c = (t.category || '').toLowerCase();
-        const isBlock = d.includes(blockLower);
-        const isTung =
-          t.category === 'Pembayaran Tunggakan' ||
-          d.includes('tunggakan') ||
-          c.includes('tunggakan');
-        if (!isBlock || !isTung) return false;
+        if (!isTunggakanTx(t)) return false;
+        if (!blockRegex.test(t.description)) return false;
         if (selectedKKPeriod !== 'semua') {
           const pKey = parseIndonesianMonthYearToKey(selectedKKPeriod);
           return getMonthKeyFromDate(t.date) === pKey;
@@ -1403,6 +1450,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     setHouseDuesPrevNoteInput(house.previousArrearsNote || '');
     setHouseDuesPaidDateInput(house.duesPaidDate || new Date().toISOString().slice(0, 10));
     setHouseDuesMonthInput(getHousePeriodLabel(house));
+    setHouseDuesCustomNoteInput('');
   };
 
   // SAVE HOUSE DUES & INSERT TRANSACTIONS
@@ -1473,15 +1521,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         pool: 'Kas Utama',
         category: 'Iuran Warga',
         description: isAdvancePay
-          ? `Iuran Kas Bayar Lebih ${monthsCount} Bulan (${coveredMonths.join(', ')}) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}`
+          ? `Iuran Kas Warga Lebih dari 1 Bulan (${monthLabel} - ${coveredMonths[coveredMonths.length - 1]} (${monthsCount} Bulan)) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`
           : isNowPaid
-          ? `Iuran Bulanan (${monthLabel}) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}`
-          : `Cicilan Iuran Bulanan (${monthLabel}) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}`,
+          ? `Iuran Bulanan (${monthLabel}) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`
+          : `Cicilan Iuran Bulanan (${monthLabel}) Warga Blok ${editingHouseDues.blockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`,
         amount: totalReceived,
       });
+
+      // Otomatis daftarkan bulan berikutnya jika bayar lebih
+      if (onCreatePeriod && isAdvancePay) {
+        coveredMonths.forEach((m) => {
+          onCreatePeriod(m, { setActiveCurrentMonth: false, resetNonAdvanceDues: false });
+        });
+      }
     }
 
-    // 2. Masukkan Pelunasan Tunggakan Lalu ke Laporan Kas Keluar Masuk
+    // 2. Masukkan Pelunasan Tunggakan Lalu ke Laporan Kas Keluar Masuk (sebagai Pembayaran Tunggakan)
     if (paidArrearsAmount > 0 && !isVacant) {
       try {
         confetti({ particleCount: 40, spread: 55, origin: { y: 0.7 } });
@@ -1490,7 +1545,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         date: paidDateVal,
         type: 'masuk',
         pool: 'Kas Utama',
-        category: 'Iuran Warga',
+        category: 'Pembayaran Tunggakan',
         description: `Pelunasan Tunggakan Lalu Blok ${editingHouseDues.blockNumber} (${displayName})${
           editingHouseDues.previousArrearsNote ? ` - ${editingHouseDues.previousArrearsNote}` : ''
         }`,
@@ -1503,18 +1558,58 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     setEditingHouseDues(null);
   };
 
+  // Helper untuk update otomatis catatan transaksi dan nominal pada pilihan iuran lebih dari 1 bulan
+  const updateIuranTxPreview = (
+    resId: string,
+    months: number,
+    startMonth: string,
+    customNote: string
+  ) => {
+    const targetHouse = residents.find((r) => r.id === resId);
+    const nom = targetHouse
+      ? getHouseDuesNominal(targetHouse) || config.duesAmountPerMonth || 50000
+      : config.duesAmountPerMonth || 50000;
+    const monthsCount = Math.max(1, months);
+    const totalAmount = nom * monthsCount;
+    setTxAmount(totalAmount);
+
+    const covered = getSubsequentMonthLabels(startMonth, monthsCount);
+    const isMulti = monthsCount > 1;
+    const coveredText = isMulti
+      ? `${startMonth} - ${covered[covered.length - 1]} (${monthsCount} Bulan)`
+      : startMonth;
+    const payerName = targetHouse ? targetHouse.duesHeadNameOverride || targetHouse.headName : '';
+    const isVacant = targetHouse
+      ? targetHouse.occupancy === 'Kosong' ||
+        targetHouse.occupancy === 'Belum Ditempati' ||
+        isHouseVacant(targetHouse)
+      : false;
+    const houseTag = targetHouse
+      ? ` Blok ${targetHouse.blockNumber} (${isVacant ? `Rumah Kosong - ${payerName}` : payerName})`
+      : '';
+
+    const baseDesc = isMulti
+      ? `Iuran Kas Warga Lebih dari 1 Bulan (${coveredText})${houseTag}`
+      : `Iuran Kas Bulanan (${startMonth})${houseTag}`;
+
+    const notePart = customNote.trim() ? ` - ${customNote.trim()}` : '';
+    setTxDescription(`${baseDesc}${notePart}`);
+  };
+
   // ADD / EDIT TRANSACTION
   const handleOpenAddTx = () => {
+    const defaultStart = config.duesCurrentMonth || defaultMonthLabel || 'Oktober 2026';
     setEditingTx(null);
     setTxDate(new Date().toISOString().slice(0, 10));
     setTxType('masuk');
     setTxPool('Kas Utama');
     setTxCategory('Iuran Warga');
-    setTxDescription('');
-    setTxAmount('');
+    setTxDescription(`Iuran Kas Bulanan (${defaultStart})`);
+    setTxAmount(config.duesAmountPerMonth || 50000);
     setTxResidentId('');
     setTxIuranMonths(1);
-    setTxIuranStartMonth(defaultMonthLabel);
+    setTxIuranStartMonth(defaultStart);
+    setTxCustomNote('');
     setIsTxModalOpen(true);
   };
 
@@ -1567,6 +1662,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           const nom = getHouseDuesNominal(targetHouse) || config.duesAmountPerMonth || 25000;
           const monthsCount = Math.max(1, txIuranMonths);
           const isAdvance = monthsCount > 1 || finalAmount > nom;
+          const coveredList = getSubsequentMonthLabels(txIuranStartMonth.trim() || defaultMonthLabel, monthsCount);
+
+          if (onCreatePeriod && isAdvance) {
+            coveredList.forEach((m) => {
+              onCreatePeriod(m, { setActiveCurrentMonth: false, resetNonAdvanceDues: false });
+            });
+          }
+
           onUpdateResident({
             ...targetHouse,
             customDuesAmount: targetHouse.customDuesAmount || (isVacant ? nom : undefined),
@@ -2947,17 +3050,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                         const dendaPaid = item.baksosFineAmount || 0;
 
-                        const blockLower = house.blockNumber.toLowerCase();
+                        const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
                         const tunggakanTxs = transactions.filter((t) => {
                           if (t.type !== 'masuk') return false;
-                          const d = t.description.toLowerCase();
-                          const c = (t.category || '').toLowerCase();
-                          const isBlock = d.includes(blockLower);
-                          const isTung =
-                            t.category === 'Pembayaran Tunggakan' ||
-                            d.includes('tunggakan') ||
-                            c.includes('tunggakan');
-                          if (!isBlock || !isTung) return false;
+                          if (!isTunggakanTx(t)) return false;
+                          if (!blockRegex.test(t.description)) return false;
                           if (selectedKKPeriod !== 'semua') {
                             const pKey = parseIndonesianMonthYearToKey(selectedKKPeriod);
                             return getMonthKeyFromDate(t.date) === pKey;
@@ -2967,9 +3064,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         const tunggakanPaid = tunggakanTxs.reduce((s, t) => s + t.amount, 0);
 
                         const paidDate =
-                          statusInfo?.paidDate ||
-                          house.duesPaidDate ||
-                          (tunggakanTxs.length > 0 ? tunggakanTxs[0].date : '');
+                          (tunggakanPaid > 0 && tunggakanTxs.length > 0)
+                            ? tunggakanTxs[0].date
+                            : statusInfo?.paidDate ||
+                              house.duesPaidDate ||
+                              (tunggakanTxs.length > 0 ? tunggakanTxs[0].date : '');
 
                         const totalSemua = iuranPaid + dendaPaid + tunggakanPaid;
 
@@ -2982,7 +3081,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         const isSudahBayar =
                           !isRumahKosongHitam &&
                           !isBayarLebih &&
-                          ((statusInfo && (statusInfo.status === 'Lunas' || (statusInfo.amount || 0) > 0)) ||
+                          (tunggakanPaid > 0 ||
+                           (statusInfo && (statusInfo.status === 'Lunas' || (statusInfo.amount || 0) > 0)) ||
                            (selectedKKPeriod === 'semua' && isLunas) ||
                            (iuranPaid > 0));
 
@@ -3338,45 +3438,165 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 </div>
               </div>
 
-              {/* Opsi KK jika Iuran Warga */}
+              {/* Opsi KK & Pilihan Iuran Lebih dari 1 Bulan */}
               {!editingTx && txType === 'masuk' && txCategory === 'Iuran Warga' && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                  <label className="block text-[11px] font-bold text-slate-700">
-                    Tautkan ke Kepala Keluarga (Opsional)
-                  </label>
-                  <select
-                    value={txResidentId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setTxResidentId(id);
-                      if (id) {
-                        const h = residents.find((r) => r.id === id);
-                        if (h) {
-                          const isVacant = h.occupancy === 'Kosong' || h.occupancy === 'Belum Ditempati' || isHouseVacant(h);
-                          const nom = getHouseDuesNominal(h) || config.duesAmountPerMonth || 25000;
-                          setTxAmount(nom);
-                          const payerName = h.duesHeadNameOverride || h.headName;
-                          setTxDescription(
-                            isVacant
-                              ? `Iuran Kas Bulanan (${defaultMonthLabel}) Blok ${h.blockNumber} (Rumah Kosong - ${payerName})`
-                              : `Iuran Kas Bulanan (${defaultMonthLabel}) Blok ${h.blockNumber} (${payerName})`
-                          );
-                        }
-                      }
-                    }}
-                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg"
-                  >
-                    <option value="">— Tidak ditautkan ke KK spesifik —</option>
-                    {residents.map((r) => {
-                      const isVacant = r.occupancy === 'Kosong' || r.occupancy === 'Belum Ditempati' || isHouseVacant(r);
-                      const displayName = r.duesHeadNameOverride ? `${r.duesHeadNameOverride} (Induk: ${r.headName})` : r.headName;
-                      return (
-                        <option key={r.id} value={r.id}>
-                          Blok {r.blockNumber} — {displayName} {isVacant ? '(Rumah Kosong)' : ''}
-                        </option>
-                      );
-                    })}
-                  </select>
+                <div className="p-3.5 bg-gradient-to-br from-emerald-50/90 via-teal-50/50 to-indigo-50/50 border border-emerald-200 rounded-2xl space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-slate-800">
+                        Tautkan ke Kepala Keluarga / No. Blok
+                      </label>
+                      <span className="text-[10px] text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200 font-semibold">
+                        Sinkron ke Rekap KK
+                      </span>
+                    </div>
+                    <select
+                      value={txResidentId}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        setTxResidentId(id);
+                        updateIuranTxPreview(id, txIuranMonths, txIuranStartMonth, txCustomNote);
+                      }}
+                      className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs"
+                    >
+                      <option value="">— Tidak ditautkan ke KK spesifik (Iuran Umum) —</option>
+                      {residents.map((r) => {
+                        const isVacant =
+                          r.occupancy === 'Kosong' ||
+                          r.occupancy === 'Belum Ditempati' ||
+                          isHouseVacant(r);
+                        const displayName = r.duesHeadNameOverride
+                          ? `${r.duesHeadNameOverride} (Induk: ${r.headName})`
+                          : r.headName;
+                        return (
+                          <option key={r.id} value={r.id}>
+                            Blok {r.blockNumber} — {displayName} {isVacant ? '(Rumah Kosong)' : ''}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  {/* Pilihan Iuran Lebih dari 1 Bulan */}
+                  <div className="pt-2 border-t border-emerald-200/80 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Pilihan Jumlah Bulan Iuran</span>
+                      </label>
+                      <span className="text-[11px] font-extrabold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200 shadow-2xs">
+                        {txIuranMonths} Bulan Dibayar
+                      </span>
+                    </div>
+
+                    {/* Quick Preset Buttons */}
+                    <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                      {[1, 2, 3, 4, 5, 6, 12].map((num) => {
+                        const isSel = txIuranMonths === num;
+                        const label =
+                          num === 1
+                            ? '1 Bln'
+                            : num === 6
+                            ? '6 Bln'
+                            : num === 12
+                            ? '1 Thn (12)'
+                            : `${num} Bln`;
+                        return (
+                          <button
+                            key={num}
+                            type="button"
+                            onClick={() => {
+                              setTxIuranMonths(num);
+                              updateIuranTxPreview(txResidentId, num, txIuranStartMonth, txCustomNote);
+                            }}
+                            className={`py-1.5 px-1 text-center rounded-lg text-[11px] font-black transition-all cursor-pointer ${
+                              isSel
+                                ? 'bg-indigo-600 text-white shadow-xs scale-102 ring-1 ring-indigo-400'
+                                : 'bg-white hover:bg-emerald-100 text-slate-700 border border-slate-200 shadow-2xs'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Periode Bulan Mulai
+                        </label>
+                        <select
+                          value={txIuranStartMonth}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setTxIuranStartMonth(val);
+                            updateIuranTxPreview(txResidentId, txIuranMonths, val, txCustomNote);
+                          }}
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800 font-semibold"
+                        >
+                          {availablePeriods.map((p) => (
+                            <option key={p} value={p}>
+                              {p}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Kustom Jumlah Bulan
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={36}
+                          value={txIuranMonths}
+                          onChange={(e) => {
+                            const val = Math.max(1, Number(e.target.value) || 1);
+                            setTxIuranMonths(val);
+                            updateIuranTxPreview(txResidentId, val, txIuranStartMonth, txCustomNote);
+                          }}
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-800"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Live Preview Periode yang Dicakup */}
+                    <div className="p-2 rounded-xl bg-indigo-50/90 border border-indigo-200 text-indigo-950 text-[11px] font-semibold flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                        <span>
+                          {txIuranMonths > 1
+                            ? `Cakupan: ${txIuranStartMonth} s/d ${
+                                getSubsequentMonthLabels(txIuranStartMonth, txIuranMonths).slice(-1)[0]
+                              } (${txIuranMonths} Bulan)`
+                            : `Cakupan: ${txIuranStartMonth} (1 Bulan)`}
+                        </span>
+                      </div>
+                      <span className="font-mono font-bold text-indigo-900 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                        {formatRupiah(Number(txAmount) || 0)}
+                      </span>
+                    </div>
+
+                    {/* Catatan Tambahan (misal nama pentransfer / keterangan khusus) */}
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        Catatan Tambahan Transaksi (Opsional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Misal: Transfer BCA, Titip Bendahara, Bayar Sekaligus"
+                        value={txCustomNote}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setTxCustomNote(val);
+                          updateIuranTxPreview(txResidentId, txIuranMonths, txIuranStartMonth, val);
+                        }}
+                        className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800"
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -3536,38 +3756,131 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   </div>
                 </div>
 
-                {houseDuesStatusInput === 'Bayar Lebih' && (
-                  <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
-                    <div className="grid grid-cols-2 gap-2 text-xs">
+                {houseDuesStatusInput === 'Bayar Lebih' && (() => {
+                  const mLabel = houseDuesMonthInput.trim() || defaultMonthLabel;
+                  const monthsCount = Math.max(2, houseDuesPaidMonthsInput);
+                  const covered = getSubsequentMonthLabels(mLabel, monthsCount);
+                  const rangeTxt = `${mLabel} - ${covered[covered.length - 1]} (${monthsCount} Bulan)`;
+                  const payerName = houseDuesHeadNameInput.trim() || editingHouseDues.headName;
+                  const houseTag = isEditingVacant ? `(Rumah Kosong - ${payerName})` : `(${payerName})`;
+                  const autoNotePreview = `Iuran Kas Warga Lebih dari 1 Bulan (${rangeTxt}) Warga Blok ${editingHouseDues.blockNumber} ${houseTag}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`;
+
+                  return (
+                    <div className="p-3.5 bg-indigo-50/90 border border-indigo-200 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-indigo-950 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                          <span>Pilihan Iuran Lebih dari 1 Bulan</span>
+                        </span>
+                        <span className="text-[10px] font-bold text-indigo-700 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                          {monthsCount} Bulan Tercover
+                        </span>
+                      </div>
+
+                      {/* Presets Cepat Bulan */}
+                      <div className="space-y-1">
+                        <label className="block text-[11px] font-bold text-indigo-900">
+                          Pilihan Cepat Jumlah Bulan:
+                        </label>
+                        <div className="grid grid-cols-6 gap-1 text-[11px]">
+                          {[2, 3, 4, 5, 6, 12].map((cnt) => (
+                            <button
+                              key={cnt}
+                              type="button"
+                              onClick={() => {
+                                setHouseDuesPaidMonthsInput(cnt);
+                                setHouseDuesTotalReceivedInput(houseDuesAmountInput * cnt);
+                              }}
+                              className={`py-1 rounded-lg font-bold border transition-all cursor-pointer text-center ${
+                                houseDuesPaidMonthsInput === cnt
+                                  ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs ring-1 ring-indigo-400'
+                                  : 'bg-white text-indigo-900 border-indigo-200 hover:bg-indigo-100/70'
+                              }`}
+                            >
+                              {cnt === 12 ? '1 Thn' : `${cnt} Bln`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <label className="block font-semibold text-indigo-900 mb-1">
+                            Jumlah Bulan Manual
+                          </label>
+                          <input
+                            type="number"
+                            min={2}
+                            max={24}
+                            value={houseDuesPaidMonthsInput}
+                            onChange={(e) => {
+                              const val = Math.max(2, Number(e.target.value) || 2);
+                              setHouseDuesPaidMonthsInput(val);
+                              setHouseDuesTotalReceivedInput(houseDuesAmountInput * val);
+                            }}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-semibold text-indigo-900 mb-1">
+                            Total Diterima (Rp)
+                          </label>
+                          <input
+                            type="number"
+                            min={houseDuesAmountInput * 2}
+                            step={5000}
+                            value={houseDuesTotalReceivedInput}
+                            onChange={(e) => setHouseDuesTotalReceivedInput(Number(e.target.value) || 0)}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Daftar Bulan yang Dicakup */}
+                      <div className="space-y-1">
+                        <span className="block text-[11px] font-semibold text-indigo-900">
+                          Bulan yang Otomatis Tercatat Lunas:
+                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          {covered.map((m, idx) => (
+                            <span
+                              key={m}
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                idx === 0
+                                  ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                  : 'bg-indigo-100 text-indigo-900 border-indigo-300'
+                              }`}
+                            >
+                              ✓ {m}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Catatan Tambahan Transaksi */}
                       <div>
-                        <label className="block font-semibold text-indigo-900 mb-1">
-                          Jumlah Bulan
+                        <label className="block text-[11px] font-bold text-indigo-900 mb-1">
+                          Catatan Tambahan Transaksi (Opsional)
                         </label>
                         <input
-                          type="number"
-                          min={2}
-                          max={12}
-                          value={houseDuesPaidMonthsInput}
-                          onChange={(e) => setHouseDuesPaidMonthsInput(Number(e.target.value) || 2)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold"
+                          type="text"
+                          placeholder="Misal: Titip di bendahara / Transfer via BCA..."
+                          value={houseDuesCustomNoteInput}
+                          onChange={(e) => setHouseDuesCustomNoteInput(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg text-slate-800 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                         />
                       </div>
-                      <div>
-                        <label className="block font-semibold text-indigo-900 mb-1">
-                          Total Diterima (Rp)
-                        </label>
-                        <input
-                          type="number"
-                          min={houseDuesAmountInput * 2}
-                          step={5000}
-                          value={houseDuesTotalReceivedInput}
-                          onChange={(e) => setHouseDuesTotalReceivedInput(Number(e.target.value) || 0)}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold"
-                        />
+
+                      {/* Preview Catatan Transaksi */}
+                      <div className="p-2 bg-white/90 rounded-lg border border-indigo-200 text-[10px] space-y-1">
+                        <span className="font-bold text-indigo-950 block">📝 Pratinjau Catatan Transaksi Kas:</span>
+                        <div className="font-mono text-indigo-900 break-words font-medium">
+                          {autoNotePreview}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 <div className="grid grid-cols-2 gap-3 pt-1 border-t border-slate-100">
                   <div>

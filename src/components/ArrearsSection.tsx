@@ -175,7 +175,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
         date: new Date().toISOString().slice(0, 10),
         type: 'masuk',
         pool: 'Kas Utama',
-        category: 'Iuran Warga',
+        category: 'Pembayaran Tunggakan',
         description: `Pembayaran / Pelunasan Tunggakan Lalu Blok ${editingHouse.blockNumber} (${editingHouse.headName})${
           editPrevNote.trim() ? ` - ${editPrevNote.trim()}` : ''
         }`,
@@ -202,7 +202,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
         date: new Date().toISOString().slice(0, 10),
         type: 'masuk',
         pool: 'Kas Utama',
-        category: 'Iuran Warga',
+        category: 'Pembayaran Tunggakan',
         description: `Pelunasan Tunggakan Sebelumnya Blok ${house.blockNumber} (${house.headName})${
           house.previousArrearsNote ? ` - ${house.previousArrearsNote}` : ''
         }`,
@@ -238,7 +238,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
         date: todayStr,
         type: 'masuk',
         pool: 'Kas Utama',
-        category: 'Iuran Warga',
+        category: 'Pembayaran Tunggakan',
         description: `Cicilan / Pembayaran Tunggakan Lalu Blok ${house.blockNumber} (${house.duesHeadNameOverride || house.headName})${
           partialNote ? ` - ${partialNote}` : ''
         }`,
@@ -333,7 +333,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
         date: new Date().toISOString().slice(0, 10),
         type: 'masuk',
         pool: 'Kas Utama',
-        category: 'Iuran Warga',
+        category: 'Pembayaran Tunggakan',
         description: `Pelunasan Tunggakan Sebelumnya Blok ${item.house.blockNumber} (${payerName})`,
         amount: item.previousArrears,
       });
