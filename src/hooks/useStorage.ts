@@ -80,6 +80,30 @@ function sanitizeNavigationMenus(menus?: MenuItemConfig[]): MenuItemConfig[] {
     return true;
   });
 
+  // Pastikan menu data warga ada dan berada tepat di sebelah kanan menu pengumuman
+  const wargaIdx = sanitized.findIndex((m) => m.id === 'warga');
+  const wargaMenu =
+    wargaIdx !== -1
+      ? sanitized.splice(wargaIdx, 1)[0]
+      : INITIAL_NAV_MENUS.find((m) => m.id === 'warga') || {
+          id: 'warga',
+          label: 'Data Warga',
+          shortLabel: 'Warga',
+          title: 'Direktori Data Warga Gang Mandor',
+          description:
+            'Daftar warga per kavling blok rumah beserta rincian anggota keluarga, status hunian, kepesertaan Rukem, dan status WiFi.',
+          icon: 'FileSpreadsheet',
+          colorScheme: 'amber',
+          subMenus: [],
+        };
+
+  const pengumumanIdx = sanitized.findIndex((m) => m.id === 'pengumuman');
+  if (pengumumanIdx !== -1) {
+    sanitized.splice(pengumumanIdx + 1, 0, wargaMenu);
+  } else {
+    sanitized.unshift(wargaMenu);
+  }
+
   // Pastikan menu penarikan selalu dikembalikan
   if (!sanitized.some((m) => m.id === 'penarikan')) {
     const penarikanMenu = INITIAL_NAV_MENUS.find((m) => m.id === 'penarikan') || {
@@ -92,12 +116,7 @@ function sanitizeNavigationMenus(menus?: MenuItemConfig[]): MenuItemConfig[] {
       colorScheme: 'indigo',
       subMenus: [],
     };
-    const kasIdx = sanitized.findIndex((m) => m.id === 'kas');
-    if (kasIdx !== -1) {
-      sanitized.splice(kasIdx + 1, 0, penarikanMenu);
-    } else {
-      sanitized.push(penarikanMenu);
-    }
+    sanitized.push(penarikanMenu);
   }
 
   return sanitized.length > 0 ? sanitized : INITIAL_NAV_MENUS;

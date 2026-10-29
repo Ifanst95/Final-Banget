@@ -30,6 +30,7 @@ import {
   X,
   Save,
   Coins,
+  Image as LucideImage,
 } from 'lucide-react';
 import {
   BaksosAgenda,
@@ -56,6 +57,7 @@ import {
   parseIndonesianMonthYearToKey,
 } from '../utils/helpers';
 import { exportFinancialReportToExcel } from '../utils/financialExcelExport';
+import { generateCashbookImage } from '../utils/cashbookImageGenerator';
 import { BalanceBreakdown } from '../hooks/useStorage';
 import { DuesExcelUploadModal } from './DuesExcelUploadModal';
 
@@ -302,9 +304,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
   // WhatsApp share modal
   const [isWaModalOpen, setIsWaModalOpen] = useState<boolean>(false);
-  const [waRecapMode, setWaRecapMode] = useState<'keluar_masuk' | 'iuran_kk'>('keluar_masuk');
+  const [waRecapMode, setWaRecapMode] = useState<'gambar_kas' | 'keluar_masuk' | 'iuran_kk'>('gambar_kas');
   const [copiedWaText, setCopiedWaText] = useState<boolean>(false);
   const [waCustomText, setWaCustomText] = useState<string>('');
+  const [waImageDataUrl, setWaImageDataUrl] = useState<string | null>(null);
+  const [waImageBlob, setWaImageBlob] = useState<Blob | null>(null);
+  const [isGeneratingImage, setIsGeneratingImage] = useState<boolean>(false);
+  const [copiedWaImage, setCopiedWaImage] = useState<boolean>(false);
 
   const handleOpenMayBalanceModal = () => {
     const mayKasTx = transactions.find(
@@ -1956,8 +1962,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     if (!isAdmin) return;
     const isVacant =
       house.occupancy === 'Kosong' ||
-      house.occupancy === 'Belum Ditempati' ||
       isHouseVacant(house);
+    const isUnoccupied = house.occupancy === 'Belum Ditempati';
     const nominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
     const initialStatus = forceMultiMonth ? 'Bayar Lebih' : house.duesStatus;
     const currentMonths =
@@ -1969,9 +1975,17 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         ? nominal + (house.duesPrepaidBalance || 0)
         : nominal * currentMonths;
 
+    const currentDisplayName = isVacant
+      ? (house.duesHeadNameOverride && house.duesHeadNameOverride !== 'Rumah Kosong'
+          ? house.duesHeadNameOverride
+          : 'Rumah Kosong')
+      : isUnoccupied
+      ? (house.duesHeadNameOverride || 'Belum Ditempati')
+      : (house.duesHeadNameOverride || house.headName || '');
+
     setEditingHouseDues(house);
     setHouseDuesOccupancyInput(house.occupancy || 'Ditempati');
-    setHouseDuesHeadNameInput(house.duesHeadNameOverride || '');
+    setHouseDuesHeadNameInput(currentDisplayName);
     setHouseDuesAmountInput(nominal);
     setHouseDuesStatusInput(initialStatus);
     setHouseDuesPaidMonthsInput(currentMonths);
@@ -2013,13 +2027,18 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     const paidArrearsAmount = Math.max(0, oldPrevArrears - newPrevArrears);
 
     const trimmedHeadInput = houseDuesHeadNameInput.trim();
-    // Kepala keluarga di Rekap Iuran murni dari inputan user (tidak mengambil dari buku induk warga):
-    const finalHeadNameOverride = trimmedHeadInput || (isVacant ? 'Rumah Kosong' : isUnoccupied ? 'Belum Ditempati' : '');
+    // Sinkronisasi penuh dengan Tabel Rincian 3 Komponen Penarikan Keuangan
+    const finalHeadName = isVacant
+      ? (trimmedHeadInput || 'Rumah Kosong')
+      : isUnoccupied
+      ? (trimmedHeadInput || 'Belum Ditempati')
+      : (trimmedHeadInput || editingHouseDues.headName);
 
     const updatedResident: ResidentHouse = {
       ...editingHouseDues,
       occupancy: houseDuesOccupancyInput,
-      duesHeadNameOverride: finalHeadNameOverride,
+      headName: finalHeadName,
+      duesHeadNameOverride: finalHeadName,
       customDuesAmount: amountNum,
       duesStatus: houseDuesStatusInput,
       duesPaidAmount: isNowPaid ? 0 : partialNum,
@@ -2031,7 +2050,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       previousArrearsNote: isVacant ? '' : houseDuesPrevNoteInput.trim(),
     };
 
-    const displayName = finalHeadNameOverride || `Blok ${editingHouseDues.blockNumber}`;
+    const displayName = finalHeadName || `Blok ${editingHouseDues.blockNumber}`;
     const houseDescLabel = isVacant
       ? `(Rumah Kosong - ${displayName})`
       : `(${displayName})`;
@@ -2346,6 +2365,137 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     }
   }, [config, selectedTxMonth, balances, periodSummary, residents, defaultMonthLabel, kkStats, waRecapMode]);
 
+  // GENERATOR BENTUK GAMBAR BUKU KAS KELUAR MASUK UNTUK WHATSAPP
+  const generateWaImageNow = useCallback(async () => {
+    setIsGeneratingImage(true);
+    try {
+      const activePeriodTitle =
+        effectiveMonthKey !== 'semua'
+          ? formatMonthYearFromKey(effectiveMonthKey)
+          : defaultMonthLabel;
+
+      const res = await generateCashbookImage({
+        brandName: config.brandName || config.title || 'Warga Gang Mandor Blok K2/25 - K3/24',
+        periodLabel: activePeriodTitle,
+        prevMonthSummary: {
+          prevMonthLabel: prevMonthSummary.prevMonthLabel,
+          kasUtama: prevMonthSummary.kasUtama,
+          wifiCashback: prevMonthSummary.wifiCashback,
+          sampahCashback: prevMonthSummary.sampahCashback,
+          total: prevMonthSummary.total,
+        },
+        rekapIuranRow: simplifiedCashbookData.rekapIuranRow
+          ? {
+              no: simplifiedCashbookData.rekapIuranRow.no,
+              date: simplifiedCashbookData.rekapIuranRow.date,
+              description: simplifiedCashbookData.rekapIuranRow.description,
+              masuk: simplifiedCashbookData.rekapIuranRow.masuk,
+              keluar: 0,
+              runningBalance: simplifiedCashbookData.rekapIuranRow.runningBalance,
+              effectiveTotalIuran: simplifiedCashbookData.effectiveTotalIuran,
+              effectiveTotalDenda: simplifiedCashbookData.effectiveTotalDenda,
+              effectiveTotalTunggakan: simplifiedCashbookData.effectiveTotalTunggakan,
+            }
+          : null,
+        cashbookRows: simplifiedCashbookData.remainingCashbookRows.map((r) => ({
+          no: r.no,
+          date: r.date,
+          description: r.description,
+          subCategoryLabel: r.subCategoryLabel,
+          pool: r.tx.pool,
+          isMasuk: r.isMasuk,
+          amount: r.tx.amount,
+          runningBalance: r.runningBalance,
+        })),
+        tableTotals,
+      });
+
+      setWaImageDataUrl(res.dataUrl);
+      setWaImageBlob(res.blob);
+    } catch (err) {
+      console.error('Failed to generate cashbook image:', err);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  }, [
+    config.brandName,
+    config.title,
+    effectiveMonthKey,
+    defaultMonthLabel,
+    prevMonthSummary,
+    simplifiedCashbookData,
+    tableTotals,
+  ]);
+
+  // Otomatis generate gambar saat modal dibuka atau periode berganti
+  React.useEffect(() => {
+    if (isWaModalOpen && waRecapMode === 'gambar_kas') {
+      generateWaImageNow();
+    }
+  }, [isWaModalOpen, waRecapMode, generateWaImageNow]);
+
+  const handleDownloadWaImage = () => {
+    if (!waImageDataUrl) return;
+    const activePeriod =
+      effectiveMonthKey !== 'semua'
+        ? formatMonthYearFromKey(effectiveMonthKey)
+        : defaultMonthLabel;
+    const cleanPeriod = activePeriod.replace(/[^a-zA-Z0-9]/g, '_');
+    const a = document.createElement('a');
+    a.href = waImageDataUrl;
+    a.download = `Laporan_Buku_Kas_${cleanPeriod}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleCopyWaImage = async () => {
+    if (!waImageBlob) return;
+    try {
+      if (navigator.clipboard && (window as any).ClipboardItem) {
+        await navigator.clipboard.write([
+          new (window as any).ClipboardItem({ 'image/png': waImageBlob }),
+        ]);
+        setCopiedWaImage(true);
+        setTimeout(() => setCopiedWaImage(false), 2500);
+      } else {
+        handleDownloadWaImage();
+      }
+    } catch {
+      handleDownloadWaImage();
+    }
+  };
+
+  const handleShareWaImage = async () => {
+    const activePeriod =
+      effectiveMonthKey !== 'semua'
+        ? formatMonthYearFromKey(effectiveMonthKey)
+        : defaultMonthLabel;
+    const cleanPeriod = activePeriod.replace(/[^a-zA-Z0-9]/g, '_');
+    const fileName = `Laporan_Buku_Kas_${cleanPeriod}.png`;
+
+    if (waImageBlob && navigator.canShare && navigator.share) {
+      try {
+        const file = new File([waImageBlob], fileName, { type: 'image/png' });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: `Laporan Kas Gang Mandor - ${activePeriod}`,
+            text: `Laporan Buku Kas Keluar & Masuk Gang Mandor Periode ${activePeriod}.\nTotal Sisa Saldo Keseluruhan: ${formatRupiah(tableTotals.finalSaldo)}`,
+          });
+          return;
+        }
+      } catch {
+        // Fallback below
+      }
+    }
+
+    handleDownloadWaImage();
+    openWhatsAppShare(
+      `*LAPORAN BUKU KAS KELUAR & MASUK GANG MANDOR*\nPeriode: ${activePeriod}\n👉 *TOTAL SISA SALDO KESELURUHAN: ${formatRupiah(tableTotals.finalSaldo)}*\n(Kas Utama: ${formatRupiah(tableTotals.finalKasUtama)} | Cashback: ${formatRupiah(tableTotals.finalCashback)})\n\n_Gambar laporan kas berhasil diunduh. Silakan lampirkan gambar ini ke chat WhatsApp._`
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* HEADER SECTION: Luxurious, Vibrant & Modern */}
@@ -2403,6 +2553,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               type="button"
               onClick={() => {
                 setWaCustomText(previewWaText);
+                setWaRecapMode('gambar_kas');
                 setIsWaModalOpen(true);
               }}
               className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white/15 hover:bg-white/25 text-white border border-white/25 rounded-xl transition-all cursor-pointer backdrop-blur-xs font-sans"
@@ -3426,14 +3577,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         // 2. Belum Ditempati: Warna cell & kolom MENGIKUTI STATUS IURAN (Biru jika Bayar Lebih, Hijau jika Lunas, Merah jika Belum Bayar)
                         const isRumahKosongHitam = isPureKosong;
 
-                        // Kepala keluarga di Rekap Iuran murni dari inputan user (tidak mengambil dari buku induk warga):
-                        const payerName = house.duesHeadNameOverride && house.duesHeadNameOverride.trim()
-                          ? house.duesHeadNameOverride.trim()
-                          : isPureKosong
-                          ? 'Rumah Kosong'
+                        // Nama kepala keluarga mengikuti Tabel Rincian 3 Komponen Penarikan Keuangan (bisa di-edit):
+                        const payerName = isPureKosong
+                          ? (house.duesHeadNameOverride && house.duesHeadNameOverride !== 'Rumah Kosong'
+                              ? house.duesHeadNameOverride
+                              : 'Rumah Kosong')
                           : isUnoccupied
-                          ? 'Belum Ditempati'
-                          : '';
+                          ? (house.duesHeadNameOverride || 'Belum Ditempati')
+                          : (house.duesHeadNameOverride || house.headName || '');
 
                         const baksosInfo = getHouseBaksosForPeriod(house, selectedKKPeriod);
                         const dendaPaid = baksosInfo.dendaPaid;
@@ -4243,14 +4394,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   </span>
                 </div>
 
-                {/* Input Nama Kepala Keluarga / Penanggung Jawab Iuran & Tunggakan (Inputan User) */}
+                {/* Input Nama Kepala Keluarga / Penanggung Jawab (Sinkron dengan Tabel Rincian 3 Komponen Penarikan Keuangan) */}
                 <div className="p-3 bg-emerald-50/80 border border-emerald-200 rounded-xl space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-bold text-emerald-950">
-                      Nama Kepala Keluarga (Inputan Khusus Iuran KK)
+                      Nama Kepala Keluarga / Penanggung Jawab
                     </label>
                     <span className="text-[10px] text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200 font-semibold">
-                      Inputan Anda
+                      Sinkron 3 Komponen
                     </span>
                   </div>
                   <input
@@ -4261,7 +4412,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     className="w-full px-3 py-2 text-xs bg-white border border-emerald-300 rounded-lg font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs"
                   />
                   <p className="text-[10px] text-slate-500 leading-tight">
-                    *Nama kepala keluarga di Rekap Iuran murni dari apa yang Anda inputkan di sini (tidak mengambil dari Buku Induk Warga).
+                    *Nama kepala keluarga ini otomatis mengikuti dan tersinkronisasi langsung dengan Tabel Rincian 3 Komponen Penarikan Keuangan (bisa diedit kapan saja).
                   </p>
                 </div>
 
@@ -4918,38 +5069,67 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         </div>
       )}
 
-      {/* MODAL 4: SHARE WHATSAPP */}
+      {/* MODAL 4: SHARE WHATSAPP (BENTUK GAMBAR GRAFIS & FORMAT TEKS) */}
       {isWaModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden">
-            <div className="bg-slate-900 p-4 text-white flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4 text-emerald-400" />
-                <h4 className="font-bold text-sm">Bagikan Rekap ke WhatsApp</h4>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-3xl overflow-hidden my-auto animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-slate-900 p-4 sm:p-5 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300">
+                  <MessageCircle className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm sm:text-base text-white">
+                    Laporan Keuangan WhatsApp
+                  </h4>
+                  <p className="text-[11px] text-emerald-200/90 font-medium">
+                    Bentuk Gambar Grafis Buku Kas & Format Teks Ringkasan
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setIsWaModalOpen(false)}
-                className="text-white/70 hover:text-white cursor-pointer"
+                className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-5 space-y-3">
-              <div className="flex items-center gap-2 text-xs">
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+              {/* Tab Selector: 1. Bentuk Gambar Kas (Utama) | 2. Format Teks Keluar Masuk | 3. Format Teks Iuran KK */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWaRecapMode('gambar_kas');
+                    if (!waImageDataUrl) generateWaImageNow();
+                  }}
+                  className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    waRecapMode === 'gambar_kas'
+                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <LucideImage className="w-4 h-4 text-amber-300" />
+                  <span>1. Bentuk Gambar Kas</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
                     setWaRecapMode('keluar_masuk');
                     setWaCustomText('');
                   }}
-                  className={`flex-1 py-2 rounded-lg font-bold cursor-pointer ${
+                  className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     waRecapMode === 'keluar_masuk'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-100 text-slate-700'
+                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                   }`}
                 >
-                  Rekap Uang Keluar Masuk
+                  <FileText className="w-4 h-4 text-teal-300" />
+                  <span>2. Teks Arus Kas</span>
                 </button>
                 <button
                   type="button"
@@ -4957,49 +5137,200 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     setWaRecapMode('iuran_kk');
                     setWaCustomText('');
                   }}
-                  className={`flex-1 py-2 rounded-lg font-bold cursor-pointer ${
+                  className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     waRecapMode === 'iuran_kk'
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-100 text-slate-700'
+                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                   }`}
                 >
-                  Rekap Iuran Kas Per KK
+                  <Users className="w-4 h-4 text-cyan-300" />
+                  <span>3. Teks Iuran Per KK</span>
                 </button>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Preview Isi Pesan WhatsApp
-                </label>
-                <textarea
-                  rows={8}
-                  value={waCustomText || previewWaText}
-                  onChange={(e) => setWaCustomText(e.target.value)}
-                  className="w-full p-2.5 text-xs font-mono bg-slate-50 border border-slate-200 rounded-lg focus:outline-none"
-                />
-              </div>
+              {/* VIEW A: BENTUK GAMBAR BUKU KAS (DARI TABEL HINGGA TOTAL SISA SALDO KESELURUHAN) */}
+              {waRecapMode === 'gambar_kas' && (
+                <div className="space-y-3.5">
+                  <div className="p-3 bg-gradient-to-r from-emerald-50 via-teal-50 to-sky-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
+                        <LucideImage className="w-4 h-4 text-emerald-600" />
+                        <span>Bentuk Gambar Resmi Buku Keluar &amp; Masuk Kas</span>
+                      </span>
+                      <p className="text-[11px] text-slate-600 leading-snug">
+                        Mencakup seluruh tabel pembukuan kas dari saldo awal, penerimaan iuran, mutasi transaksi, hingga <strong>Total Sisa Saldo Keseluruhan</strong> di paling bawah.
+                      </p>
+                    </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(waCustomText || previewWaText);
-                    setCopiedWaText(true);
-                    setTimeout(() => setCopiedWaText(false), 2000);
-                  }}
-                  className="flex items-center gap-1 px-3 py-1.5 text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg font-semibold cursor-pointer"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>{copiedWaText ? 'Tersalin!' : 'Salin Teks'}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => openWhatsAppShare(waCustomText || previewWaText)}
-                  className="flex items-center gap-1.5 px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>Kirim ke WhatsApp</span>
-                </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={generateWaImageNow}
+                        disabled={isGeneratingImage}
+                        className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200 shadow-2xs transition-all cursor-pointer flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                        title="Buat ulang / refresh gambar dari data terbaru"
+                      >
+                        <RotateCcw className={`w-3.5 h-3.5 ${isGeneratingImage ? 'animate-spin text-emerald-600' : ''}`} />
+                        <span>{isGeneratingImage ? 'Memproses...' : 'Refresh Gambar'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Area Pratinjau Gambar */}
+                  <div className="relative border-2 border-slate-200 rounded-2xl bg-slate-900/5 overflow-hidden flex flex-col items-center justify-center min-h-[300px] max-h-[55vh] p-2">
+                    {isGeneratingImage ? (
+                      <div className="flex flex-col items-center justify-center p-8 text-center space-y-3">
+                        <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-slate-800">
+                            Sedang Merender Gambar Laporan Keuangan...
+                          </p>
+                          <p className="text-[11px] text-slate-500">
+                            Menyusun tabel buku kas, mutasi transaksi, dan total sisa saldo keseluruhan
+                          </p>
+                        </div>
+                      </div>
+                    ) : waImageDataUrl ? (
+                      <div className="w-full h-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-inner flex justify-center">
+                        <img
+                          src={waImageDataUrl}
+                          alt="Laporan Kas Gang Mandor"
+                          className="w-full max-w-full h-auto object-contain block shadow-sm"
+                        />
+                      </div>
+                    ) : (
+                      <div className="text-center p-8 space-y-2">
+                        <p className="text-xs font-bold text-slate-700">Gambar belum dibuat</p>
+                        <button
+                          type="button"
+                          onClick={generateWaImageNow}
+                          className="px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer"
+                        >
+                          Buat Gambar Sekarang
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Keterangan Saldo yang Tercakup di Gambar */}
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-700 space-y-1">
+                    <div className="flex items-center justify-between font-mono font-bold">
+                      <span className="text-slate-600 font-sans">Total Sisa Saldo Keseluruhan di Gambar:</span>
+                      <span className="text-emerald-800 font-black text-xs sm:text-sm">
+                        {formatRupiah(tableTotals.finalSaldo)}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-500">
+                      (Kas Utama: {formatRupiah(tableTotals.finalKasUtama)} | Cashback WiFi: {formatRupiah(tableTotals.finalWifi)} | Cashback Sampah: {formatRupiah(tableTotals.finalSampah)})
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* VIEW B & C: FORMAT TEKS WHATSAPP */}
+              {(waRecapMode === 'keluar_masuk' || waRecapMode === 'iuran_kk') && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-800">
+                      Preview Pesan WhatsApp Teks ({waRecapMode === 'keluar_masuk' ? 'Arus Kas' : 'Rekap Iuran KK'}):
+                    </label>
+                    <span className="text-[10px] text-slate-500">
+                      Dapat diedit sebelum dibagikan
+                    </span>
+                  </div>
+                  <textarea
+                    rows={9}
+                    value={waCustomText || previewWaText}
+                    onChange={(e) => setWaCustomText(e.target.value)}
+                    className="w-full p-3 text-xs font-mono bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 leading-relaxed text-slate-800"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer Controls */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsWaModalOpen(false)}
+                className="px-3.5 py-2 text-xs text-slate-600 hover:bg-slate-200/80 rounded-xl font-bold cursor-pointer transition-colors text-center order-2 sm:order-1"
+              >
+                Tutup
+              </button>
+
+              <div className="flex flex-wrap items-center justify-end gap-2 order-1 sm:order-2">
+                {waRecapMode === 'gambar_kas' ? (
+                  <>
+                    {/* 1. Salin Gambar ke Clipboard */}
+                    <button
+                      type="button"
+                      onClick={handleCopyWaImage}
+                      disabled={!waImageDataUrl || isGeneratingImage}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-800 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl shadow-2xs cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                      title="Salin gambar langsung ke clipboard untuk dipaste (Ctrl+V) di WhatsApp"
+                    >
+                      {copiedWaImage ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-700 font-extrabold">Gambar Tersalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-slate-600" />
+                          <span>Salin Gambar</span>
+                        </>
+                      )}
+                    </button>
+
+                    {/* 2. Unduh Gambar PNG */}
+                    <button
+                      type="button"
+                      onClick={handleDownloadWaImage}
+                      disabled={!waImageDataUrl || isGeneratingImage}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs font-bold text-teal-900 bg-teal-50 hover:bg-teal-100 border border-teal-300 rounded-xl shadow-2xs cursor-pointer transition-all active:scale-95 disabled:opacity-50"
+                      title="Unduh file gambar laporan kas (.png)"
+                    >
+                      <Download className="w-3.5 h-3.5 text-teal-700" />
+                      <span>Unduh Gambar</span>
+                    </button>
+
+                    {/* 3. Kirim ke WhatsApp */}
+                    <button
+                      type="button"
+                      onClick={handleShareWaImage}
+                      disabled={!waImageDataUrl || isGeneratingImage}
+                      className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all disabled:opacity-50"
+                      title="Kirim gambar atau buka WhatsApp dengan ringkasan laporan"
+                    >
+                      <Share2 className="w-4 h-4 text-emerald-100" />
+                      <span>Kirim / Share ke WhatsApp</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(waCustomText || previewWaText);
+                        setCopiedWaText(true);
+                        setTimeout(() => setCopiedWaText(false), 2000);
+                      }}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-xl font-bold cursor-pointer shadow-2xs transition-all active:scale-95"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>{copiedWaText ? 'Tersalin!' : 'Salin Teks'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => openWhatsAppShare(waCustomText || previewWaText)}
+                      className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl shadow-md cursor-pointer transition-all active:scale-95"
+                    >
+                      <Share2 className="w-4 h-4 text-emerald-100" />
+                      <span>Kirim Teks ke WhatsApp</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

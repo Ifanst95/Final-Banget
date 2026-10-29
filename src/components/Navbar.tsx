@@ -181,11 +181,29 @@ export const Navbar: React.FC<NavbarProps> = ({
   }, [activeTab]);
 
   // Dynamically resolve navigation menus from configuration or fallback defaults
-  const activeMenus: MenuItemConfig[] = (
+  const baseMenus: MenuItemConfig[] = (
     config.navigationMenus && config.navigationMenus.length > 0
       ? config.navigationMenus
       : INITIAL_NAV_MENUS
   ).filter((m) => !m.isHidden);
+
+  // Reorder "Data Warga" ('warga') to be immediately to the right of "Pengumuman" ('pengumuman')
+  const reorderedMenus = [...baseMenus];
+  const pengumumanIdx = reorderedMenus.findIndex((m) => m.id === 'pengumuman');
+  const wargaIdx = reorderedMenus.findIndex((m) => m.id === 'warga');
+  if (pengumumanIdx !== -1 && wargaIdx !== -1 && wargaIdx !== pengumumanIdx + 1) {
+    const [wargaMenu] = reorderedMenus.splice(wargaIdx, 1);
+    const targetIdx = reorderedMenus.findIndex((m) => m.id === 'pengumuman') + 1;
+    reorderedMenus.splice(targetIdx, 0, wargaMenu);
+  }
+
+  // Sembunyikan menu penarikan keuangan dari akses view warga (hanya tampil untuk Pengurus/Admin)
+  const activeMenus = reorderedMenus.filter((m) => {
+    if (!isAdmin && (m.id === 'penarikan' || m.id?.toLowerCase().includes('penarikan'))) {
+      return false;
+    }
+    return true;
+  });
 
   // Deduplicate activeMenus by id and label to ensure no double menus appear in navigation
   const seenMenuIds = new Set<string>();

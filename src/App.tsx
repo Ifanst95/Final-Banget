@@ -87,6 +87,13 @@ export default function App() {
     } catch {}
   }, []);
 
+  // Sembunyikan dan amankan menu penarikan keuangan dari akses view warga (hanya untuk Pengurus/Admin)
+  useEffect(() => {
+    if (!isAdmin && activeTab === 'penarikan') {
+      setActiveTab('pengumuman');
+    }
+  }, [isAdmin, activeTab]);
+
   useEffect(() => {
     document.title =
       siteConfig.title ||
@@ -238,7 +245,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'penarikan' && (
+          {activeTab === 'penarikan' && isAdmin && (
             <FinancialBillingSection
               config={siteConfig}
               residents={residents}
