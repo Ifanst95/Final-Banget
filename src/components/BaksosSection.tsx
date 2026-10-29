@@ -379,8 +379,8 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
           })()}
 
           {/* Attendance Roster Table */}
-          <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3">
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
               <h4 className="font-bold text-sm text-slate-800 flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 <span>Daftar Presensi Seluruh Warga (Hadir / Tidak Hadir / Tidak Wajib / Kosong)</span>
@@ -390,19 +390,40 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
               </span>
             </div>
 
-            <div className="overflow-x-auto border border-slate-200 rounded-xl">
-              <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
+            {/* Keterangan Warna Otomatis Sama Persis Dengan Rekap Iuran Per KK */}
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 text-xs bg-white/95 rounded-2xl p-3 sm:px-4 border border-slate-200/90 shadow-2xs">
+              <span className="font-bold text-slate-700 text-xs">Keterangan Warna Presensi:</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-neutral-950 text-white font-bold border border-neutral-800 text-[11px] shadow-2xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-neutral-400"></span>
+                Rumah Kosong (Hitam / Bebas Denda)
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-sky-100 text-sky-950 font-bold border border-sky-300 text-[11px] shadow-2xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
+                Tidak Wajib (Biru Muda / Kontrak)
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-950 font-bold border border-emerald-300 text-[11px] shadow-2xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                Hadir / Denda Lunas (Hijau Muda)
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-rose-100 text-rose-950 font-bold border border-rose-300 text-[11px] shadow-2xs">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                Tidak Hadir (Merah Muda / Denda Rp 10.000)
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-300/90 shadow-sm bg-white">
+              <table className="w-full text-left text-xs border-collapse border border-slate-300 whitespace-nowrap">
                 <thead>
-                  <tr className="bg-slate-100/90 border-b border-slate-200 text-slate-700 font-bold">
-                    <th className="py-3 px-3 w-12 text-center">No</th>
-                    <th className="py-3 px-3">Blok</th>
-                    <th className="py-3 px-3">Kepala Keluarga</th>
-                    <th className="py-3 px-3 text-center">Status Kehadiran</th>
-                    <th className="py-3 px-3 text-center">Denda Bakti Sosial (Rp 10.000)</th>
-                    {isAdmin && <th className="py-3 px-3 text-center">Integrasi Kas & Aksi</th>}
+                  <tr className="border-b border-slate-300 bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white font-extrabold">
+                    <th className="py-3 px-3 text-center w-12 border border-slate-300/80 text-white">No</th>
+                    <th className="py-3 px-3 text-center w-28 border border-slate-300/80 text-white">No Blok</th>
+                    <th className="py-3 px-4 text-left min-w-[200px] border border-slate-300/80 text-white">Nama Kepala Keluarga</th>
+                    <th className="py-3 px-4 text-center w-56 border border-slate-300/80 text-white">Status Kehadiran</th>
+                    <th className="py-3 px-4 text-center w-60 border border-slate-300/80 text-white">Denda Bakti Sosial (Rp 10.000)</th>
+                    {isAdmin && <th className="py-3 px-3 text-center w-48 border border-slate-300/80 text-white">Integrasi Kas & Aksi</th>}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-300">
                   {residents.map((house, idx) => {
                     const isContract =
                       house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
@@ -435,70 +456,113 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
                       {
                         val: 'Tidak Wajib',
                         label: 'Tidak Wajib',
-                        activeClass: 'bg-purple-600 text-white shadow-xs',
+                        activeClass: 'bg-sky-600 text-white shadow-xs',
                       },
                       {
                         val: 'Kosong',
                         label: 'Kosong',
-                        activeClass: 'bg-slate-600 text-white shadow-xs',
+                        activeClass: 'bg-slate-700 text-white shadow-xs',
                       },
                     ];
 
-                    const isVacant = house.occupancy === 'Kosong' || status === 'Kosong' || isHouseVacant(house);
+                    const isRumahKosongHitam =
+                      house.occupancy === 'Kosong' || status === 'Kosong' || isHouseVacant(house);
+                    const isTidakWajibBiru = !isRumahKosongHitam && status === 'Tidak Wajib';
+                    const isHadirOrLunas =
+                      !isRumahKosongHitam && !isTidakWajibBiru && (status === 'Hadir' || isFinePaid);
+                    const isTidakHadirMerah =
+                      !isRumahKosongHitam && !isTidakWajibBiru && !isHadirOrLunas;
+
+                    const rowCellClass = isRumahKosongHitam
+                      ? 'bg-neutral-950 text-white border-neutral-800'
+                      : isTidakWajibBiru
+                      ? 'bg-sky-50 text-sky-950 border-sky-300 font-medium'
+                      : isHadirOrLunas
+                      ? 'bg-emerald-50 text-emerald-950 border-emerald-300 font-medium'
+                      : 'bg-rose-50 text-rose-950 border-rose-300 font-medium';
+
+                    const rowHoverClass = isRumahKosongHitam
+                      ? 'hover:bg-neutral-900'
+                      : isTidakWajibBiru
+                      ? 'hover:bg-sky-100/60'
+                      : isHadirOrLunas
+                      ? 'hover:bg-emerald-100/60'
+                      : 'hover:bg-rose-100/60';
+
+                    const payerName = isRumahKosongHitam
+                      ? (house.duesHeadNameOverride && house.duesHeadNameOverride.toLowerCase().includes('kosong')
+                          ? house.duesHeadNameOverride
+                          : `Rumah Kosong (${house.headName || 'Tanpa Penghuni'})`)
+                      : (house.duesHeadNameOverride || house.headName || '-');
 
                     return (
                       <tr
                         key={house.id}
-                        className={`transition-colors ${
-                          isVacant
-                            ? 'bg-slate-100/90 text-slate-600 hover:bg-slate-200/50'
-                            : isAbsentWithFine
-                            ? 'bg-rose-50/30 hover:bg-slate-50/80'
-                            : 'hover:bg-slate-50/80'
-                        }`}
+                        className={`transition-colors border-b ${
+                          isRumahKosongHitam
+                            ? 'bg-black text-white border-neutral-800 hover:bg-neutral-900'
+                            : isTidakWajibBiru
+                            ? 'bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100/60'
+                            : isHadirOrLunas
+                            ? 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100/60'
+                            : 'bg-rose-50 text-rose-950 border-rose-300 hover:bg-rose-100/60'
+                        } ${rowHoverClass}`}
                       >
-                        <td className="py-3 px-3 text-center text-slate-400 font-mono tabular-nums">
+                        {/* 1. No */}
+                        <td className={`py-2.5 px-3 text-center font-mono border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : 'text-slate-600'}`}>
                           {idx + 1}
                         </td>
-                        <td className="py-3 px-3 font-mono font-bold">
+
+                        {/* 2. No Blok */}
+                        <td className={`py-2.5 px-3 text-center border ${rowCellClass}`}>
                           <span
-                            className={
-                              isVacant
-                                ? 'px-2 py-0.5 rounded bg-slate-500 text-white text-xs'
-                                : 'text-emerald-800'
-                            }
+                            className={`font-mono text-xs font-bold px-2.5 py-1 rounded-lg border shadow-2xs ${
+                              isRumahKosongHitam
+                                ? 'bg-neutral-900 text-white border-neutral-700'
+                                : isTidakWajibBiru
+                                ? 'bg-sky-200/90 text-sky-950 border-sky-400'
+                                : isHadirOrLunas
+                                ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400'
+                                : 'bg-rose-200/90 text-rose-950 border-rose-400'
+                            }`}
                           >
                             Blok {house.blockNumber}
                           </span>
                         </td>
-                        <td className="py-3 px-3">
-                          <div
-                            className={
-                              isVacant
-                                ? 'text-slate-700 italic font-semibold'
-                                : 'font-semibold text-slate-800'
-                            }
-                          >
-                            {isVacant
-                              ? (house.duesHeadNameOverride && house.duesHeadNameOverride.toLowerCase().includes('kosong')
-                                  ? house.duesHeadNameOverride
-                                  : 'Rumah Kosong')
-                              : (house.duesHeadNameOverride || house.headName)}
+
+                        {/* 3. Nama Kepala Keluarga */}
+                        <td className={`py-2.5 px-4 border ${rowCellClass}`}>
+                          <div className="flex flex-col">
+                            <span
+                              className={`font-bold ${
+                                isRumahKosongHitam
+                                  ? 'text-white'
+                                  : isTidakWajibBiru
+                                  ? 'text-sky-950'
+                                  : isHadirOrLunas
+                                  ? 'text-emerald-950'
+                                  : 'text-rose-950'
+                              }`}
+                            >
+                              {payerName}
+                            </span>
+                            {isContract && (
+                              <span className={`text-[10px] font-bold ${isRumahKosongHitam ? 'text-neutral-400' : 'text-sky-800'}`}>
+                                Kontrak · Otomatis Tidak Wajib
+                              </span>
+                            )}
+                            {isRumahKosongHitam && !isContract && (
+                              <span className="text-[10px] font-medium text-neutral-400">
+                                Rumah Kosong · Bebas Presensi & Denda
+                              </span>
+                            )}
                           </div>
-                          {isContract && (
-                            <span className="text-[10px] font-medium text-purple-700">
-                              Kontrak · Otomatis Tidak Wajib
-                            </span>
-                          )}
-                          {isVacant && !isContract && (
-                            <span className="text-[10px] font-medium text-slate-500">
-                              Rumah Kosong · Bebas Presensi & Denda
-                            </span>
-                          )}
                         </td>
-                        <td className="py-3 px-3 text-center">
+
+                        {/* 4. Status Kehadiran */}
+                        <td className={`py-2.5 px-3 text-center border ${rowCellClass}`}>
                           {isAdmin ? (
-                            <div className="inline-flex flex-wrap items-center gap-0.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                            <div className="inline-flex flex-wrap items-center gap-0.5 p-1 bg-white/80 dark:bg-slate-900/80 rounded-xl border border-slate-300/80 shadow-2xs">
                               {statusOptions.map((opt) => (
                                 <button
                                   key={opt.val}
@@ -506,10 +570,12 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
                                   onClick={() =>
                                     onSetAttendance(currentAgenda.id, house.id, opt.val)
                                   }
-                                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                                  className={`px-2 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                                     status === opt.val
                                       ? opt.activeClass
-                                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                                      : isRumahKosongHitam
+                                      ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                                   }`}
                                 >
                                   {opt.label}
@@ -518,49 +584,55 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
                             </div>
                           ) : (
                             <span
-                              className={`inline-flex items-center gap-1 font-bold text-xs ${
-                                status === 'Hadir'
-                                  ? 'text-emerald-700'
-                                  : status === 'Tidak Hadir'
-                                  ? 'text-rose-600'
-                                  : status === 'Tidak Wajib'
-                                  ? 'text-purple-700'
-                                  : 'text-slate-500'
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl font-bold text-xs shadow-2xs border ${
+                                isRumahKosongHitam
+                                  ? 'bg-neutral-900 text-white border-neutral-700'
+                                  : isTidakWajibBiru
+                                  ? 'bg-sky-200/90 text-sky-950 border-sky-400'
+                                  : isHadirOrLunas
+                                  ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400'
+                                  : 'bg-rose-200/90 text-rose-950 border-rose-400'
                               }`}
                             >
-                              {status === 'Hadir' && <Check className="w-3.5 h-3.5" />}
-                              {status === 'Tidak Hadir' && <X className="w-3.5 h-3.5" />}
-                              {status === 'Tidak Wajib' && <ShieldCheck className="w-3.5 h-3.5" />}
-                              {status === 'Kosong' && <Home className="w-3.5 h-3.5" />}
+                              {status === 'Hadir' && <Check className="w-3.5 h-3.5 text-emerald-700" />}
+                              {status === 'Tidak Hadir' && <X className="w-3.5 h-3.5 text-rose-700" />}
+                              {status === 'Tidak Wajib' && <ShieldCheck className="w-3.5 h-3.5 text-sky-700" />}
+                              {status === 'Kosong' && <Home className="w-3.5 h-3.5 text-slate-300" />}
                               <span>{status}</span>
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-center">
+
+                        {/* 5. Denda Bakti Sosial (Rp 10.000) */}
+                        <td className={`py-2.5 px-3 text-center border ${rowCellClass}`}>
                           {status === 'Hadir' ? (
-                            <span className="text-emerald-600 text-xs font-medium">
+                            <span className="text-emerald-800 text-xs font-bold">
                               Bebas Denda (Hadir)
                             </span>
                           ) : status === 'Tidak Wajib' ? (
-                            <span className="text-purple-700 text-xs font-medium">
+                            <span className="text-sky-800 text-xs font-bold">
                               Bebas Denda (Tidak Wajib)
                             </span>
-                          ) : status === 'Kosong' ? (
-                            <span className="text-slate-400 text-xs italic">
+                          ) : isRumahKosongHitam ? (
+                            <span className="text-slate-300 text-xs italic">
                               Bebas Denda (Rumah Kosong)
                             </span>
                           ) : isFinePaid ? (
-                            <span className="inline-flex items-center gap-1 text-teal-700 font-semibold text-xs">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Denda Lunas (Masuk Kas)
+                            <span className="inline-flex items-center gap-1.5 text-emerald-900 font-black text-xs bg-emerald-200/80 px-2.5 py-1 rounded-lg border border-emerald-400 shadow-2xs">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                              <span>Denda Lunas (Tercatat di Kas)</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-rose-600 font-bold text-xs">
-                              <AlertCircle className="w-3.5 h-3.5" /> Denda Rp 10.000 Belum Bayar
+                            <span className="inline-flex items-center gap-1.5 text-rose-950 font-black text-xs bg-rose-200/80 px-2.5 py-1 rounded-lg border border-rose-400 shadow-2xs">
+                              <AlertCircle className="w-4 h-4 text-rose-700" />
+                              <span>Denda Rp 10.000 (Belum Bayar)</span>
                             </span>
                           )}
                         </td>
+
+                        {/* 6. Integrasi Kas & Aksi */}
                         {isAdmin && (
-                          <td className="py-3 px-3 text-center">
+                          <td className={`py-2.5 px-3 text-center border ${rowCellClass}`}>
                             {isAbsentWithFine && !isFinePaid ? (
                               <button
                                 type="button"
@@ -572,14 +644,16 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
                                     house.blockNumber
                                   )
                                 }
-                                className="px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold rounded-lg text-xs transition-all shadow-xs cursor-pointer"
+                                className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl text-xs transition-all shadow-xs cursor-pointer whitespace-nowrap"
                               >
                                 Bayar Denda & Catat ke Kas
                               </button>
                             ) : isAbsentWithFine && isFinePaid ? (
-                              <span className="text-xs text-teal-700 font-medium">Tercatat di Kas</span>
+                              <span className="text-xs text-emerald-800 font-extrabold bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-300">
+                                Tercatat di Kas
+                              </span>
                             ) : (
-                              <span className="text-xs text-slate-300">-</span>
+                              <span className="text-xs text-slate-400 font-mono">-</span>
                             )}
                           </td>
                         )}
@@ -587,6 +661,30 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
                     );
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="bg-gradient-to-r from-slate-200 via-indigo-100/70 to-emerald-100/70 font-black text-slate-950 border-t-2 border-indigo-300">
+                    <td colSpan={3} className="py-3 px-4 text-left border border-slate-300 text-slate-900 font-extrabold">
+                      TOTAL WARGA ({residents.length} Kavling)
+                    </td>
+                    <td className="py-3 px-3 text-center font-mono border border-slate-300 font-black">
+                      <span className="text-emerald-800">
+                        {residents.filter((h) => (currentAgenda.attendance?.[h.id] || (h.occupancy === 'Kosong' ? 'Kosong' : h.ownership === 'Kontrak' || h.occupancy === 'Dikontrakan' ? 'Tidak Wajib' : 'Hadir')) === 'Hadir').length} Hadir
+                      </span> · <span className="text-rose-700">
+                        {residents.filter((h) => (currentAgenda.attendance?.[h.id] || (h.occupancy === 'Kosong' ? 'Kosong' : h.ownership === 'Kontrak' || h.occupancy === 'Dikontrakan' ? 'Tidak Wajib' : 'Hadir')) === 'Tidak Hadir').length} Tidak Hadir
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-center font-mono border border-slate-300 font-black">
+                      <span className="text-rose-700">
+                        Tertunggak: {formatRupiah(residents.filter((h) => (currentAgenda.attendance?.[h.id] || (h.occupancy === 'Kosong' ? 'Kosong' : h.ownership === 'Kontrak' || h.occupancy === 'Dikontrakan' ? 'Tidak Wajib' : 'Hadir')) === 'Tidak Hadir' && !currentAgenda.finesPaid?.[h.id]).length * 10000)}
+                      </span>
+                    </td>
+                    {isAdmin && (
+                      <td className="py-3 px-3 text-center font-mono text-emerald-800 border border-slate-300 font-black">
+                        {residents.filter((h) => (currentAgenda.attendance?.[h.id] || (h.occupancy === 'Kosong' ? 'Kosong' : h.ownership === 'Kontrak' || h.occupancy === 'Dikontrakan' ? 'Tidak Wajib' : 'Hadir')) === 'Tidak Hadir' && currentAgenda.finesPaid?.[h.id]).length} Denda Lunas
+                      </td>
+                    )}
+                  </tr>
+                </tfoot>
               </table>
             </div>
           </div>

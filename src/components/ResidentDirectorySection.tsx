@@ -594,18 +594,16 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                         <div className="min-w-0">
                           <div
                             className={`font-bold text-xs truncate ${
-                              isVacant ? 'text-white italic' : isUnfilled ? 'text-sky-950' : 'text-slate-900'
+                              isVacant ? 'text-white italic' : isUnfilled ? 'text-sky-950 font-black' : 'text-slate-900'
                             }`}
                           >
                             {isVacant
                               ? house.headName.toLowerCase().includes('kosong')
                                 ? house.headName
                                 : `Rumah Kosong (${house.headName})`
-                              : isUnfilled && (!house.headName || house.headName === '-' || house.headName.toLowerCase().includes('belum'))
-                              ? 'Rumah Belum Diisi / Belum Ditempati'
                               : isEmptyHouse
-                              ? house.headName
-                              : member?.name}
+                              ? house.headName || '-'
+                              : member?.name || house.headName || '-'}
                           </div>
                           <div
                             className={`text-[11px] font-bold ${
@@ -614,11 +612,9 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                           >
                             {isVacant
                               ? 'Rumah Kosong / Tanpa Penghuni'
-                              : isUnfilled
-                              ? 'Rumah Belum Diisi / Belum Ditempati'
                               : isEmptyHouse
                               ? 'Kepala Keluarga'
-                              : member?.relation}{' '}
+                              : member?.relation || 'Kepala Keluarga'}{' '}
                             · {orderLabel}
                           </div>
                         </div>
@@ -689,7 +685,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                       <div>
                         <span className={isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-700' : 'text-slate-400'}>Umur / JK:</span>{' '}
                         <strong className={`font-mono ${isVacant ? 'text-neutral-300' : isUnfilled ? 'text-sky-950' : 'text-slate-800'}`}>
-                          {isEmptyHouse || isVacant || isUnfilled
+                          {isVacant || (!member?.birthDate && !member?.gender)
                             ? '-'
                             : `${calculateAge(member?.birthDate || '')} thn (${
                                 member?.gender === 'Laki-laki' ? 'L' : 'P'
@@ -699,7 +695,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                       <div>
                         <span className={isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-700' : 'text-slate-400'}>TTL:</span>{' '}
                         <span className={isVacant ? 'text-neutral-300' : isUnfilled ? 'text-sky-900' : 'text-slate-700'}>
-                          {isEmptyHouse || isVacant || isUnfilled
+                          {isVacant || (!member?.birthPlace && !member?.birthDate)
                             ? '-'
                             : `${member?.birthPlace || '-'}, ${formatDateDDMMYYYY(
                                 member?.birthDate || ''
@@ -709,7 +705,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                       <div>
                         <span className={isVacant ? 'text-neutral-400' : isUnfilled ? 'text-sky-700' : 'text-slate-400'}>Agama:</span>{' '}
                         <span className={isVacant ? 'text-neutral-300' : isUnfilled ? 'text-sky-900' : 'text-slate-700'}>
-                          {isEmptyHouse || isVacant || isUnfilled ? '-' : member?.religion}
+                          {isVacant ? '-' : member?.religion || '-'}
                         </span>
                       </div>
                       <div>
@@ -725,7 +721,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                                 : 'font-bold text-emerald-700'
                             }
                           >
-                            {isVacant ? 'Kosong' : isUnfilled ? 'Belum Diisi' : house.occupancy}
+                            {isVacant ? 'Kosong' : house.occupancy}
                           </span>
                           )
                         </strong>
@@ -866,8 +862,6 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                             ? house.headName.toLowerCase().includes('kosong')
                               ? house.headName
                               : `Rumah Kosong (${house.headName})`
-                            : isUnfilled && (!house.headName || house.headName === '-' || house.headName.toLowerCase().includes('belum'))
-                            ? 'Rumah Belum Diisi / Belum Ditempati'
                             : house.headName}
                         </td>
                         <td
@@ -883,9 +877,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                         >
                           {isEmptyHouse || isVacant
                             ? '-'
-                            : isUnfilled && (!member?.name || member.name === '-' || member.name.toLowerCase().includes('belum'))
-                            ? '-'
-                            : member?.name}
+                            : member?.name || house.headName || '-'}
                         </td>
                         <td
                           className={`py-2.5 px-3 border-r ${
@@ -900,11 +892,9 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                         >
                           {isVacant
                             ? 'Rumah Kosong'
-                            : isUnfilled && (isEmptyHouse || !member?.relation)
-                            ? 'Belum Diisi'
                             : isEmptyHouse
                             ? 'Kepala Keluarga'
-                            : member?.relation}
+                            : member?.relation || 'Kepala Keluarga'}
                         </td>
                         <td className={`py-2.5 px-3 border-r ${
                           isVacant
@@ -913,7 +903,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                             ? 'text-sky-900 border-sky-300 bg-sky-100/90'
                             : 'text-slate-600 border-slate-100'
                         }`}>
-                          {isEmptyHouse || isVacant || isUnfilled ? '-' : member?.birthPlace || '-'}
+                          {isEmptyHouse || isVacant ? '-' : member?.birthPlace || '-'}
                         </td>
                         <td className={`py-2.5 px-3 font-mono border-r tabular-nums ${
                           isVacant
@@ -922,7 +912,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                             ? 'text-sky-900 border-sky-300 bg-sky-100/90'
                             : 'text-slate-600 border-slate-100'
                         }`}>
-                          {isEmptyHouse || isVacant || isUnfilled ? '-' : formatDateDDMMYYYY(member?.birthDate || '')}
+                          {isEmptyHouse || isVacant || !member?.birthDate ? '-' : formatDateDDMMYYYY(member?.birthDate || '')}
                         </td>
                         <td className={`py-2.5 px-3 text-center font-mono font-bold border-r tabular-nums ${
                           isVacant
@@ -931,7 +921,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                             ? 'text-sky-950 border-sky-300 bg-sky-100/90'
                             : 'text-slate-800 border-slate-100'
                         }`}>
-                          {isEmptyHouse || isVacant || isUnfilled ? '-' : calculateAge(member?.birthDate || '')}
+                          {isEmptyHouse || isVacant || !member?.birthDate ? '-' : calculateAge(member?.birthDate || '')}
                         </td>
                         <td className={`py-2.5 px-3 border-r ${
                           isVacant
@@ -940,7 +930,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                             ? 'text-sky-900 border-sky-300 bg-sky-100/90'
                             : 'text-slate-600 border-slate-100'
                         }`}>
-                          {isEmptyHouse || isVacant || isUnfilled ? '-' : member?.gender}
+                          {isEmptyHouse || isVacant ? '-' : member?.gender || '-'}
                         </td>
                         <td className={`py-2.5 px-3 border-r ${
                           isVacant
@@ -949,7 +939,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                             ? 'text-sky-900 border-sky-300 bg-sky-100/90'
                             : 'text-slate-600 border-slate-100'
                         }`}>
-                          {isEmptyHouse || isVacant || isUnfilled ? '-' : member?.religion}
+                          {isEmptyHouse || isVacant ? '-' : member?.religion || '-'}
                         </td>
                         <td className={`py-2.5 px-3 font-mono border-r tabular-nums ${
                           isVacant
@@ -980,9 +970,9 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                             <span className="px-2 py-0.5 rounded-md bg-neutral-800 text-white font-bold border border-neutral-700">
                               Kosong (Tanpa Penghuni)
                             </span>
-                          ) : isUnfilled ? (
+                          ) : house.occupancy === 'Belum Ditempati' || isUnfilled ? (
                             <span className="px-2 py-0.5 rounded-md bg-sky-200 text-sky-950 font-bold border border-sky-400">
-                              Belum Diisi / Belum Ditempati
+                              Belum Ditempati
                             </span>
                           ) : (
                             <span
@@ -1177,8 +1167,6 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                               ? house.headName.toLowerCase().includes('kosong')
                                 ? house.headName
                                 : `Rumah Kosong (${house.headName})`
-                              : isUnfilled
-                              ? `Kavling ${house.blockNumber} (Belum Diisi / Belum Ditempati)`
                               : `Keluarga ${house.headName}`}
                           </h3>
                           <span
@@ -1191,9 +1179,9 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                             }`}
                           >
                             {isVacant
-                              ? 'Rumah Kosong (Bebas Iuran)'
+                              ? 'Rumah Kosong'
                               : isUnfilled
-                              ? 'Belum Diisi / Ditempati'
+                              ? `${house.members?.length || 1} Anggota (Belum Ditempati)`
                               : `${house.members?.length || 0} Anggota`}
                           </span>
                         </div>
@@ -1208,20 +1196,30 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                                 <span className="text-neutral-400">
                                   Kepemilikan: <strong className="text-neutral-200">{house.ownership}</strong>
                                 </span>
-                                <span className="text-neutral-600">·</span>
-                                <span className="text-neutral-400 font-medium">Bebas seluruh iuran rutin</span>
                               </>
                             ) : isUnfilled ? (
                               <>
                                 <span className="text-sky-800">
-                                  Status: <strong className="px-1.5 py-0.5 rounded bg-sky-200 text-sky-950 border border-sky-400 font-bold">Belum Diisi / Belum Ditempati</strong>
+                                  Status: <strong className="px-1.5 py-0.5 rounded bg-sky-200 text-sky-950 border border-sky-400 font-bold">Belum Ditempati</strong>
                                 </span>
                                 <span className="text-sky-300">·</span>
                                 <span className="text-sky-800">
                                   Kepemilikan: <strong className="text-sky-950">{house.ownership}</strong>
                                 </span>
                                 <span className="text-sky-300">·</span>
-                                <span className="text-sky-700 font-medium">Rincian anggota keluarga belum tersedia</span>
+                                <span className="text-sky-800">
+                                  Rukem: <strong className="text-sky-950">{house.rukem}</strong>
+                                </span>
+                                <span className="text-sky-300">·</span>
+                                <span className="text-sky-800">
+                                  WiFi: <strong className="text-sky-950">{house.wifiStatus === 'Pasang' ? `Pasang (${house.wifiProvider || 'WiFi'})` : 'Tidak Pasang'}</strong>
+                                </span>
+                                {house.phone && (
+                                  <>
+                                    <span className="text-sky-300">·</span>
+                                    <span className="font-mono text-sky-900 font-bold">Telp: {house.phone}</span>
+                                  </>
+                                )}
                               </>
                             ) : (
                               <>
@@ -1381,22 +1379,22 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
                         >
                           <div className="flex items-center gap-2 font-bold text-white text-sm">
                             <span className="p-1 rounded bg-neutral-800 text-neutral-300">🏚️</span>
-                            <span>Rumah Kosong / Tanpa Penghuni Tetap</span>
+                            <span>Rumah Kosong / Belum Berpenghuni Tetap</span>
                           </div>
                           <p className="text-neutral-300 leading-relaxed">
-                            Kavling {house.blockNumber} saat ini tercatat kosong / tanpa penghuni. Seluruh tagihan iuran rutin kas bulanan warga dan agenda bakti sosial otomatis dibebaskan.
+                            Kavling {house.blockNumber} saat ini tercatat kosong / belum berpenghuni tetap.
                           </p>
                         </div>
-                      ) : isUnfilled || !house.members || house.members.length === 0 ? (
+                      ) : (!house.members || house.members.length === 0) && (!house.headName || house.headName === '-' || house.headName.toLowerCase().includes('belum')) ? (
                         <div
                           className="p-4 rounded-xl border border-sky-300 bg-sky-100/90 text-xs space-y-2 text-sky-950"
                         >
                           <div className="flex items-center gap-2 font-bold text-sky-950 text-sm">
                             <span className="p-1 rounded bg-sky-200 text-sky-800">🏠</span>
-                            <span>Rumah Belum Diisi / Belum Ditempati</span>
+                            <span>Rumah Belum Ditempati</span>
                           </div>
                           <p className="text-sky-900 leading-relaxed">
-                            Kavling {house.blockNumber} saat ini tercatat belum diisi / belum ditempati. Rincian data anggota keluarga belum tersedia.
+                            Kavling {house.blockNumber} saat ini tercatat belum ditempati. Rincian data anggota keluarga belum tersedia.
                           </p>
                         </div>
                       ) : !isAdmin ? (

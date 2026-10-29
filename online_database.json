@@ -1,15 +1,15 @@
 {
   "version": 5,
-  "revision": 1015,
+  "revision": 1045,
   "isDefaultSeed": false,
-  "updatedAt": "2026-10-28T23:48:46.806Z",
-  "updatedBy": "Pengurus Gang Mandor (Online)",
-  "clientId": "client-tgeanled-mvsr2r40",
+  "updatedAt": "2026-10-29T07:57:14.707Z",
+  "updatedBy": "Sistem Sinkronisasi Gang Mandor",
+  "clientId": "portal-system-admin",
   "siteConfig": {
-    "brandName": "Portal Warga Gang Mandor K2/25–K3/24",
-    "title": "Portal Informasi Warga Gang Mandor Blok K2/25 - K3/24",
-    "subtitle": "Portal Keterbukaan Informasi Warga · Gang Mandor · Blok K2/25 s/d K3/24",
-    "description": "Portal keterbukaan informasi warga Gang Mandor Blok K2/25 hingga K3/24. Mencakup pencatatan kependudukan, transparansi kas utama terintegrasi cashback WiFi & sampah, agenda bakti sosial beserta denda, serta rekapan tunggakan iuran.",
+    "brandName": "GANG MANDOR PRO",
+    "title": "GANG MANDOR PRO",
+    "subtitle": "GANG MANDOR PRO",
+    "description": "",
     "navigationMenus": [
       {
         "id": "pengumuman",
@@ -92,8 +92,8 @@
         "description": "Data tunggakan bersumber otomatis dari integrasi belum bayar iuran kas, denda baksos, serta tunggakan bulan/tahun sebelumnya beserta keterangannya."
       }
     ],
-    "announcementSectionTitle": "Papan Pengumuman & Agenda Warga",
-    "announcementSectionSubtitle": "Pemberitahuan info terkini prihal ke RT an dan Gang Mandor",
+    "announcementSectionTitle": "Media Informasi Warga",
+    "announcementSectionSubtitle": "Pemberitahuan info terkini dari RT/RW atau pengurus gang, Agenda dan kegiatan warga",
     "dashboardSectionTitle": "Ringkasan Statistik & Demografi Warga",
     "dashboardSectionDescription": "Statistik kependudukan, distribusi kelompok usia, kepemilikan rumah, kepesertaan Rukem, dan jaringan WiFi warga.",
     "cashSectionTitle": "Laporan Keseluruhan Keuangan",
@@ -102,13 +102,13 @@
     "trashCashbackDescription": "Pencatatan pendapatan cashback sampah dari RW Bejot",
     "baksosSectionTitle": "Agenda Bakti Sosial & Integrasi Denda Kas",
     "baksosDescription": "Agenda rutin gotong royong warga. Warga yang berhalangan hadir dikenakan denda Rp 10.000,- yang otomatis dialokasikan ke kas gang atau daftar tunggakan.",
-    "directorySectionTitle": "Direktori Data Warga Gang Mandor",
+    "directorySectionTitle": "Data Warga Gang Mandor",
     "directorySectionDescription": "Daftar warga per kavling blok rumah beserta rincian anggota keluarga, status hunian, kepesertaan Rukem, dan status WiFi.",
     "arrearsSectionTitle": "Ringkasan Rekapitulasi Daftar Tunggakan Warga",
     "arrearsSectionDescription": "Data tunggakan bersumber otomatis dari integrasi belum bayar iuran kas, denda baksos, serta tunggakan bulan/tahun sebelumnya beserta keterangannya.",
     "publicContactTitle": "Kontak Pelayanan Publik",
     "publicContactDescription": "Daftar kontak pengurus dan layanan masyarakat Gang Mandor Blok K2/25 - K3/24 untuk kebutuhan administrasi, keamanan, dan kebersihan.",
-    "footerCopyrightText": "Rukun Tetangga & Warga Blok K2/25 s/d K3/24",
+    "footerCopyrightText": "Media Informasi Warga Gang Mandor",
     "duesAmountPerMonth": 40000,
     "duesCurrentMonth": "September 2026",
     "duesAvailablePeriods": [
@@ -2605,24 +2605,6 @@
   ],
   "transactions": [
     {
-      "id": "tx-init-mei-kas",
-      "date": "2026-04-30",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Kas Utama",
-      "description": "Saldo Awal Inputan Periode Mei 2026",
-      "amount": 275000
-    },
-    {
-      "id": "tx-init-mei-sampah",
-      "date": "2026-04-30",
-      "type": "masuk",
-      "pool": "Cashback Sampah",
-      "category": "Cashback Sampah",
-      "description": "Saldo Awal Cashback Sampah Bulan Sebelumnya (Periode Mei 2026)",
-      "amount": 1265000
-    },
-    {
       "id": "tx-1792947947044-9hu0",
       "date": "2026-08-07",
       "type": "masuk",
@@ -3838,6 +3820,15 @@
       "amount": 100000
     },
     {
+      "id": "tx-1792830675386-vby6",
+      "date": "2026-05-01",
+      "type": "masuk",
+      "pool": "Cashback Sampah",
+      "category": "Cashback Sampah",
+      "description": "Cashback Sampah Pengurus Sebelumnya",
+      "amount": 1265000
+    },
+    {
       "id": "tx-1792830574310-uw6g",
       "date": "2026-05-28",
       "type": "keluar",
@@ -4334,15 +4325,15 @@
     {
       "id": "ann-1792781335774",
       "title": "PENARIKAN KAS GANG",
-      "date": "2026-10-23",
+      "date": "2026-11-01",
       "content": "📢 PENGUMUMAN PENARIKAN KAS GANG \n\nAssalamu’alaikum warahmatullahi wabarakatuh.\n\nYth. Bapak/Ibu Warga Gang Perumahan,\n\nDalam rangka memenuhi kebutuhan bersama dan mendukung kegiatan gang, kami informasikan bahwa penarikan iuran kas gang akan dilaksanakan dengan ketentuan sebagai berikut:\n\n1. Pengurus akan melakukan penarikan door to door sebelum tanggal 15 di setiap bulannya. \n2. Pembayaran paling lambat tgl 15 setiap bulannya. Jika sudah lewat tanggal 15, maka warga bisa langsung antarkan ke rumah bendahara atau bisa via transfer. \n3.Jika sudah melewati tanggal 15 data yang belum membayar akan masuk kedalam data tunggakan. \n\n💳 Pembayaran: Transfer rekening atau tunai kepada bendahara gang.\n🏦 REKENING TUJUAN\n\n- Bank: BCA\n- Nomor Rekening: 7130889411\n- Atas Nama: Muhidin Akbar\n- Berita Transfer: Kas Gang – Nama Blok/Nomor Rumah\n\nMohon Bapak/Ibu dapat melakukan pembayaran sebelum batas waktu yang telah ditentukan. Bagi warga yang sudah membayar, kami ucapkan terima kasih atas partisipasinya.\n\nDana kas akan digunakan untuk kebutuhan dan kepentingan bersama, seperti kebersihan gang, perawatan fasilitas gang, serta kegiatan warga sesuai kesepakatan bersama.\n\nMari kita tingkatkan kepedulian dan kebersamaan demi gang yang bersih, aman, nyaman, dan harmonis.\n\nTerima kasih atas perhatian dan kerja sama seluruh warga. 🙏\n\nHormat kami,\nPengurus Gang Mandor",
       "priority": "penting"
     },
     {
       "id": "ann-1792780895302",
       "title": "GERAKAN SEDEKAH SAMPAH BOTOL PLASTIK",
-      "date": "2026-10-23",
-      "content": "📢 PENGUMUMAN WARGA\n♻️ GERAKAN SEDEKAH SAMPAH BOTOL PLASTIK ♻️\n\nAssalamu’alaikum warahmatullahi wabarakatuh.\n\nYth. Bapak/Ibu Warga,\n\nMari kita bersama-sama melakukan kebaikan melalui SEDEKAH SAMPAH BOTOL PLASTIK sebagai bentuk kepedulian terhadap gang sekaligus menambah-nambah pemasukan kas gang guna keperluan kita bersama.\n\n🌱 Sampah yang Dapat Disedekahkan:\n✅ Botol plastik bekas minuman\n✅ Gelas plastik bekas\n✅ Botol plastik bekas oli\n✅ Jerigen plastik\n\n⚠️ Mohon diperhatikan:\n\nKosongkan isi botol atau wadah terlebih dahulu.\n\nPastikan sampah plastik tidak berisi cairan atau sisa bahan lainnya.\n\nMasukkan sampah ke tempat pengumpulan yang telah disediakan (Disamping Warung Faqih)\n\nBotol Yakult tidak termasuk dalam pengumpulan ini.\n\n💚 Mengapa Kita Ikut Berpartisipasi?\n♻️ Mengurangi sampah plastik dan menjaga kebersihan gang.\n🤝 Menumbuhkan semangat gotong royong dan kepedulian sosial.\n❤️ Menjadikan barang bekas lebih bermanfaat melalui sedekah.\n\nMari kita mulai dari hal kecil, dari rumah kita sendiri. Semoga setiap botol plastik yang kita sedekahkan menjadi amal kebaikan dan membawa manfaat bagi gang kita bersama.\n\nSatu botol dari kita, manfaat untuk sesama!\n\nTerima kasih atas partisipasi seluruh warga.\n\nWassalamu’alaikum warahmatullahi wabarakatuh.\n\nSalam peduli gang, salam gotong royong! 🌿",
+      "date": "2026-11-01",
+      "content": "📢 PENGUMUMAN WARGA\n\n♻️ GERAKAN SEDEKAH SAMPAH BOTOL PLASTIK ♻️\n\nAssalamu’alaikum warahmatullahi wabarakatuh.\n\nYth. Bapak/Ibu Warga,\n\nMari kita bersama-sama melakukan kebaikan melalui SEDEKAH SAMPAH BOTOL PLASTIK sebagai bentuk kepedulian terhadap gang gang sekaligus menambah pemasukan kas gang guna keperluan kita bersama.\n\n🌱 Sampah yang Dapat Disedekahkan:\n✅ Botol plastik bekas minuman\n✅ Gelas plastik bekas\n✅ Botol plastik bekas oli\n✅ Jerigen plastik\n✅ Botol Beling\n✅ Kardus bekas atau buku bekas\n\n⚠️ Mohon diperhatikan:\n1. Kosongkan isi botol atau drigen terlebih dahulu.\n2. Pastikan tidak berisi cairan atau sisa bahan lainnya di dalam botol atau drigen yang akan dikumpulkan. \n3. Masukkan botol atau drigen ke tempat pengumpulan yang telah disediakan (Disamping Warung Faqih)\n4. Untuk kardus bekas atau buku bekas bisa disimpan diatas penampungannya nanti akan di rapihkan oleh pengurus gang. \n\nBotol Yakult tidak termasuk dalam pengumpulan ini.\n\n💚 Mengapa Kita Ikut Berpartisipasi?\n♻️ Mengurangi sampah dan menjaga kebersihan gang.\n🤝 Menumbuhkan semangat gotong royong dan kepedulian sosial.\n❤️ Menjadikan barang bekas lebih bermanfaat untuk gang kita. \n\nMari kita mulai dari hal kecil, dari rumah kita sendiri. Semoga setiap barang bekas yang kita sedekahkan menjadi amal kebaikan dan membawa manfaat bagi gang kita bersama.\n\nSatu barang bekas dari kita, manfaat untuk sesama!\n\nTerima kasih atas partisipasi seluruh warga.\n\nWassalamu’alaikum warahmatullahi wabarakatuh.\n\nSalam peduli gang, salam gotong royong! 🌿",
       "priority": "normal"
     }
   ]
