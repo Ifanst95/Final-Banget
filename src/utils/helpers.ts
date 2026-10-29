@@ -610,8 +610,68 @@ export function calculatePreviousMonthBalanceSummary(
   transactions: CashTransaction[],
   referenceMonthKeyOrLabel: string
 ): PreviousMonthBalanceSummary {
+  // Jika 'semua' (Semua Periode), saldo awal pembukuan adalah 0 agar tidak menduplikasi transaksi di tabel
+  if (
+    !referenceMonthKeyOrLabel ||
+    referenceMonthKeyOrLabel.toLowerCase() === 'semua' ||
+    referenceMonthKeyOrLabel.toLowerCase().includes('semua')
+  ) {
+    let closingKas = 0;
+    let closingWifi = 0;
+    let closingSampah = 0;
+    transactions.forEach((tx) => {
+      const cat = tx.category || '';
+      const isWifi =
+        cat === 'Cashback WiFi' ||
+        cat === 'Pengeluaran Cashback WiFi' ||
+        (tx.pool === 'Cashback WiFi' &&
+          cat !== 'Pengeluaran Gang' &&
+          cat !== 'Pengeluaran Lingkungan' &&
+          cat !== 'Kas Utama');
+
+      const isSampah =
+        cat === 'Cashback Sampah' ||
+        cat === 'Pengeluaran Cashback Sampah' ||
+        (tx.pool === 'Cashback Sampah' &&
+          cat !== 'Pengeluaran Gang' &&
+          cat !== 'Pengeluaran Lingkungan' &&
+          cat !== 'Kas Utama');
+
+      const signedVal = tx.type === 'masuk' ? tx.amount : -tx.amount;
+      if (isWifi) closingWifi += signedVal;
+      else if (isSampah) closingSampah += signedVal;
+      else closingKas += signedVal;
+    });
+
+    return {
+      referenceMonthKey: 'semua',
+      referenceMonthLabel: 'Semua Periode',
+      prevMonthKey: '',
+      prevMonthLabel: 'Awal Pembukuan',
+      kasUtama: 0,
+      wifiCashback: 0,
+      sampahCashback: 0,
+      total: 0,
+      prevMonthKasIn: 0,
+      prevMonthKasOut: 0,
+      prevMonthWifiIn: 0,
+      prevMonthWifiOut: 0,
+      prevMonthSampahIn: 0,
+      prevMonthSampahOut: 0,
+      prevMonthTxCount: 0,
+      currentMonthKasNet: closingKas,
+      currentMonthWifiNet: closingWifi,
+      currentMonthSampahNet: closingSampah,
+      currentMonthTotalNet: closingKas + closingWifi + closingSampah,
+      closingKasUtama: closingKas,
+      closingWifiCashback: closingWifi,
+      closingSampahCashback: closingSampah,
+      closingTotal: closingKas + closingWifi + closingSampah,
+    };
+  }
+
   const referenceMonthKey =
-    parseIndonesianMonthYearToKey(referenceMonthKeyOrLabel) || '2026-10';
+    parseIndonesianMonthYearToKey(referenceMonthKeyOrLabel) || '2026-09';
   const referenceMonthLabel = formatMonthYearFromKey(referenceMonthKey);
   const prevMonthKey = getPreviousMonthKey(referenceMonthKey);
   const prevMonthLabel = formatMonthYearFromKey(prevMonthKey);
@@ -619,6 +679,7 @@ export function calculatePreviousMonthBalanceSummary(
   let kasUtama = 0;
   let wifiCashback = 0;
   let sampahCashback = 0;
+
 
   let prevMonthKasIn = 0;
   let prevMonthKasOut = 0;

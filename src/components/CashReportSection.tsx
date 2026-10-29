@@ -181,14 +181,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     }
   }, [mode]);
 
-  const defaultMonthLabel = config.duesCurrentMonth || 'Oktober 2026';
-  const defaultMonthKey = parseIndonesianMonthYearToKey(defaultMonthLabel) || '2026-10';
+  const defaultMonthLabel = config.duesCurrentMonth || 'September 2026';
+  const defaultMonthKey = parseIndonesianMonthYearToKey(defaultMonthLabel) || '2026-09';
 
   // Filters for Buku Kas Keluar Masuk
   const [filterPool, setFilterPool] = useState<string>('semua');
-  // Tampilkan periode semuanya buku kas keluar dan masuk secara default untuk semua (termasuk tampilan warga)
-  const [selectedTxMonth, setSelectedTxMonth] = useState<string>('semua');
+  // Inisialisasi periode awal ke bulan berjalan aktif agar kartu dan tabel saldo bulan sebelumnya langsung mengambil data dari bulan sebelumnya
+  const [selectedTxMonth, setSelectedTxMonth] = useState<string>(() => defaultMonthKey);
   const [searchTx, setSearchTx] = useState<string>('');
+
 
   // Period management modal state
   const [isPeriodModalOpen, setIsPeriodModalOpen] = useState(false);
@@ -346,11 +347,43 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     );
   };
 
-  // Group all transactions by month
+  // List of available periods
+  const availablePeriods = useMemo<string[]>(() => {
+    const list =
+      config.duesAvailablePeriods && config.duesAvailablePeriods.length > 0
+        ? config.duesAvailablePeriods
+        : [config.duesCurrentMonth || 'September 2026', 'Agustus 2026'];
+    const txMonths = transactions.map((t) => formatMonthYearFromKey(getMonthKeyFromDate(t.date)));
+    return Array.from(new Set([...list, ...txMonths])).filter(Boolean);
+  }, [config.duesAvailablePeriods, config.duesCurrentMonth, transactions]);
+
+  // Group all transactions by month (termasuk periode aktif terdaftar)
   const allMonthlyCashflowGroups = useMemo<MonthlyTransactionGroup[]>(() => {
     const map: Record<string, MonthlyTransactionGroup> = {};
+
+    // Inisialisasi seluruh periode yang terdaftar (termasuk bulan berjalan yang belum ada mutasi)
+    availablePeriods.forEach((periodLabel) => {
+      const pKey = parseIndonesianMonthYearToKey(periodLabel);
+      if (pKey && pKey !== '2026-04' && !map[pKey]) {
+        map[pKey] = {
+          monthKey: pKey,
+          monthLabel: formatMonthYearFromKey(pKey),
+          transactions: [],
+          iuranInflow: 0,
+          wifiInflow: 0,
+          sampahInflow: 0,
+          dendaInflow: 0,
+          otherInflow: 0,
+          totalInflow: 0,
+          totalOutflow: 0,
+          netCashflow: 0,
+        };
+      }
+    });
+
     transactions.forEach((tx) => {
       const mKey = getMonthKeyFromDate(tx.date);
+      if (!mKey || mKey === '0000-00') return;
       if (!map[mKey]) {
         map[mKey] = {
           monthKey: mKey,
@@ -395,22 +428,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     });
 
     return Object.values(map)
+      .filter((g) => g.monthKey !== '2026-04') // Sembunyikan April karena April adalah tanggal penyimpanan baseline
       .sort((a, b) => b.monthKey.localeCompare(a.monthKey))
       .map((g) => ({
         ...g,
         transactions: [...g.transactions].sort((a, b) => a.date.localeCompare(b.date)),
       }));
-  }, [transactions]);
+  }, [availablePeriods, transactions]);
 
-  // List of available periods
-  const availablePeriods = useMemo<string[]>(() => {
-    const list =
-      config.duesAvailablePeriods && config.duesAvailablePeriods.length > 0
-        ? config.duesAvailablePeriods
-        : [config.duesCurrentMonth || 'Oktober 2026', 'September 2026'];
-    const txMonths = transactions.map((t) => formatMonthYearFromKey(getMonthKeyFromDate(t.date)));
-    return Array.from(new Set([...list, ...txMonths])).filter(Boolean);
-  }, [config.duesAvailablePeriods, config.duesCurrentMonth, transactions]);
 
   // Effective month key: Warga dan Pengurus keduanya dapat melihat Semua Periode maupun per bulan
   const effectiveMonthKey = selectedTxMonth;
@@ -544,11 +569,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     };
   }, [filteredTransactions]);
 
-  // Previous month balance summary (Pisahkan saldo bulan sebelumnya)
+  // Previous month balance summary (Mengambil data akumulasi s/d akhir bulan sebelumnya)
   const prevMonthSummary = useMemo(() => {
-    const targetKey = effectiveMonthKey === 'semua' ? defaultMonthKey : effectiveMonthKey;
-    return calculatePreviousMonthBalanceSummary(transactions, targetKey);
-  }, [transactions, effectiveMonthKey, defaultMonthKey]);
+    return calculatePreviousMonthBalanceSummary(transactions, effectiveMonthKey);
+  }, [transactions, effectiveMonthKey]);
+
 
   // Separate breakdown: Kas Utama vs Cashback (WiFi & Sampah)
   const breakdownSummary = useMemo(() => {
@@ -1673,12 +1698,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* HEADER SECTION: Colorful, Vibrant & Unified */}
+      {/* HEADER SECTION: Luxurious, Vibrant & Modern */}
       {/* HEADER BANNER: 1. Judul di atas -> 2. Deskripsi di bawahnya -> 3. Menu-menu lainnya di bawahnya lagi */}
-      <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-cyan-900 text-white rounded-3xl p-5 sm:p-7 shadow-lg border-b-4 border-emerald-400 space-y-4">
+      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-900 via-teal-900 to-slate-950 text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-emerald-500/30 space-y-4">
+        {/* Decorative ambient background glows */}
+        <div className="absolute -right-20 -top-20 w-80 h-80 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute right-40 -bottom-20 w-64 h-64 bg-teal-400/15 rounded-full blur-2xl pointer-events-none" />
+
         {/* 1. Judul Halaman di Bagian Atas */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="p-2.5 rounded-2xl bg-white/15 text-white border border-white/25 shadow-xs backdrop-blur-xs shrink-0">
+        <div className="relative z-10 flex items-center gap-2.5 flex-wrap">
+          <div className="p-2.5 rounded-2xl bg-white/15 text-white border border-white/25 shadow-sm backdrop-blur-md shrink-0">
             <Wallet className="w-5 h-5 text-amber-300" />
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
@@ -1690,17 +1719,17 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         </div>
 
         {/* 2. Deskripsi Halaman di Bawahnya */}
-        <p className="text-xs sm:text-sm text-emerald-100 max-w-3xl leading-relaxed">
+        <p className="relative z-10 text-xs sm:text-sm text-emerald-100/90 max-w-3xl leading-relaxed">
           {config.cashDescription || 'Pencatatan kas utama, buku mutasi keluar masuk, serta rekapitulasi iuran rutin per KK dalam satu halaman transparansi terpadu.'}
         </p>
 
         {/* 3. Menu-menu Lainnya di Bawahnya Lagi */}
-        <div className="pt-2 border-t border-emerald-700/60 flex flex-wrap items-center gap-2">
+        <div className="relative z-10 pt-3 border-t border-emerald-700/50 flex flex-wrap items-center gap-2.5">
           {isAdmin && (
             <button
               type="button"
               onClick={handleOpenAddTx}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-xs transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-amber-400 hover:bg-amber-300 active:scale-[0.98] text-slate-950 rounded-xl shadow-sm transition-all cursor-pointer font-sans"
             >
               <Plus className="w-4 h-4 text-slate-950" />
               <span>Catat Transaksi</span>
@@ -1711,7 +1740,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             <button
               type="button"
               onClick={() => setIsUploadDuesModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl shadow-xs transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 rounded-xl shadow-sm transition-all cursor-pointer font-sans"
               title="Upload Data Iuran Warga Per KK via Excel (.xlsx / .xls)"
             >
               <FileSpreadsheet className="w-4 h-4 text-slate-950" />
@@ -1726,7 +1755,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 setWaCustomText(previewWaText);
                 setIsWaModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white/15 hover:bg-white/25 text-white border border-white/20 rounded-xl transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white/15 hover:bg-white/25 text-white border border-white/25 rounded-xl transition-all cursor-pointer backdrop-blur-xs font-sans"
             >
               <MessageCircle className="w-4 h-4 text-emerald-300" />
               <span>Share WA</span>
@@ -1746,7 +1775,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   exportScope: 'all',
                 })
               }
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white/15 hover:bg-white/25 text-white border border-white/20 rounded-xl transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white/15 hover:bg-white/25 text-white border border-white/25 rounded-xl transition-all cursor-pointer backdrop-blur-xs font-sans"
               title="Download Excel Semua Laporan Keuangan"
             >
               <Download className="w-4 h-4 text-amber-200" />
@@ -1758,7 +1787,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             <button
               type="button"
               onClick={handleOpenAdjustModal}
-              className="p-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl border border-white/20 transition-colors cursor-pointer"
+              className="p-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl border border-white/20 transition-all cursor-pointer"
               title="Koreksi / Sesuaikan Saldo"
             >
               <Sliders className="w-4 h-4 text-amber-200" />
@@ -1770,7 +1799,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       {/* SALDO SUMMARY CARDS (Tampil untuk Warga & Pengurus: Saldo Kas Utama, Cashback WiFi, Cashback Sampah & Total Saldo) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Kas Utama */}
-        <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-green-100/80 border-2 border-emerald-300/90 text-emerald-950 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50/90 to-green-100/90 border-2 border-emerald-300 text-emerald-950 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between hover:shadow-md hover:border-emerald-400 transition-all">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full blur-xl pointer-events-none" />
           <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
             <span>Saldo Kas Utama</span>
             <div className="p-1.5 rounded-xl bg-emerald-600 text-white shadow-xs">
@@ -1783,20 +1813,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         </div>
 
         {/* Cashback WiFi */}
-        <div className="bg-gradient-to-br from-cyan-50 via-sky-50 to-blue-100/80 border-2 border-cyan-300/90 text-cyan-950 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between text-xs font-bold text-cyan-900">
+        <div className="relative overflow-hidden bg-gradient-to-br from-sky-50 via-cyan-50/90 to-blue-100/90 border-2 border-sky-300 text-sky-950 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between hover:shadow-md hover:border-sky-400 transition-all">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-sky-400/10 rounded-full blur-xl pointer-events-none" />
+          <div className="flex items-center justify-between text-xs font-bold text-sky-900">
             <span>Cashback WiFi</span>
-            <div className="p-1.5 rounded-xl bg-cyan-600 text-white shadow-xs">
+            <div className="p-1.5 rounded-xl bg-sky-600 text-white shadow-xs">
               <Wifi className="w-4 h-4" />
             </div>
           </div>
-          <div className="mt-3 text-lg sm:text-2xl font-black font-mono tracking-tight text-cyan-950 tabular-nums">
+          <div className="mt-3 text-lg sm:text-2xl font-black font-mono tracking-tight text-sky-950 tabular-nums">
             {formatRupiah(balances.wifiCashback)}
           </div>
         </div>
 
         {/* Cashback Sampah */}
-        <div className="bg-gradient-to-br from-teal-50 via-emerald-50 to-teal-100/80 border-2 border-teal-300/90 text-teal-950 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+        <div className="relative overflow-hidden bg-gradient-to-br from-teal-50 via-emerald-50/90 to-teal-100/90 border-2 border-teal-300 text-teal-950 rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col justify-between hover:shadow-md hover:border-teal-400 transition-all">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-teal-400/10 rounded-full blur-xl pointer-events-none" />
           <div className="flex items-center justify-between text-xs font-bold text-teal-900">
             <span>Cashback Sampah</span>
             <div className="p-1.5 rounded-xl bg-teal-600 text-white shadow-xs">
@@ -1809,23 +1841,24 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         </div>
 
         {/* Total Keseluruhan Keuangan */}
-        <div className="bg-gradient-to-br from-emerald-600 via-teal-700 to-cyan-800 text-white p-4 sm:p-5 rounded-2xl shadow-lg shadow-emerald-700/25 border-2 border-emerald-400/60 ring-2 ring-emerald-300/40 flex flex-col justify-between">
-          <div className="flex items-center justify-between text-xs font-bold text-emerald-100">
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-950 via-teal-900 to-slate-900 text-white p-4 sm:p-5 rounded-2xl shadow-lg shadow-emerald-950/20 border-2 border-emerald-400/60 ring-2 ring-emerald-300/30 flex flex-col justify-between">
+          <div className="absolute -right-6 -top-6 w-28 h-28 bg-emerald-500/20 rounded-full blur-xl pointer-events-none" />
+          <div className="relative z-10 flex items-center justify-between text-xs font-bold text-emerald-100">
             <span>Total Keseluruhan Keuangan</span>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-300 animate-pulse" />
+            <div className="flex items-center gap-1.5 bg-white/10 px-2 py-0.5 rounded-full border border-white/15 backdrop-blur-xs">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
               <span className="text-[10px] text-amber-200 font-mono font-bold uppercase tracking-wider">Aktif</span>
             </div>
           </div>
-          <div className="mt-3 text-lg sm:text-2xl font-black font-mono tracking-tight tabular-nums text-white">
+          <div className="relative z-10 mt-3 text-lg sm:text-2xl font-black font-mono tracking-tight tabular-nums text-amber-300">
             {formatRupiah(balances.total)}
           </div>
         </div>
       </div>
 
       {/* UNIFIED SUB-TABS: 1. Buku Kas Keluar & Masuk | 2. Kas Per KK */}
-      <div className="bg-gradient-to-r from-emerald-100/90 via-teal-100/90 to-indigo-100/90 p-1.5 rounded-2xl border-2 border-teal-300/80 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+      <div className="bg-gradient-to-r from-slate-100 via-teal-50/80 to-emerald-50/80 p-1.5 sm:p-2 rounded-2xl border-2 border-emerald-200/90 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => {
@@ -1834,8 +1867,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             }}
             className={`flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-2 ${
               currentSubTab === 'mutasi'
-                ? 'bg-gradient-to-r from-teal-600 via-emerald-600 to-green-600 text-white shadow-md shadow-teal-600/30 ring-2 ring-teal-300/70 scale-[1.01]'
-                : 'bg-white/80 hover:bg-white text-teal-950 border border-teal-300/70'
+                ? 'bg-gradient-to-r from-teal-700 via-emerald-600 to-green-600 text-white shadow-md shadow-emerald-700/25 ring-2 ring-teal-300/80 scale-[1.01]'
+                : 'bg-white hover:bg-emerald-50/80 text-teal-950 border border-teal-200 shadow-2xs'
             }`}
           >
             <FileText className="w-4 h-4 text-amber-300" />
@@ -1859,8 +1892,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             }}
             className={`flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-2 ${
               currentSubTab === 'per_kk'
-                ? 'bg-gradient-to-r from-indigo-600 via-blue-600 to-sky-600 text-white shadow-md shadow-indigo-600/30 ring-2 ring-indigo-300/70 scale-[1.01]'
-                : 'bg-white/80 hover:bg-white text-indigo-950 border border-indigo-300/70'
+                ? 'bg-gradient-to-r from-indigo-700 via-blue-600 to-teal-600 text-white shadow-md shadow-indigo-700/25 ring-2 ring-indigo-300/80 scale-[1.01]'
+                : 'bg-white hover:bg-indigo-50/80 text-indigo-950 border border-indigo-200 shadow-2xs'
             }`}
           >
             <Users className="w-4 h-4 text-cyan-300" />
@@ -1877,7 +1910,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           </button>
         </div>
 
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/70 border border-teal-200 text-xs font-bold text-teal-950">
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/90 border border-teal-200 text-xs font-bold text-teal-950 shadow-2xs">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
           <span>Kolom Buku Kas & Iuran Terpadu</span>
         </div>
@@ -1885,23 +1918,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
       {/* VIEW 1: BUKU KAS KELUAR & MASUK */}
       {currentSubTab === 'mutasi' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden space-y-4 p-4 sm:p-6">
-          {/* Baris Filter Periode (Khusus Warga: Hanya Bulan Berjalan. Pengurus: Semua Periode + Buat & Hapus) */}
-          <div className="space-y-3 pb-3 border-b border-slate-100">
+        <div className="bg-gradient-to-b from-white via-slate-50/50 to-emerald-50/20 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden space-y-5 p-4 sm:p-6">
+          {/* Baris Filter Periode & Kategori (Elevated Container with Elegant Tone) */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-teal-50/30 to-slate-50 border border-slate-200/90 shadow-2xs space-y-3">
             {/* Baris Filter Periode (Transparansi Penuh: Tersedia untuk Warga & Pengurus) */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="font-bold text-slate-700 mr-1 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="font-extrabold text-slate-800 mr-1 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
                   Pilih Periode:
                 </span>
                 <button
                   type="button"
                   onClick={() => setSelectedTxMonth('semua')}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer ${
                     selectedTxMonth === 'semua'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs'
                   }`}
                 >
                   Semua Periode ({transactions.length})
@@ -1911,10 +1944,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     key={m.monthKey}
                     type="button"
                     onClick={() => setSelectedTxMonth(m.monthKey)}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer ${
                       selectedTxMonth === m.monthKey
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                        ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
+                        : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs'
                     }`}
                   >
                     {m.monthLabel} ({m.transactions.length})
@@ -1931,7 +1964,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       setPeriodModalTab('tambah');
                       setIsPeriodModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
                     title="Tambah Periode Baru Buku Kas dan Iuran"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -1944,7 +1977,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       setDeletePeriodSelect(availablePeriods[0] || '');
                       setIsPeriodModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all cursor-pointer active:scale-95"
                     title="Hapus Periode Buku Kas dan Iuran"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -1955,16 +1988,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </div>
 
             {/* Category / Pool Filter + Search */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-200/70">
               {/* Category / Pool Filter Buttons (Semua, Iuran Warga, Denda Baksos, Kas Utama, WiFi, Sampah, Pengeluaran) */}
               <div className="flex flex-wrap items-center gap-1 text-xs">
                 <button
                   type="button"
                   onClick={() => setFilterPool('semua')}
-                  className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     filterPool === 'semua'
                       ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs'
                   }`}
                 >
                   Semua ({filteredTransactions.length})
@@ -1972,10 +2005,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilterPool('Iuran Warga')}
-                  className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     filterPool === 'Iuran Warga'
                       ? 'bg-emerald-700 text-white shadow-xs'
-                      : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+                      : 'bg-emerald-50/90 text-emerald-800 hover:bg-emerald-100 border border-emerald-300 shadow-2xs'
                   }`}
                 >
                   Iuran Warga
@@ -1983,10 +2016,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilterPool('Denda Baksos')}
-                  className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     filterPool === 'Denda Baksos'
                       ? 'bg-amber-600 text-white shadow-xs'
-                      : 'bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-200'
+                      : 'bg-amber-50/90 text-amber-900 hover:bg-amber-100 border border-amber-300 shadow-2xs'
                   }`}
                 >
                   Denda Baksos
@@ -1994,10 +2027,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilterPool('Kas Utama')}
-                  className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     filterPool === 'Kas Utama'
                       ? 'bg-teal-700 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      : 'bg-teal-50/90 text-teal-900 hover:bg-teal-100 border border-teal-300 shadow-2xs'
                   }`}
                 >
                   Kas Utama
@@ -2005,10 +2038,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilterPool('Cashback WiFi')}
-                  className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     filterPool === 'Cashback WiFi'
                       ? 'bg-cyan-700 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      : 'bg-sky-50/90 text-sky-900 hover:bg-sky-100 border border-sky-300 shadow-2xs'
                   }`}
                 >
                   WiFi
@@ -2016,10 +2049,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilterPool('Cashback Sampah')}
-                  className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     filterPool === 'Cashback Sampah'
                       ? 'bg-teal-700 text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      : 'bg-teal-50/90 text-teal-900 hover:bg-teal-100 border border-teal-300 shadow-2xs'
                   }`}
                 >
                   Sampah
@@ -2027,10 +2060,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setFilterPool('keluar')}
-                  className={`px-2.5 py-1 rounded-lg font-bold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     filterPool === 'keluar'
                       ? 'bg-rose-700 text-white shadow-xs'
-                      : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                      : 'bg-rose-50/90 text-rose-800 hover:bg-rose-100 border border-rose-300 shadow-2xs'
                   }`}
                 >
                   Pengeluaran (-)
@@ -2042,10 +2075,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
-                  placeholder="Cari transaksi / warga..."
+                  placeholder="Cari transaksi / uraian..."
                   value={searchTx}
                   onChange={(e) => setSearchTx(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 shadow-2xs transition-all"
                 />
               </div>
             </div>
@@ -2054,85 +2087,106 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           {/* PEMISAHAN DETAIL SALDO KAS UTAMA, WIFI, SAMPAH & PENJELASAN PENGELUARAN (Tampil Sama untuk Warga & Pengurus) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-center">
             {/* 1. Saldo Bulan Sebelumnya */}
-            <div className="bg-amber-50/70 border-2 border-amber-200/90 rounded-2xl p-4 flex flex-col justify-between shadow-2xs">
+            <div className="relative overflow-hidden bg-gradient-to-br from-amber-50 via-orange-50/70 to-amber-100/70 border-2 border-amber-300 text-amber-950 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-400/10 rounded-full blur-xl pointer-events-none" />
               <div>
                 <div className="flex items-center justify-between gap-1.5 text-xs font-extrabold text-amber-900 pb-2 border-b border-amber-200">
                   <div className="flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-amber-600" />
-                    <span>SALDO BULAN SEBELUMNYA</span>
+                    <span>
+                      {effectiveMonthKey === 'semua'
+                        ? 'SALDO AWAL PEMBUKUAN'
+                        : 'SALDO BULAN SEBELUMNYA'}
+                    </span>
                   </div>
                   {isAdmin && (
                     <button
                       type="button"
                       onClick={handleOpenMayBalanceModal}
-                      className="px-2 py-0.5 rounded-lg bg-amber-200/90 hover:bg-amber-300 text-amber-950 text-[10px] font-bold flex items-center gap-1 border border-amber-400 cursor-pointer shadow-2xs transition-all shrink-0"
-                      title="Edit Saldo Bulan Sebelumnya Periode Mei 2026 (Saldo Awal Inputan)"
+                      className="px-2 py-0.5 rounded-lg bg-amber-200 hover:bg-amber-300 text-amber-950 text-[10px] font-bold flex items-center gap-1 border border-amber-400 cursor-pointer shadow-2xs transition-all shrink-0 active:scale-95"
+                      title={
+                        effectiveMonthKey === '2026-05' || prevMonthSummary.prevMonthKey === '2026-04'
+                          ? 'Edit Saldo Bulan Sebelumnya Periode Mei 2026 (Saldo Awal Inputan Baseline)'
+                          : 'Edit Saldo Awal Baseline (April 2026)'
+                      }
                     >
                       <Edit2 className="w-3 h-3" />
-                      <span>Edit Saldo Mei</span>
+                      <span>{effectiveMonthKey === '2026-05' ? 'Edit Saldo Awal' : 'Edit Baseline'}</span>
                     </button>
                   )}
                 </div>
-                <div className="text-[11px] text-amber-800 mt-1 font-medium">
-                  Periode: {prevMonthSummary.prevMonthLabel}
+                <div className="text-[11px] text-amber-800 mt-1.5 font-medium flex items-center justify-between flex-wrap gap-1">
+                  <span>
+                    {effectiveMonthKey === 'semua'
+                      ? 'Periode: Awal Catatan Kas'
+                      : `Periode: ${prevMonthSummary.prevMonthLabel}`}
+                  </span>
+                  {effectiveMonthKey !== 'semua' && (
+                    <span className="text-[9px] bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded-md font-bold border border-amber-300/80">
+                      Otomatis Dari Bulan Sebelumnya
+                    </span>
+                  )}
                 </div>
-                <div className="mt-2.5 space-y-1 text-xs font-mono text-center">
-                  <div className="flex justify-between items-center text-slate-700 px-2 py-0.5 rounded bg-white/70">
-                    <span className="font-sans text-[11px] font-semibold text-slate-600">Saldo Kas Utama:</span>
-                    <span className="font-bold text-emerald-800">{formatRupiah(prevMonthSummary.kasUtama)}</span>
+                <div className="mt-3 space-y-1.5 text-xs font-mono text-center">
+                  <div className="flex justify-between items-center text-slate-800 px-2.5 py-1 rounded-xl bg-white/90 border border-amber-200/80 shadow-2xs">
+                    <span className="font-sans text-[11px] font-semibold text-slate-700">Saldo Kas Utama:</span>
+                    <span className="font-bold text-emerald-800 tabular-nums">{formatRupiah(prevMonthSummary.kasUtama)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-slate-700 px-2 py-0.5 rounded bg-white/70">
-                    <span className="font-sans text-[11px] font-semibold text-slate-600">Saldo Cashback WiFi:</span>
-                    <span className="font-bold text-blue-800">{formatRupiah(prevMonthSummary.wifiCashback)}</span>
+                  <div className="flex justify-between items-center text-slate-800 px-2.5 py-1 rounded-xl bg-white/90 border border-amber-200/80 shadow-2xs">
+                    <span className="font-sans text-[11px] font-semibold text-slate-700">Saldo Cashback WiFi:</span>
+                    <span className="font-bold text-blue-800 tabular-nums">{formatRupiah(prevMonthSummary.wifiCashback)}</span>
                   </div>
-                  <div className="flex justify-between items-center text-slate-700 px-2 py-0.5 rounded bg-white/70">
-                    <span className="font-sans text-[11px] font-semibold text-slate-600">Saldo Cashback Sampah:</span>
-                    <span className="font-bold text-teal-800">{formatRupiah(prevMonthSummary.sampahCashback)}</span>
+                  <div className="flex justify-between items-center text-slate-800 px-2.5 py-1 rounded-xl bg-white/90 border border-amber-200/80 shadow-2xs">
+                    <span className="font-sans text-[11px] font-semibold text-slate-700">Saldo Cashback Sampah:</span>
+                    <span className="font-bold text-teal-800 tabular-nums">{formatRupiah(prevMonthSummary.sampahCashback)}</span>
                   </div>
                 </div>
               </div>
-              <div className="mt-3 pt-2 border-t border-amber-200 text-center">
-                <span className="text-[11px] font-extrabold text-amber-900 block">TOTAL SALDO AWAL</span>
-                <span className="font-mono text-base font-extrabold text-amber-950 tabular-nums">
+              <div className="mt-3.5 pt-2.5 border-t border-amber-200/80 text-center bg-gradient-to-r from-amber-600 via-amber-700 to-orange-600 text-white rounded-xl p-2.5 shadow-sm">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider block text-amber-100">
+                  {effectiveMonthKey === 'semua' ? 'TOTAL SALDO AWAL PEMBUKUAN' : 'TOTAL SALDO BULAN SEBELUMNYA'}
+                </span>
+                <span className="font-mono text-base font-black text-amber-200 tabular-nums">
                   {formatRupiah(prevMonthSummary.total)}
                 </span>
               </div>
             </div>
 
             {/* 2. Pemasukan & Pengeluaran Kas Utama (Diberikan Nomor Urut Lengkap 1-8 + Sisa Saldo WiFi & Sampah) */}
-            <div className="bg-gradient-to-br from-emerald-50 via-teal-50/80 to-cyan-50/90 border-2 border-emerald-300 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50/80 to-green-100/70 border-2 border-emerald-300 text-emerald-950 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full blur-xl pointer-events-none" />
               <div>
                 <div className="flex items-center justify-center gap-1.5 text-xs font-black text-emerald-950 pb-2 border-b-2 border-emerald-300">
                   <Wallet className="w-4 h-4 text-emerald-700" />
                   <span>KAS UTAMA PERIODE INI</span>
                 </div>
-                <div className="mt-2.5 space-y-1.5 text-xs font-mono text-center">
+                <div className="mt-3 space-y-1.5 text-xs font-mono text-center">
                   {/* 1. Iuran Warga */}
-                  <div className="flex justify-between items-center text-emerald-950 px-2.5 py-1 rounded-xl bg-emerald-100/80 border border-emerald-200">
+                  <div className="flex justify-between items-center text-emerald-950 px-2.5 py-1 rounded-xl bg-white/90 border border-emerald-200 shadow-2xs">
                     <span className="font-sans text-[11px] font-bold text-emerald-950">1. Iuran Warga (+):</span>
-                    <span className="font-bold text-emerald-800 tabular-nums">+{formatRupiah(tableTotals.sumMasukIuran)}</span>
+                    <span className="font-bold text-emerald-700 tabular-nums">+{formatRupiah(tableTotals.sumMasukIuran)}</span>
                   </div>
 
                   {/* 2. Denda Baksos */}
-                  <div className="flex justify-between items-center text-rose-950 px-2.5 py-1 rounded-xl bg-rose-50 border border-rose-200">
+                  <div className="flex justify-between items-center text-rose-950 px-2.5 py-1 rounded-xl bg-white/90 border border-rose-200 shadow-2xs">
                     <span className="font-sans text-[11px] font-bold text-rose-950">2. Denda Baksos (+):</span>
                     <span className="font-bold text-rose-600 tabular-nums">+{formatRupiah(tableTotals.sumMasukDenda)}</span>
                   </div>
 
                   {/* 3. Pembayaran Tunggakan */}
-                  <div className="flex justify-between items-center text-rose-950 px-2.5 py-1 rounded-xl bg-rose-50 border border-rose-200">
+                  <div className="flex justify-between items-center text-rose-950 px-2.5 py-1 rounded-xl bg-white/90 border border-rose-200 shadow-2xs">
                     <span className="font-sans text-[11px] font-bold text-rose-950">3. Pembayaran Tunggakan (+):</span>
                     <span className="font-bold text-rose-600 tabular-nums">+{formatRupiah(tableTotals.sumMasukTunggakan)}</span>
                   </div>
 
                   {/* 4. Pengeluaran Kas */}
-                  <div className="flex justify-between items-center text-rose-950 px-2.5 py-1 rounded-xl bg-amber-50/90 border border-amber-200">
+                  <div className="flex justify-between items-center text-slate-800 px-2.5 py-1 rounded-xl bg-white/90 border border-amber-200 shadow-2xs">
                     <span className="font-sans text-[11px] font-bold text-slate-800">4. Pengeluaran Kas (-):</span>
                     <span className="font-bold text-rose-600 tabular-nums">-{formatRupiah(tableTotals.sumKeluarKasUtama)}</span>
                   </div>
 
                   {/* 5. Arus Kas Bersih */}
-                  <div className="flex justify-between items-center px-2.5 py-1 rounded-xl bg-teal-100/90 border border-teal-300 font-bold">
+                  <div className="flex justify-between items-center px-2.5 py-1 rounded-xl bg-teal-100/90 border border-teal-300 font-bold shadow-2xs">
                     <span className="font-sans text-[11px] text-teal-950">5. Arus Kas Bersih:</span>
                     <span className={`tabular-nums ${tableTotals.netKasUtama >= 0 ? 'text-teal-900' : 'text-rose-700'}`}>
                       {tableTotals.netKasUtama >= 0 ? '+' : ''}{formatRupiah(tableTotals.netKasUtama)}
@@ -2140,7 +2194,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="mt-3 pt-2.5 border-t-2 border-emerald-300 text-center bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 text-white rounded-xl p-2 shadow-xs">
+              <div className="mt-3.5 pt-2.5 border-t border-emerald-300 text-center bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl p-2.5 shadow-sm">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider block text-emerald-100">
                   SISA SALDO KAS UTAMA
                 </span>
@@ -2151,59 +2205,60 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </div>
 
             {/* 3. Pemasukan & Pengeluaran Saldo Cashback (Terpisah WiFi & Sampah) */}
-            <div className="bg-cyan-50/70 border-2 border-cyan-200/90 rounded-2xl p-4 flex flex-col justify-between shadow-2xs">
+            <div className="relative overflow-hidden bg-gradient-to-br from-sky-50 via-cyan-50/80 to-blue-100/70 border-2 border-sky-300 text-sky-950 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-sky-400/10 rounded-full blur-xl pointer-events-none" />
               <div>
-                <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-cyan-900 pb-2 border-b border-cyan-200">
-                  <Wifi className="w-4 h-4 text-cyan-600" />
+                <div className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-cyan-950 pb-2 border-b border-cyan-200">
+                  <Wifi className="w-4 h-4 text-cyan-700" />
                   <span>SALDO CASHBACK (WIFI & SAMPAH)</span>
                 </div>
-                <div className="mt-2.5 space-y-2 text-xs font-mono text-center">
+                <div className="mt-3 space-y-2 text-xs font-mono text-center">
                   {/* Pos Cashback WiFi */}
-                  <div className="p-2 rounded-xl bg-blue-100/90 border-2 border-blue-300 space-y-1">
+                  <div className="p-2.5 rounded-xl bg-white/95 border-2 border-blue-200 shadow-2xs space-y-1">
                     <div className="text-[11px] font-bold text-blue-950 flex justify-between items-center">
                       <span className="font-sans font-bold text-blue-900">1. Saldo Cashback WiFi:</span>
-                      <span className="font-mono font-black text-blue-800 bg-white/90 px-2 py-0.5 rounded-md border border-blue-200">{formatRupiah(tableTotals.finalWifi)}</span>
+                      <span className="font-mono font-black text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 tabular-nums">{formatRupiah(tableTotals.finalWifi)}</span>
                     </div>
                     <div className="flex justify-between text-[10px]">
                       <span className="text-slate-600 font-sans">Masuk:</span>
-                      <span className="text-blue-700 font-bold">+{formatRupiah(tableTotals.sumMasukWifi)}</span>
+                      <span className="text-blue-700 font-bold tabular-nums">+{formatRupiah(tableTotals.sumMasukWifi)}</span>
                     </div>
                     <div className="flex justify-between text-[10px]">
                       <span className="text-slate-600 font-sans">Keluar:</span>
-                      <span className="text-rose-600 font-bold">-{formatRupiah(tableTotals.sumKeluarWifi)}</span>
+                      <span className="text-rose-600 font-bold tabular-nums">-{formatRupiah(tableTotals.sumKeluarWifi)}</span>
                     </div>
                   </div>
 
                   {/* Pos Cashback Sampah */}
-                  <div className="p-2 rounded-xl bg-teal-100/90 border-2 border-teal-300 space-y-1">
+                  <div className="p-2.5 rounded-xl bg-white/95 border-2 border-teal-200 shadow-2xs space-y-1">
                     <div className="text-[11px] font-bold text-teal-950 flex justify-between items-center">
                       <span className="font-sans font-bold text-teal-900">2. Saldo Cashback Sampah:</span>
-                      <span className="font-mono font-black text-teal-800 bg-white/90 px-2 py-0.5 rounded-md border border-teal-200">{formatRupiah(tableTotals.finalSampah)}</span>
+                      <span className="font-mono font-black text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200 tabular-nums">{formatRupiah(tableTotals.finalSampah)}</span>
                     </div>
                     <div className="flex justify-between text-[10px]">
                       <span className="text-slate-600 font-sans">Masuk:</span>
-                      <span className="text-teal-700 font-bold">+{formatRupiah(tableTotals.sumMasukSampah)}</span>
+                      <span className="text-teal-700 font-bold tabular-nums">+{formatRupiah(tableTotals.sumMasukSampah)}</span>
                     </div>
                     <div className="flex justify-between text-[10px]">
                       <span className="text-slate-600 font-sans">Keluar:</span>
-                      <span className="text-rose-600 font-bold">-{formatRupiah(tableTotals.sumKeluarSampah)}</span>
+                      <span className="text-rose-600 font-bold tabular-nums">-{formatRupiah(tableTotals.sumKeluarSampah)}</span>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Sisa Saldo Cashback Akhir WiFi & Sampah (Ditempatkan di atas Total Saldo Cashback) */}
-              <div className="mt-3 pt-2 border-t border-cyan-200 space-y-1.5 font-mono text-xs">
-                <div className="flex justify-between items-center px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white border border-blue-500 font-bold shadow-xs">
+              {/* Sisa Saldo Cashback Akhir WiFi & Sampah */}
+              <div className="mt-3.5 pt-2.5 border-t border-cyan-200 space-y-1.5 font-mono text-xs">
+                <div className="flex justify-between items-center px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white border border-blue-500 font-bold shadow-2xs">
                   <span className="font-sans text-[11px] text-blue-100">Sisa Saldo Akhir Cashback WiFi:</span>
                   <span className="text-amber-300 font-black tabular-nums">{formatRupiah(tableTotals.finalWifi)}</span>
                 </div>
-                <div className="flex justify-between items-center px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-700 text-white border border-teal-500 font-bold shadow-xs">
+                <div className="flex justify-between items-center px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-700 text-white border border-teal-500 font-bold shadow-2xs">
                   <span className="font-sans text-[11px] text-teal-100">Sisa Saldo Akhir Cashback Sampah:</span>
                   <span className="text-amber-300 font-black tabular-nums">{formatRupiah(tableTotals.finalSampah)}</span>
                 </div>
 
-                <div className="mt-2.5 pt-2.5 border-t-2 border-cyan-300 text-center bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-700 text-white rounded-xl p-2 shadow-xs">
+                <div className="mt-2.5 pt-2 border-t border-cyan-200/80 text-center bg-gradient-to-r from-blue-700 via-indigo-700 to-cyan-800 text-white rounded-xl p-2.5 shadow-sm">
                   <span className="text-[11px] font-extrabold uppercase tracking-wider block text-cyan-100">
                     TOTAL SALDO CASHBACK
                   </span>
@@ -2216,32 +2271,32 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           </div>
 
           {/* TABEL BUKU KAS KELUAR MASUK DENGAN GARIS-GARIS (GRID) */}
-          <div className="overflow-x-auto rounded-xl border border-slate-300 shadow-2xs">
+          <div className="overflow-x-auto rounded-2xl border border-slate-300/90 shadow-sm bg-white">
             <table className="w-full text-center text-xs border-collapse border border-slate-300">
               <thead>
-                <tr className="border-b border-slate-300 bg-gradient-to-r from-teal-800 via-emerald-800 to-cyan-900 text-white font-extrabold">
-                  <th rowSpan={2} className="py-2.5 px-2 text-center w-12 border border-slate-300 text-white">
+                <tr className="border-b border-slate-300 bg-gradient-to-r from-emerald-950 via-teal-900 to-slate-900 text-white font-extrabold">
+                  <th rowSpan={2} className="py-3 px-2 text-center w-12 border border-slate-300/80 text-white">
                     No
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-3 text-center w-28 border border-slate-300 text-white">
+                  <th rowSpan={2} className="py-3 px-3 text-center w-28 border border-slate-300/80 text-white">
                     Tanggal
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-4 text-center min-w-[220px] border border-slate-300 text-white">
+                  <th rowSpan={2} className="py-3 px-4 text-center min-w-[220px] border border-slate-300/80 text-white">
                     Detail & Uraian Transaksi
                   </th>
-                  <th colSpan={5} className="py-2 px-3 text-center bg-emerald-700 text-white border border-slate-300 font-black tracking-wide">
+                  <th colSpan={5} className="py-2.5 px-3 text-center bg-emerald-700/95 text-white border border-slate-300/80 font-black tracking-wide">
                     PEMASUKAN (+)
                   </th>
-                  <th colSpan={3} className="py-2 px-3 text-center bg-rose-700 text-white border border-slate-300 font-black tracking-wide">
+                  <th colSpan={3} className="py-2.5 px-3 text-center bg-rose-700/95 text-white border border-slate-300/80 font-black tracking-wide">
                     PENGELUARAN (-)
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-3 text-center w-28 border border-slate-300 text-white">
+                  <th rowSpan={2} className="py-3 px-3 text-center w-28 border border-slate-300/80 text-white">
                     Jumlah
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-3 text-center w-32 border border-slate-300 text-white">
+                  <th rowSpan={2} className="py-3 px-3 text-center w-32 border border-slate-300/80 text-white">
                     Saldo Berjalan
                   </th>
-                  <th rowSpan={2} className="py-2.5 px-2 text-center w-20 border border-slate-300 text-white">
+                  <th rowSpan={2} className="py-3 px-2 text-center w-20 border border-slate-300/80 text-white">
                     {isAdmin ? 'Aksi' : 'Status'}
                   </th>
                 </tr>
@@ -2259,7 +2314,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <th className="py-2 px-2 text-center text-blue-950 bg-blue-100/90 border border-slate-300">
                     Cashback WiFi
                   </th>
-                  <th className="py-2 px-2 text-center text-blue-950 bg-cyan-100/90 border border-slate-300">
+                  <th className="py-2 px-2 text-center text-teal-950 bg-teal-100/90 border border-slate-300">
                     Cashback Sampah
                   </th>
                   <th className="py-2 px-2 text-center text-rose-950 bg-rose-100/90 border border-slate-300">
@@ -2268,7 +2323,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <th className="py-2 px-2 text-center text-blue-950 bg-blue-100/90 border border-slate-300">
                     Cashback WiFi
                   </th>
-                  <th className="py-2 px-2 text-center text-blue-950 bg-cyan-100/90 border border-slate-300">
+                  <th className="py-2 px-2 text-center text-teal-950 bg-teal-100/90 border border-slate-300">
                     Cashback Sampah
                   </th>
                 </tr>
@@ -2276,22 +2331,30 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
               <tbody className="divide-y divide-slate-300">
                 {/* BARIS SALDO BULAN SEBELUMNYA */}
-                <tr className="bg-amber-100/60 font-semibold text-slate-800 border-b border-slate-300 text-center">
+                <tr className="bg-gradient-to-r from-amber-100/90 via-amber-50 to-amber-100/90 font-semibold text-slate-800 border-b-2 border-amber-300 text-center">
                   <td className="py-2.5 px-2 text-center text-amber-900 font-bold border border-slate-300">
                     -
                   </td>
                   <td className="py-2.5 px-3 text-center font-mono text-amber-900 whitespace-nowrap border border-slate-300">
-                    Awal Bulan
+                    {effectiveMonthKey === 'semua' ? 'Awal Catatan' : 'Awal Bulan'}
                   </td>
                   <td className="py-2.5 px-4 text-center border border-slate-300">
                     <div className="font-extrabold text-amber-950 flex items-center justify-center gap-1.5">
-                      <span>Saldo Bulan Sebelumnya ({prevMonthSummary.prevMonthLabel})</span>
+                      <span>
+                        {effectiveMonthKey === 'semua'
+                          ? 'Saldo Awal Pembukuan (Awal Catatan Kas)'
+                          : `Saldo Bulan Sebelumnya (${prevMonthSummary.prevMonthLabel})`}
+                      </span>
                       {isAdmin && (
                         <button
                           type="button"
                           onClick={handleOpenMayBalanceModal}
                           className="p-1 rounded text-amber-700 hover:text-amber-950 hover:bg-amber-200/80 cursor-pointer"
-                          title="Edit Saldo Bulan Sebelumnya Periode Mei 2026 (Saldo Awal Inputan)"
+                          title={
+                            effectiveMonthKey === '2026-05' || prevMonthSummary.prevMonthKey === '2026-04'
+                              ? 'Edit Saldo Bulan Sebelumnya Periode Mei 2026 (Saldo Awal Inputan Baseline)'
+                              : 'Edit Saldo Awal Baseline (April 2026)'
+                          }
                         >
                           <Edit2 className="w-3 h-3" />
                         </button>
@@ -2301,6 +2364,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       Kas Utama: {formatRupiah(prevMonthSummary.kasUtama)} | WiFi: {formatRupiah(prevMonthSummary.wifiCashback)} | Sampah: {formatRupiah(prevMonthSummary.sampahCashback)}
                     </div>
                   </td>
+
                   <td className="py-2.5 px-2 text-center font-mono text-emerald-800 font-bold border border-slate-300">
                     {formatRupiah(prevMonthSummary.kasUtama)}
                   </td>
@@ -2559,9 +2623,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
               {/* FOOTER TOTAL & SALDO AKHIR DENGAN GARIS-GARIS (GRID) */}
               <tfoot>
-                <tr className="bg-slate-200/90 text-slate-900 font-extrabold border-t-2 border-slate-300 text-center">
+                <tr className="bg-gradient-to-r from-slate-200 via-teal-100/70 to-emerald-100/70 text-slate-950 font-extrabold border-t-2 border-teal-400 text-center">
                   <td className="py-3 px-2 text-center border border-slate-300">-</td>
-                  <td className="py-3 px-3 text-center font-mono border border-slate-300">Akhir Bulan</td>
+                  <td className="py-3 px-3 text-center font-mono border border-slate-300 font-bold">Akhir Bulan</td>
                   <td className="py-3 px-4 text-center font-black text-slate-900 border border-slate-300">
                     TOTAL TRANSAKSI & SALDO AKHIR
                   </td>
@@ -2577,7 +2641,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
                     +{formatRupiah(tableTotals.sumMasukWifi)}
                   </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
+                  <td className="py-3 px-2 text-center font-mono font-black text-teal-800 border border-slate-300">
                     +{formatRupiah(tableTotals.sumMasukSampah)}
                   </td>
                   <td className="py-3 px-2 text-center font-mono font-black text-rose-700 border border-slate-300">
@@ -2586,7 +2650,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
                     -{formatRupiah(tableTotals.sumKeluarWifi)}
                   </td>
-                  <td className="py-3 px-2 text-center font-mono font-black text-blue-600 border border-slate-300">
+                  <td className="py-3 px-2 text-center font-mono font-black text-teal-800 border border-slate-300">
                     -{formatRupiah(tableTotals.sumKeluarSampah)}
                   </td>
                   <td className="py-3 px-3 text-center font-mono font-black border border-slate-300">
@@ -2607,23 +2671,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
       {/* VIEW 2: REKAP IURAN KAS PER KK */}
       {currentSubTab === 'per_kk' && (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden space-y-5 p-4 sm:p-6">
+        <div className="bg-gradient-to-b from-white via-slate-50/50 to-indigo-50/20 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden space-y-5 p-4 sm:p-6">
           {/* Header & Stats (Warga: Khusus Bulan Berjalan. Pengurus: Bisa Buat & Hapus Periode + Ganti Periode) */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div>
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-teal-600 text-white shadow-xs">
-                  <Users className="w-4 h-4" />
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-2xl bg-teal-600 text-white shadow-sm shrink-0">
+                  <Users className="w-5 h-5 text-amber-200" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
+                  <h3 className="font-black text-slate-900 text-base sm:text-lg flex items-center gap-2">
                     <span>Rekap Pembayaran Iuran Kas Per KK</span>
                     {isAdmin ? (
-                      <span className="px-2 py-0.5 rounded-md bg-teal-100 text-teal-800 text-[10px] font-bold">
+                      <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[10px] font-black uppercase tracking-wider border border-teal-200">
                         Mode Pengurus
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold">
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-wider border border-slate-200">
                         Informasi Warga
                       </span>
                     )}
@@ -2642,10 +2706,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsUploadDuesModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-xs transition-colors"
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold cursor-pointer shadow-xs transition-all font-sans"
                     title="Upload Data Iuran Warga Per KK via Excel (.xlsx / .xls)"
                   >
-                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-100" />
                     <span>Upload Excel Iuran</span>
                   </button>
                   <button
@@ -2654,7 +2718,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       setPeriodModalTab('tambah');
                       setIsPeriodModalOpen(true);
                     }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer shadow-xs transition-colors"
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold cursor-pointer shadow-xs transition-all font-sans"
                     title="Buat Periode Baru Iuran KK & Buku Kas"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -2667,7 +2731,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       setDeletePeriodSelect(availablePeriods[0] || '');
                       setIsPeriodModalOpen(true);
                     }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold cursor-pointer transition-colors"
+                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 border border-rose-200 text-xs font-bold cursor-pointer transition-all font-sans"
                     title="Hapus Periode Iuran KK & Buku Kas"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -2679,22 +2743,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           </div>
 
           {/* BAR FILTER PERIODE, MODE TAMPILAN, STATUS & PENCARIAN */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/90 space-y-3">
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-indigo-50/30 to-slate-50 border border-slate-200/90 shadow-2xs space-y-3">
             {/* Baris 1: Pilihan Periode Bulan & Switcher Mode Tampilan */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
               {/* Filter Periode Bulan */}
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="font-bold text-slate-700 mr-1 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="font-extrabold text-slate-800 mr-1 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-emerald-600" />
                   Pilih Periode:
                 </span>
                 <button
                   type="button"
                   onClick={() => setSelectedKKPeriod('semua')}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer ${
                     selectedKKPeriod === 'semua'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-200'
+                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs'
                   }`}
                 >
                   Semua Periode ({residents.length} KK)
@@ -2706,10 +2770,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       key={p}
                       type="button"
                       onClick={() => setSelectedKKPeriod(p)}
-                      className={`px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer ${
                         selectedKKPeriod === p
-                          ? 'bg-emerald-600 text-white shadow-xs'
-                          : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-200'
+                          ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
+                          : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs'
                       }`}
                     >
                       {p} {isCur ? '★' : ''}
@@ -2719,37 +2783,37 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               </div>
 
               {/* Indikator Legenda Warna Baris & Sel Otomatis */}
-              <div className="flex flex-wrap items-center gap-2 p-1.5 bg-white rounded-xl border border-slate-200 shadow-2xs text-[11px] font-bold self-start lg:self-auto">
-                <span className="text-slate-500 font-semibold px-1">Pewarnaan Kolom & Sel:</span>
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300">
-                  <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+              <div className="flex flex-wrap items-center gap-2 p-2 bg-white/95 rounded-2xl border border-slate-200/90 shadow-2xs text-[11px] font-bold self-start lg:self-auto backdrop-blur-xs">
+                <span className="text-slate-600 font-extrabold px-1">Pewarnaan Kolom & Sel:</span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-950 border border-emerald-300 shadow-2xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
                   Hijau: Sudah Bayar
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300">
-                  <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100 text-rose-950 border border-rose-300 shadow-2xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
                   Merah: Menunggak
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-sky-100 text-sky-900 border border-sky-300">
-                  <span className="w-2 h-2 rounded-full bg-sky-600"></span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-100 text-sky-950 border border-sky-300 shadow-2xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-sky-600"></span>
                   Biru Muda: Bayar &gt;1 Bln
                 </span>
-                <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black text-white border border-neutral-700 shadow-2xs">
-                  <span className="w-2 h-2 rounded-full bg-white"></span>
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 text-white border border-slate-700 shadow-2xs">
+                  <span className="w-2.5 h-2.5 rounded-full bg-white"></span>
                   Hitam: Rumah Kosong
                 </span>
               </div>
             </div>
 
             {/* Baris 2: Filter Status & Search Input */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-200/70">
-              <div className="flex items-center gap-1.5 text-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-200/70">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
                 <button
                   type="button"
                   onClick={() => setDuesFilter('semua')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     duesFilter === 'semua'
-                      ? 'bg-slate-900 text-white font-bold shadow-xs'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs'
                   }`}
                 >
                   Semua Status ({residents.length})
@@ -2757,10 +2821,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setDuesFilter('Lunas')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     duesFilter === 'Lunas'
-                      ? 'bg-emerald-600 text-white font-bold shadow-xs'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-emerald-50/90 text-emerald-900 hover:bg-emerald-100 border border-emerald-300 shadow-2xs'
                   }`}
                 >
                   Lunas
@@ -2768,10 +2832,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setDuesFilter('Bayar Lebih')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     duesFilter === 'Bayar Lebih'
-                      ? 'bg-indigo-600 text-white font-bold shadow-xs'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-indigo-50/90 text-indigo-900 hover:bg-indigo-100 border border-indigo-300 shadow-2xs'
                   }`}
                 >
                   Bayar Lebih (&gt;1 Bln)
@@ -2779,10 +2843,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setDuesFilter('Belum Bayar')}
-                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     duesFilter === 'Belum Bayar'
-                      ? 'bg-rose-600 text-white font-bold shadow-xs'
-                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-rose-50/90 text-rose-900 hover:bg-rose-100 border border-rose-300 shadow-2xs'
                   }`}
                 >
                   Belum Bayar
@@ -2796,7 +2860,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   placeholder="Cari nama / nomor blok..."
                   value={searchKK}
                   onChange={(e) => setSearchKK(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 shadow-2xs transition-all"
                 />
               </div>
             </div>
@@ -2805,30 +2869,30 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           {/* TABEL REKAP IURAN PER KK */}
           <div className="space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-1.5 pb-1">
-                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                <span className="font-extrabold text-slate-900 flex items-center gap-1.5">
                   <Table className="w-4 h-4 text-emerald-600" />
                   <span>
                     Tabel Rekap Pembayaran Iuran Per KK {selectedKKPeriod !== 'semua' ? `— Periode ${selectedKKPeriod}` : ''} ({filteredPerKKList.length} KK)
                   </span>
                 </span>
-                <span className="text-[11px] text-slate-500">
+                <span className="text-[11px] text-slate-500 font-medium">
                   Data tersinkronisasi otomatis dengan Buku Induk & Tunggakan Warga
                 </span>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-2xs bg-white">
+              <div className="overflow-x-auto rounded-2xl border border-slate-300/90 shadow-sm bg-white">
                 <table className="w-full text-left text-xs border-collapse border border-slate-300 whitespace-nowrap">
                   <thead>
-                    <tr className="bg-slate-100/90 text-slate-800 font-extrabold border-b border-slate-300">
-                      <th className="py-3 px-2 text-center w-12 border border-slate-300">No</th>
-                      <th className="py-3 px-3 text-center border border-slate-300">No Blok</th>
-                      <th className="py-3 px-4 min-w-[200px] border border-slate-300">Nama Kepala Keluarga</th>
-                      <th className="py-3 px-3 text-center border border-slate-300">Periode Iuran</th>
-                      <th className="py-3 px-3 text-right border border-slate-300">Iuran Bulanan</th>
-                      <th className="py-3 px-3 text-right border border-slate-300">Denda Baksos</th>
-                      <th className="py-3 px-3 text-right border border-slate-300">Pembayaran Tunggakan</th>
-                      <th className="py-3 px-3 text-center border border-slate-300">Tanggal Pembayaran</th>
-                      <th className="py-3 px-4 text-right border border-slate-300">Total Semua Pembayaran</th>
+                    <tr className="bg-gradient-to-r from-slate-900 via-teal-950 to-indigo-950 text-white font-extrabold border-b border-slate-300">
+                      <th className="py-3 px-2 text-center w-12 border border-slate-300/70 text-white">No</th>
+                      <th className="py-3 px-3 text-center border border-slate-300/70 text-white">No Blok</th>
+                      <th className="py-3 px-4 min-w-[200px] border border-slate-300/70 text-white">Nama Kepala Keluarga</th>
+                      <th className="py-3 px-3 text-center border border-slate-300/70 text-white">Periode Iuran</th>
+                      <th className="py-3 px-3 text-right border border-slate-300/70 text-white">Iuran Bulanan</th>
+                      <th className="py-3 px-3 text-right border border-slate-300/70 text-white">Denda Baksos</th>
+                      <th className="py-3 px-3 text-right border border-slate-300/70 text-white">Pembayaran Tunggakan</th>
+                      <th className="py-3 px-3 text-center border border-slate-300/70 text-white">Tanggal Pembayaran</th>
+                      <th className="py-3 px-4 text-right border border-slate-300/70 text-white">Total Semua Pembayaran</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-300">
@@ -3095,24 +3159,24 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     )}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-slate-100 font-extrabold text-slate-900 border-t-2 border-slate-300">
-                      <td colSpan={4} className="py-3 px-4 text-left border border-slate-300">
+                    <tr className="bg-gradient-to-r from-slate-200 via-indigo-100/70 to-emerald-100/70 font-black text-slate-950 border-t-2 border-indigo-300">
+                      <td colSpan={4} className="py-3 px-4 text-left border border-slate-300 text-slate-900 font-extrabold">
                         TOTAL SEMUA ({filteredPerKKList.length} KK)
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-emerald-800 border border-slate-300">
+                      <td className="py-3 px-3 text-right font-mono text-emerald-800 border border-slate-300 font-black">
                         +{formatRupiah(recapTotals.sumIuran)}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-rose-600 border border-slate-300">
+                      <td className="py-3 px-3 text-right font-mono text-rose-600 border border-slate-300 font-black">
                         +{formatRupiah(recapTotals.sumDenda)}
                       </td>
-                      <td className="py-3 px-3 text-right font-mono text-rose-600 border border-slate-300">
+                      <td className="py-3 px-3 text-right font-mono text-rose-600 border border-slate-300 font-black">
                         +{formatRupiah(recapTotals.sumTunggakan)}
                       </td>
                       <td className="py-3 px-3 text-center text-slate-400 border border-slate-300">
                         -
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-slate-950 font-black border border-slate-300">
-                        {formatRupiah(recapTotals.sumTotal)}
+                      <td className="py-3 px-4 text-right font-mono text-emerald-950 font-black text-sm border border-slate-300">
+                        +{formatRupiah(recapTotals.sumTotal)}
                       </td>
                     </tr>
                   </tfoot>

@@ -210,3 +210,7 @@ export function subscribeToFirestoreLive(
     return () => {};
   }
 }
+
+// Automatically test connection on boot
+testFirestoreConnection().catch(() => {});
+
