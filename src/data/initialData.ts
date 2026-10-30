@@ -2802,19 +2802,43 @@ export const INITIAL_BAKSOS_AGENDAS: BaksosAgenda[] = [
     description:
       'Gotong royong membersihkan sedimentasi lumpur menjelang musim hujan. Kehadiran dicek per kepala keluarga. Yang tidak hadir dikenakan denda Rp 10.000.',
     attendance: {
+      'warga-k2-25': 'Hadir',
+      'K2/25': 'Hadir',
       'warga-1': 'Hadir',
+      'warga-k2-26': 'Hadir',
+      'K2/26': 'Hadir',
       'warga-2': 'Hadir',
-      'warga-3': 'Tidak Wajib', // Kontrak (Otomatis Tidak Wajib)
+      'warga-k2-27': 'Tidak Wajib', // Kontrak (Otomatis Tidak Wajib)
+      'K2/27': 'Tidak Wajib',
+      'warga-3': 'Tidak Wajib',
+      'warga-k2-28': 'Hadir',
+      'K2/28': 'Hadir',
       'warga-4': 'Hadir',
-      'warga-5': 'Tidak Hadir', // fine Rp 10.000
-      'warga-6': 'Kosong', // Rumah Kosong (Bebas Denda)
+      'warga-k2-29': 'Tidak Hadir', // fine Rp 10.000
+      'K2/29': 'Tidak Hadir',
+      'warga-5': 'Tidak Hadir',
+      'warga-k2-30': 'Kosong', // Rumah Kosong (Bebas Denda)
+      'K2/30': 'Kosong',
+      'warga-6': 'Kosong',
+      'warga-k2-31': 'Hadir',
+      'K2/31': 'Hadir',
       'warga-7': 'Hadir',
-      'warga-8': 'Tidak Wajib', // Kontrak (Otomatis Tidak Wajib)
+      'warga-k2-32': 'Tidak Wajib', // Kontrak (Otomatis Tidak Wajib)
+      'K2/32': 'Tidak Wajib',
+      'warga-8': 'Tidak Wajib',
+      'warga-k3-01': 'Hadir',
+      'K3/01': 'Hadir',
       'warga-9': 'Hadir',
-      'warga-10': 'Tidak Wajib', // Janda / Lansia (Bebas Denda)
-      'warga-11': 'Tidak Wajib', // Kontrak (Otomatis Tidak Wajib)
+      'warga-k3-02': 'Tidak Wajib',
+      'K3/02': 'Tidak Wajib',
+      'warga-10': 'Tidak Wajib',
+      'warga-k3-03': 'Tidak Wajib',
+      'K3/03': 'Tidak Wajib',
+      'warga-11': 'Tidak Wajib',
     },
     finesPaid: {
+      'warga-k2-29': false,
+      'K2/29': false,
       'warga-5': false,
     },
   },
@@ -2826,20 +2850,44 @@ export const INITIAL_BAKSOS_AGENDAS: BaksosAgenda[] = [
     description:
       'Peremajaan tampilan gerbang gang dan penataan tanaman pot warga.',
     attendance: {
+      'warga-k2-25': 'Hadir',
+      'K2/25': 'Hadir',
       'warga-1': 'Hadir',
+      'warga-k2-26': 'Hadir',
+      'K2/26': 'Hadir',
       'warga-2': 'Hadir',
+      'warga-k2-27': 'Tidak Wajib',
+      'K2/27': 'Tidak Wajib',
       'warga-3': 'Tidak Wajib',
+      'warga-k2-28': 'Hadir',
+      'K2/28': 'Hadir',
       'warga-4': 'Hadir',
+      'warga-k2-29': 'Tidak Hadir',
+      'K2/29': 'Tidak Hadir',
       'warga-5': 'Tidak Hadir',
+      'warga-k2-30': 'Kosong',
+      'K2/30': 'Kosong',
       'warga-6': 'Kosong',
+      'warga-k2-31': 'Hadir',
+      'K2/31': 'Hadir',
       'warga-7': 'Hadir',
+      'warga-k2-32': 'Tidak Wajib',
+      'K2/32': 'Tidak Wajib',
       'warga-8': 'Tidak Wajib',
+      'warga-k3-01': 'Hadir',
+      'K3/01': 'Hadir',
       'warga-9': 'Hadir',
+      'warga-k3-02': 'Tidak Wajib',
+      'K3/02': 'Tidak Wajib',
       'warga-10': 'Tidak Wajib',
+      'warga-k3-03': 'Tidak Wajib',
+      'K3/03': 'Tidak Wajib',
       'warga-11': 'Tidak Wajib',
     },
     finesPaid: {
-      'warga-5': true, // Denda sudah dibayar dan masuk kas
+      'warga-k2-29': true, // Denda sudah dibayar dan masuk kas
+      'K2/29': true,
+      'warga-5': true,
     },
   },
 ];

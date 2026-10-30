@@ -18,7 +18,14 @@ import {
   X,
 } from 'lucide-react';
 import { BaksosAgenda, BaksosAttendanceStatus, ResidentHouse, SiteConfig } from '../types';
-import { formatDateDDMMYYYY, formatRupiah, isHouseVacant, openWhatsAppShare } from '../utils/helpers';
+import {
+  formatDateDDMMYYYY,
+  formatRupiah,
+  getBaksosAttendanceForHouse,
+  isBaksosFinePaidForHouse,
+  isHouseVacant,
+  openWhatsAppShare,
+} from '../utils/helpers';
 import { downloadBaksosExcelTemplate } from '../utils/baksosExcelHelper';
 import { BaksosExcelUploadModal } from './BaksosExcelUploadModal';
 
@@ -32,6 +39,7 @@ interface BaksosSectionProps {
   onDeleteAgenda: (id: string) => void;
   onSetAttendance: (agendaId: string, residentId: string, status: BaksosAttendanceStatus) => void;
   onMarkFinePaid: (agendaId: string, residentId: string, houseName: string, blockNo: string) => void;
+  onUnmarkFinePaid?: (agendaId: string, residentId: string) => void;
   onOpenConfigModal: () => void;
 }
 
@@ -45,6 +53,7 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
   onDeleteAgenda,
   onSetAttendance,
   onMarkFinePaid,
+  onUnmarkFinePaid,
   onOpenConfigModal,
 }) => {
   const [selectedAgendaId, setSelectedAgendaId] = useState<string>(
@@ -136,11 +145,9 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
     residents.forEach((h) => {
       const isContract = h.ownership === 'Kontrak' || h.occupancy === 'Dikontrakan';
       const defaultStatus: BaksosAttendanceStatus =
-        h.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir';
-      const status = isContract
-        ? 'Tidak Wajib'
-        : agenda.attendance?.[h.id] || defaultStatus;
-      const isFinePaid = agenda.finesPaid?.[h.id];
+        h.occupancy === 'Kosong' || isHouseVacant(h) ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir';
+      const status = getBaksosAttendanceForHouse(agenda, h, residents) || defaultStatus;
+      const isFinePaid = isBaksosFinePaidForHouse(agenda, h, residents);
       const fineNote =
         status === 'Tidak Hadir'
           ? isFinePaid
@@ -340,13 +347,10 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
           {/* Colorful Quick Metrics of Attendance */}
           {(() => {
             const getStatus = (h: ResidentHouse): BaksosAttendanceStatus => {
-              if (h.ownership === 'Kontrak' || h.occupancy === 'Dikontrakan') {
-                return currentAgenda.attendance?.[h.id] || 'Tidak Wajib';
-              }
-              return (
-                currentAgenda.attendance?.[h.id] ||
-                (h.occupancy === 'Kosong' ? 'Kosong' : 'Hadir')
-              );
+              const isContract = h.ownership === 'Kontrak' || h.occupancy === 'Dikontrakan';
+              const defaultStatus: BaksosAttendanceStatus =
+                h.occupancy === 'Kosong' || isHouseVacant(h) ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir';
+              return getBaksosAttendanceForHouse(currentAgenda, h, residents) || defaultStatus;
             };
 
             const hadir = residents.filter((h) => getStatus(h) === 'Hadir').length;
@@ -355,7 +359,7 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
             const kosong = residents.filter((h) => getStatus(h) === 'Kosong').length;
 
             const dendaLunasCount = residents.filter(
-              (h) => getStatus(h) === 'Tidak Hadir' && currentAgenda.finesPaid?.[h.id]
+              (h) => getStatus(h) === 'Tidak Hadir' && isBaksosFinePaidForHouse(currentAgenda, h, residents)
             ).length;
             const dendaBelumCount = Math.max(0, tidakHadir - dendaLunasCount);
 
@@ -456,15 +460,15 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
                     const isContract =
                       house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
                     const defaultHouseStatus: BaksosAttendanceStatus =
-                      house.occupancy === 'Kosong'
+                      house.occupancy === 'Kosong' || isHouseVacant(house)
                         ? 'Kosong'
                         : isContract
                         ? 'Tidak Wajib'
                         : 'Hadir';
                     const status: BaksosAttendanceStatus =
-                      currentAgenda.attendance?.[house.id] || defaultHouseStatus;
+                      getBaksosAttendanceForHouse(currentAgenda, house, residents) || defaultHouseStatus;
                     const isAbsentWithFine = status === 'Tidak Hadir';
-                    const isFinePaid = Boolean(currentAgenda.finesPaid?.[house.id]);
+                    const isFinePaid = isBaksosFinePaidForHouse(currentAgenda, house, residents);
 
                     const statusOptions: {
                       val: BaksosAttendanceStatus;
@@ -677,9 +681,21 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
                                 Bayar Denda & Catat ke Kas
                               </button>
                             ) : isAbsentWithFine && isFinePaid ? (
-                              <span className="text-xs text-emerald-800 font-extrabold bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-300">
-                                Tercatat di Kas
-                              </span>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <span className="text-xs text-emerald-800 font-extrabold bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-300">
+                                  Tercatat di Kas
+                                </span>
+                                {onUnmarkFinePaid && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onUnmarkFinePaid(currentAgenda.id, house.id)}
+                                    className="px-1.5 py-0.5 text-[10px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-md cursor-pointer transition-all active:scale-95"
+                                    title="Batalkan pelunasan denda & bersihkan dari kas"
+                                  >
+                                    Batal
+                                  </button>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-xs text-slate-400 font-mono">-</span>
                             )}

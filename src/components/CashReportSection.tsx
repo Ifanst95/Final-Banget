@@ -52,13 +52,16 @@ import {
   formatMonthYearFromDate,
   formatMonthYearFromKey,
   formatRupiah,
+  getBaksosAttendanceForHouse,
   getLastDayOfMonthISO,
   getMonthKeyFromDate,
   getPreviousMonthKey,
   getPreviousMonthLabel,
   getSubsequentMonthLabels,
+  isBaksosFinePaidForHouse,
   isHouseVacant,
   isPeriodCoveredInDuesNote,
+  isTransactionForHouse,
   openWhatsAppShare,
   parseIndonesianMonthYearToKey,
 } from '../utils/helpers';
@@ -930,11 +933,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       // Hitung Denda Baksos dari agenda & customBaksosFineAmount
       const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
       const unpaidBaksosList = baksosAgendas.filter((agenda) => {
+        const isFinePaid = isBaksosFinePaidForHouse(agenda, house, residents);
+        if (isFinePaid) return false;
         const attendance =
-          agenda.attendance?.[house.id] ||
+          getBaksosAttendanceForHouse(agenda, house, residents) ||
           (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
-        const isFinePaid = agenda.finesPaid?.[house.id];
-        return attendance === 'Tidak Hadir' && !isFinePaid;
+        return attendance === 'Tidak Hadir';
       });
       const calculatedBaksosFine = isEmptyHouse ? 0 : unpaidBaksosList.length * 10000;
       const baksosFineAmount =
@@ -947,21 +951,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
       // Hitung Pembayaran Denda Baksos yang sudah lunas
       const paidBaksosList = baksosAgendas.filter((agenda) => {
-        const attendance = agenda.attendance?.[house.id];
-        const isFinePaid = agenda.finesPaid?.[house.id];
-        return attendance === 'Tidak Hadir' && Boolean(isFinePaid);
+        const isFinePaid = isBaksosFinePaidForHouse(agenda, house, residents);
+        const attendance = getBaksosAttendanceForHouse(agenda, house, residents);
+        return isFinePaid || (attendance === 'Tidak Hadir' && isFinePaid);
       });
       const baksosAgendasPaidFine = paidBaksosList.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
 
-      const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
       const baksosTxs = transactions.filter(
-        (tx) => tx.type === 'masuk' && (tx.category === 'Denda Baksos' || tx.description.toLowerCase().includes('denda baksos')) && blockRegex.test(tx.description)
+        (tx) =>
+          tx.type === 'masuk' &&
+          (tx.category === 'Denda Baksos' || tx.description.toLowerCase().includes('denda baksos')) &&
+          isTransactionForHouse(tx, house)
       );
       const baksosTxPaidFine = baksosTxs.reduce((sum, t) => sum + t.amount, 0);
       const baksosPaidAmount = Math.max(baksosAgendasPaidFine, baksosTxPaidFine);
 
       const houseTxs = transactions.filter(
-        (tx) => tx.type === 'masuk' && isIuranOrTunggakanTx(tx) && blockRegex.test(tx.description)
+        (tx) => tx.type === 'masuk' && isIuranOrTunggakanTx(tx) && isTransactionForHouse(tx, house)
       );
       const historicalTxTotal = houseTxs.reduce((s, t) => s + t.amount, 0);
 
@@ -1006,10 +1012,17 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       })
       .filter((label): label is string => Boolean(label));
 
+    const baksosMonths = (baksosAgendas || [])
+      .map((a) => {
+        const mKey = getMonthKeyFromDate(a.date);
+        return formatMonthYearFromKey(mKey);
+      })
+      .filter((label): label is string => Boolean(label));
+
     const currentActiveKey = parseIndonesianMonthYearToKey(currentActiveMonth) || '2026-10';
 
     const combined = Array.from(
-      new Set([currentActiveMonth, ...rawList, ...txMonths])
+      new Set([currentActiveMonth, ...rawList, ...txMonths, ...baksosMonths])
     ).filter(Boolean);
 
     return combined
@@ -1017,8 +1030,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         const key = parseIndonesianMonthYearToKey(p);
         if (!key) return false;
 
-        // 1. Ketentuan: Hapus rekap iuran per kk yang belum masuk bulan berjalan (contoh: November, Desember 2026)
-        if (key > currentActiveKey) return false;
+        // 1. Ketentuan: Sembunyikan bulan masa depan KECUALI jika sudah memiliki data transaksi kas atau agenda baksos riil
+        const hasRealData = txMonths.includes(p) || baksosMonths.includes(p);
+        if (key > currentActiveKey && !hasRealData) return false;
 
         // 2. Ketentuan khusus tahun 2026: Jangan memunculkan rekap iuran per KK bulan April di tahun 2026 karena merupakan inputan baseline awal
         if (key === '2026-04') return false;
@@ -1032,7 +1046,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         const keyB = parseIndonesianMonthYearToKey(b) || '';
         return keyA.localeCompare(keyB);
       });
-  }, [config.duesAvailablePeriods, config.duesCurrentMonth, defaultMonthLabel, transactions]);
+  }, [config.duesAvailablePeriods, config.duesCurrentMonth, defaultMonthLabel, transactions, baksosAgendas]);
 
   // Otomatis arahkan selectedKKPeriod ke bulan aktif penarikan keuangan saat ini & sembunyikan bulan masa depan serta April 2026 dari Rekap KK
   React.useEffect(() => {
@@ -1262,14 +1276,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const isUnoccupied = house.occupancy === 'Belum Ditempati';
       const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
       const targetKey = periodLabel !== 'semua' ? parseIndonesianMonthYearToKey(periodLabel) : null;
-      const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+      const pMonthName = (periodLabel || '').split(' ')[0]?.toLowerCase();
 
       const agendas = baksosAgendas || [];
 
       // Filter agendas matching this period
       const matchingAgendas = agendas.filter((agenda) => {
         if (!targetKey) return true;
-        return getMonthKeyFromDate(agenda.date) === targetKey;
+        const agendaKey = getMonthKeyFromDate(agenda.date);
+        if (agendaKey && agendaKey === targetKey) return true;
+        if (pMonthName && pMonthName.length > 2) {
+          const titleDesc = `${agenda.title || ''} ${agenda.description || ''} ${agenda.date || ''}`.toLowerCase();
+          if (titleDesc.includes(pMonthName)) return true;
+        }
+        return false;
       });
 
       // Matching baksos fine payment transactions in Kas Utama
@@ -1279,9 +1299,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         const desc = (t.description || '').toLowerCase();
         const isBaksos = cat === 'Denda Baksos' || desc.includes('denda');
         if (!isBaksos) return false;
-        if (!blockRegex.test(t.description)) return false;
+        if (!isTransactionForHouse(t, house)) return false;
         if (targetKey) {
-          return getMonthKeyFromDate(t.date) === targetKey;
+          const tKey = getMonthKeyFromDate(t.date);
+          const descMatchesMonth = pMonthName && desc.includes(pMonthName);
+          return tKey === targetKey || descMatchesMonth;
         }
         return true;
       });
@@ -1289,22 +1311,26 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
       // Paid baksos agendas
       const paidAgendas = matchingAgendas.filter((agenda) => {
-        const att = agenda.attendance?.[house.id];
-        const isPaid = agenda.finesPaid?.[house.id];
-        return att === 'Tidak Hadir' && Boolean(isPaid);
+        const isPaid = isBaksosFinePaidForHouse(agenda, house, residents);
+        const att = getBaksosAttendanceForHouse(agenda, house, residents);
+        return isPaid || (att === 'Tidak Hadir' && isPaid);
       });
       const agendaPaidAmount = paidAgendas.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
 
       // Total denda baksos paid
-      const dendaPaid = Math.max(txPaidAmount, agendaPaidAmount);
+      const dendaPaid = isPureKosong || isUnoccupied ? 0 : Math.max(txPaidAmount, agendaPaidAmount);
 
       // Unpaid baksos agendas
       const unpaidAgendas = matchingAgendas.filter((agenda) => {
-        const att =
-          agenda.attendance?.[house.id] ||
-          (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
-        const isPaid = agenda.finesPaid?.[house.id];
-        return att === 'Tidak Hadir' && !isPaid;
+        const isPaid = isBaksosFinePaidForHouse(agenda, house, residents);
+        if (isPaid) return false;
+        const att = getBaksosAttendanceForHouse(agenda, house, residents);
+        if (att) {
+          return att === 'Tidak Hadir';
+        }
+        if (house.occupancy === 'Kosong' || isPureKosong || isUnoccupied) return false;
+        if (isContract) return false;
+        return false;
       });
       const calculatedUnpaid = isPureKosong || isUnoccupied ? 0 : unpaidAgendas.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
       const dendaUnpaid =
@@ -1312,8 +1338,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           ? house.customBaksosFineAmount
           : calculatedUnpaid;
 
-      const hadHadir = matchingAgendas.some((a) => a.attendance?.[house.id] === 'Hadir');
-      const hadTidakWajib = isContract || matchingAgendas.some((a) => a.attendance?.[house.id] === 'Tidak Wajib');
+      const hadHadir = matchingAgendas.some((a) => {
+        const att = getBaksosAttendanceForHouse(a, house, residents);
+        return att === 'Hadir';
+      });
+      const hadTidakWajib =
+        (matchingAgendas.length > 0 && isContract) ||
+        matchingAgendas.some((a) => {
+          const att = getBaksosAttendanceForHouse(a, house, residents);
+          return att === 'Tidak Wajib';
+        });
 
       return {
         matchingAgendasCount: matchingAgendas.length,
@@ -1326,7 +1360,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         unpaidAgendas,
       };
     },
-    [baksosAgendas, transactions]
+    [baksosAgendas, transactions, residents]
   );
 
   // Aggregate statistics per period for recap cards & matrix footer
@@ -2783,7 +2817,37 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     // Sinkronisasi status kehadiran & denda baksos di baksosAgendas
     const effectiveBaksosMonthKey = targetMonthKey || getMonthKeyFromDate(dendaDateVal);
     let updatedBaksosList = baksosAgendas ? [...baksosAgendas] : [];
-    if (updatedBaksosList.length > 0) {
+    const houseBlock = editingHouseDues.blockNumber;
+    const houseId = editingHouseDues.id;
+
+    const hasMatchingAgenda = updatedBaksosList.some((agenda) => {
+      const aKey = getMonthKeyFromDate(agenda.date);
+      return aKey && aKey === effectiveBaksosMonthKey;
+    });
+
+    if (!hasMatchingAgenda && houseDuesBaksosStatusInput !== 'Bebas' && effectiveBaksosMonthKey) {
+      const periodLabelName = formatMonthYearFromKey(effectiveBaksosMonthKey);
+      const newAgendaDate = dendaDateVal && dendaDateVal.startsWith(effectiveBaksosMonthKey) ? dendaDateVal : `${effectiveBaksosMonthKey}-10`;
+      const attVal =
+        houseDuesBaksosStatusInput === 'Lunas' || houseDuesBaksosStatusInput === 'Belum Bayar'
+          ? ('Tidak Hadir' as const)
+          : (houseDuesBaksosStatusInput as BaksosAttendanceStatus);
+
+      const autoAgenda: BaksosAgenda = {
+        id: `baksos-${Date.now()}`,
+        title: `Kegiatan Bakti Sosial Periode ${periodLabelName}`,
+        date: newAgendaDate,
+        location: 'Pos & Lingkungan Gang Mandor',
+        description: `Gotong royong kebersihan lingkungan Gang Mandor periode ${periodLabelName}.`,
+        fineAmount: dendaAmountNum || 10000,
+        attendance: {
+          [houseId]: attVal,
+          [houseBlock]: attVal,
+        },
+        finesPaid: houseDuesBaksosStatusInput === 'Lunas' ? { [houseId]: true, [houseBlock]: true } : {},
+      };
+      updatedBaksosList = [autoAgenda, ...updatedBaksosList];
+    } else if (updatedBaksosList.length > 0) {
       updatedBaksosList = updatedBaksosList.map((agenda) => {
         const aKey = getMonthKeyFromDate(agenda.date);
         if (effectiveBaksosMonthKey && aKey !== effectiveBaksosMonthKey) return agenda;
@@ -2792,20 +2856,30 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         const newFines = { ...(agenda.finesPaid || {}) };
 
         if (houseDuesBaksosStatusInput === 'Lunas') {
-          newAtt[editingHouseDues.id] = 'Tidak Hadir';
-          newFines[editingHouseDues.id] = true;
+          newAtt[houseId] = 'Tidak Hadir';
+          newAtt[houseBlock] = 'Tidak Hadir';
+          newFines[houseId] = true;
+          newFines[houseBlock] = true;
         } else if (houseDuesBaksosStatusInput === 'Belum Bayar') {
-          newAtt[editingHouseDues.id] = 'Tidak Hadir';
-          delete newFines[editingHouseDues.id];
+          newAtt[houseId] = 'Tidak Hadir';
+          newAtt[houseBlock] = 'Tidak Hadir';
+          delete newFines[houseId];
+          delete newFines[houseBlock];
         } else if (houseDuesBaksosStatusInput === 'Hadir') {
-          newAtt[editingHouseDues.id] = 'Hadir';
-          delete newFines[editingHouseDues.id];
+          newAtt[houseId] = 'Hadir';
+          newAtt[houseBlock] = 'Hadir';
+          delete newFines[houseId];
+          delete newFines[houseBlock];
         } else if (houseDuesBaksosStatusInput === 'Tidak Wajib') {
-          newAtt[editingHouseDues.id] = 'Tidak Wajib';
-          delete newFines[editingHouseDues.id];
+          newAtt[houseId] = 'Tidak Wajib';
+          newAtt[houseBlock] = 'Tidak Wajib';
+          delete newFines[houseId];
+          delete newFines[houseBlock];
         } else if (houseDuesBaksosStatusInput === 'Bebas') {
-          delete newAtt[editingHouseDues.id];
-          delete newFines[editingHouseDues.id];
+          delete newAtt[houseId];
+          delete newAtt[houseBlock];
+          delete newFines[houseId];
+          delete newFines[houseBlock];
         }
 
         return {

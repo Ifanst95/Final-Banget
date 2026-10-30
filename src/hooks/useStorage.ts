@@ -19,7 +19,7 @@ import {
   INITIAL_SITE_CONFIG,
   INITIAL_TRANSACTIONS,
 } from '../data/initialData';
-import { getMonthKeyFromDate, parseIndonesianMonthYearToKey } from '../utils/helpers';
+import { formatMonthYearFromDate, formatRupiah, getMonthKeyFromDate, parseIndonesianMonthYearToKey } from '../utils/helpers';
 import { parseAndNormalizeBackupJson } from '../utils/backupRestoreHelper';
 import {
   getIsFirestoreQuotaExceeded,
@@ -1664,9 +1664,20 @@ export function useStorage() {
       ...agenda,
       id: 'baksos-' + Date.now(),
     };
-    commitLocalMutation((cur) => ({
-      baksosAgendas: [newAgenda, ...cur.baksosAgendas],
-    }));
+    commitLocalMutation((cur) => {
+      const mLabel = formatMonthYearFromDate(agenda.date);
+      let updatedConfig = cur.siteConfig;
+      if (mLabel && cur.siteConfig.duesAvailablePeriods && !cur.siteConfig.duesAvailablePeriods.includes(mLabel)) {
+        updatedConfig = {
+          ...cur.siteConfig,
+          duesAvailablePeriods: [...cur.siteConfig.duesAvailablePeriods, mLabel],
+        };
+      }
+      return {
+        siteConfig: updatedConfig,
+        baksosAgendas: [newAgenda, ...cur.baksosAgendas],
+      };
+    });
   };
 
   const updateBaksosAgenda = (updated: BaksosAgenda) => {
@@ -1686,18 +1697,30 @@ export function useStorage() {
     residentId: string,
     status: BaksosAttendanceStatus
   ) => {
-    commitLocalMutation((cur) => ({
-      baksosAgendas: cur.baksosAgendas.map((agenda) => {
-        if (agenda.id !== agendaId) return agenda;
-        return {
-          ...agenda,
-          attendance: {
+    commitLocalMutation((cur) => {
+      const targetHouse = cur.residents.find(
+        (h) => h.id === residentId || h.blockNumber === residentId
+      );
+      const resId = targetHouse ? targetHouse.id : residentId;
+      const blockNo = targetHouse ? targetHouse.blockNumber : null;
+
+      return {
+        baksosAgendas: cur.baksosAgendas.map((agenda) => {
+          if (agenda.id !== agendaId) return agenda;
+          const newAtt = {
             ...agenda.attendance,
-            [residentId]: status,
-          },
-        };
-      }),
-    }));
+            [resId]: status,
+          };
+          if (blockNo) {
+            newAtt[blockNo] = status;
+          }
+          return {
+            ...agenda,
+            attendance: newAtt,
+          };
+        }),
+      };
+    });
   };
 
   // Pay Baksos Fine of 10.000: records fine as paid and automatically adds cash transaction to Kas Utama
@@ -1707,44 +1730,90 @@ export function useStorage() {
     houseName: string,
     blockNo: string
   ) => {
-    const newTx: CashTransaction = {
-      id: 'tx-baksos-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-      date: new Date().toISOString().slice(0, 10),
-      type: 'masuk',
-      pool: 'Kas Utama',
-      category: 'Denda Baksos',
-      description: `Pelunasan Denda Baksos (Rp 10.000) - Blok ${blockNo} (${houseName})`,
-      amount: 10000,
-    };
+    commitLocalMutation((cur) => {
+      const targetAgenda = cur.baksosAgendas.find((a) => a.id === agendaId);
+      const targetHouse = cur.residents.find(
+        (h) => h.id === residentId || h.blockNumber === blockNo || h.blockNumber === residentId
+      );
+      const resId = targetHouse ? targetHouse.id : residentId;
+      const actualBlock = targetHouse ? targetHouse.blockNumber : blockNo;
+      const actualName = targetHouse ? (targetHouse.headName || houseName) : houseName;
 
-    commitLocalMutation((cur) => ({
-      baksosAgendas: cur.baksosAgendas.map((agenda) => {
-        if (agenda.id !== agendaId) return agenda;
-        return {
-          ...agenda,
-          finesPaid: {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const txDate = targetAgenda?.date || todayStr;
+      const agendaMonth = targetAgenda?.date ? formatMonthYearFromDate(targetAgenda.date) : '';
+      const fineAmount = targetAgenda?.fineAmount || 10000;
+
+      const newTx: CashTransaction = {
+        id: 'tx-baksos-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+        date: txDate,
+        type: 'masuk',
+        pool: 'Kas Utama',
+        category: 'Denda Baksos',
+        description: `Pelunasan Denda Baksos (${formatRupiah(fineAmount)})${agendaMonth ? ` [${agendaMonth}]` : ''} - Blok ${actualBlock} (${actualName})`,
+        amount: fineAmount,
+      };
+
+      return {
+        baksosAgendas: cur.baksosAgendas.map((agenda) => {
+          if (agenda.id !== agendaId) return agenda;
+          const newFines = {
             ...(agenda.finesPaid || {}),
-            [residentId]: true,
-          },
-        };
-      }),
-      transactions: [newTx, ...cur.transactions],
-    }));
+            [resId]: true,
+          };
+          if (actualBlock) {
+            newFines[actualBlock] = true;
+          }
+          return {
+            ...agenda,
+            finesPaid: newFines,
+          };
+        }),
+        transactions: [newTx, ...cur.transactions],
+      };
+    });
   };
 
   // Unmark Baksos Fine as paid (used when input is cancelled or reverted to Belum Bayar)
   const unmarkBaksosFinePaid = (agendaId: string, residentId: string) => {
-    commitLocalMutation((cur) => ({
-      baksosAgendas: cur.baksosAgendas.map((agenda) => {
-        if (agenda.id !== agendaId) return agenda;
-        const updatedFines = { ...(agenda.finesPaid || {}) };
-        delete updatedFines[residentId];
-        return {
-          ...agenda,
-          finesPaid: updatedFines,
-        };
-      }),
-    }));
+    commitLocalMutation((cur) => {
+      const targetAgenda = cur.baksosAgendas.find((a) => a.id === agendaId);
+      const targetHouse = cur.residents.find(
+        (h) => h.id === residentId || h.blockNumber === residentId
+      );
+      const resId = targetHouse ? targetHouse.id : residentId;
+      const blockNo = targetHouse ? targetHouse.blockNumber : null;
+
+      // Also remove matching Denda Baksos transaction in Buku Kas if exists
+      const blockRegex = blockNo ? new RegExp(`\\b${blockNo.replace('/', '\\/')}\\b`, 'i') : null;
+      const agendaMonthKey = targetAgenda?.date ? getMonthKeyFromDate(targetAgenda.date) : null;
+
+      const updatedTxs = cur.transactions.filter((tx) => {
+        if (tx.type !== 'masuk' || tx.category !== 'Denda Baksos') return true;
+        if (!blockRegex || !blockRegex.test(tx.description)) return true;
+        if (agendaMonthKey && getMonthKeyFromDate(tx.date) === agendaMonthKey) {
+          return false;
+        }
+        return true;
+      });
+
+      return {
+        baksosAgendas: cur.baksosAgendas.map((agenda) => {
+          if (agenda.id !== agendaId) return agenda;
+          const updatedFines = { ...(agenda.finesPaid || {}) };
+          delete updatedFines[resId];
+          delete updatedFines[residentId];
+          if (blockNo) {
+            delete updatedFines[blockNo];
+          }
+          return {
+            ...agenda,
+            finesPaid: updatedFines,
+          };
+        }),
+        transactions: updatedTxs,
+      };
+    });
   };
 
   // CRUD for Pelayanan Publik & Pengurus

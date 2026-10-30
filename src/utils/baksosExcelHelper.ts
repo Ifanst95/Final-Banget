@@ -264,10 +264,13 @@ export async function parseBaksosExcelFile(
           if (matchedResident) {
             matchedCount++;
             updatedAttendance[matchedResident.id] = attendance;
+            updatedAttendance[matchedResident.blockNumber] = attendance;
             if (attendance === 'Tidak Hadir') {
               updatedFinesPaid[matchedResident.id] = isFinePaid;
+              updatedFinesPaid[matchedResident.blockNumber] = isFinePaid;
             } else {
               delete updatedFinesPaid[matchedResident.id];
+              delete updatedFinesPaid[matchedResident.blockNumber];
             }
           }
 

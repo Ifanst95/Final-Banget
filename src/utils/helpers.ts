@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { CashTransaction, ResidentHouse } from '../types';
+import { BaksosAgenda, BaksosAttendanceStatus, CashTransaction, ResidentHouse } from '../types';
 
 export function formatDateDDMMYYYY(dateStr: string): string {
   if (!dateStr) return '-';
@@ -495,12 +495,134 @@ const INDONESIAN_MONTH_PATTERNS: { index: number; regex: RegExp }[] = [
 
 export function getMonthKeyFromDate(dateStr: string): string {
   if (!dateStr) return '0000-00';
-  const parts = dateStr.trim().split('-');
-  if (parts.length >= 2 && /^\d{4}$/.test(parts[0]) && /^\d{1,2}$/.test(parts[1])) {
-    return `${parts[0]}-${parts[1].padStart(2, '0')}`;
+  const trimmed = dateStr.trim();
+  // 1. Standard YYYY-MM or YYYY-MM-DD
+  const ymdMatch = trimmed.match(/^(\d{4})[-\/](\d{1,2})/);
+  if (ymdMatch) {
+    return `${ymdMatch[1]}-${ymdMatch[2].padStart(2, '0')}`;
+  }
+  // 2. DD/MM/YYYY or DD-MM-YYYY
+  const dmyMatch = trimmed.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})/);
+  if (dmyMatch) {
+    return `${dmyMatch[3]}-${dmyMatch[2].padStart(2, '0')}`;
+  }
+  // 3. Text label like "Oktober 2026" or "10 Oktober 2026"
+  const parsed = parseIndonesianMonthYearToKey(trimmed);
+  if (parsed) return parsed;
+
+  // 4. Fallback Date object parsing
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
   }
   return '0000-00';
 }
+
+/**
+ * Checks if a transaction belongs to a resident house by block number or name.
+ * Robust against formatting differences: K2/25, K2-25, K2 25, Blok K2/25.
+ */
+export function isTransactionForHouse(
+  tx: { description?: string },
+  house: ResidentHouse
+): boolean {
+  if (!tx || !tx.description || !house || !house.blockNumber) return false;
+  const desc = tx.description;
+  const rawBlock = house.blockNumber.trim();
+  const cleanBlock = rawBlock.replace(/\s+/g, '');
+  const slashVersion = cleanBlock.replace(/-/g, '/');
+  const dashVersion = cleanBlock.replace(/\//g, '-');
+  const spaceVersion = cleanBlock.replace(/[\/-]/g, ' ');
+
+  const escapeRegex = (s: string) => s.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const pattern = `(?:\\b|Blok\\s*)(?:${escapeRegex(slashVersion)}|${escapeRegex(dashVersion)}|${escapeRegex(spaceVersion)})(?:\\b|[^a-zA-Z0-9]|$)`;
+  const regex = new RegExp(pattern, 'i');
+  if (regex.test(desc)) return true;
+
+  if (house.headName && house.headName.length > 3 && !/kosong|belum/i.test(house.headName)) {
+    if (desc.toLowerCase().includes(house.headName.toLowerCase())) return true;
+  }
+  return false;
+}
+
+/**
+ * Retrieves the attendance status of a resident house from a Baksos agenda.
+ * Resolves keys by: house.id, house.blockNumber (exact & normalized), or legacy index ('warga-1' ...).
+ */
+export function getBaksosAttendanceForHouse(
+  agenda: BaksosAgenda,
+  house: ResidentHouse,
+  residentsList?: ResidentHouse[]
+): BaksosAttendanceStatus | undefined {
+  if (!agenda || !agenda.attendance || !house) return undefined;
+  if (agenda.attendance[house.id]) {
+    return agenda.attendance[house.id];
+  }
+  if (agenda.attendance[house.blockNumber]) {
+    return agenda.attendance[house.blockNumber];
+  }
+  const normTarget = house.blockNumber.replace(/[\s\/-]/g, '').toUpperCase();
+  for (const [key, val] of Object.entries(agenda.attendance)) {
+    if (key.replace(/[\s\/-]/g, '').toUpperCase() === normTarget) {
+      return val;
+    }
+  }
+  if (residentsList && residentsList.length > 0) {
+    const idx = residentsList.findIndex((h) => h.id === house.id);
+    if (idx >= 0) {
+      const legacyKey1 = `warga-${idx + 1}`;
+      if (agenda.attendance[legacyKey1]) {
+        return agenda.attendance[legacyKey1];
+      }
+      const legacyKey2 = `warga-${idx}`;
+      if (agenda.attendance[legacyKey2]) {
+        return agenda.attendance[legacyKey2];
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Checks whether a Baksos fine is marked paid for a resident house.
+ * Resolves keys by: house.id, house.blockNumber (exact & normalized), or legacy index ('warga-1' ...).
+ */
+export function isBaksosFinePaidForHouse(
+  agenda: BaksosAgenda,
+  house: ResidentHouse,
+  residentsList?: ResidentHouse[]
+): boolean {
+  if (!agenda || !agenda.finesPaid || !house) return false;
+  if (agenda.finesPaid[house.id] !== undefined) {
+    return Boolean(agenda.finesPaid[house.id]);
+  }
+  if (agenda.finesPaid[house.blockNumber] !== undefined) {
+    return Boolean(agenda.finesPaid[house.blockNumber]);
+  }
+  const normTarget = house.blockNumber.replace(/[\s\/-]/g, '').toUpperCase();
+  for (const [key, val] of Object.entries(agenda.finesPaid)) {
+    if (key.replace(/[\s\/-]/g, '').toUpperCase() === normTarget) {
+      return Boolean(val);
+    }
+  }
+  if (residentsList && residentsList.length > 0) {
+    const idx = residentsList.findIndex((h) => h.id === house.id);
+    if (idx >= 0) {
+      const legacyKey1 = `warga-${idx + 1}`;
+      if (agenda.finesPaid[legacyKey1] !== undefined) {
+        return Boolean(agenda.finesPaid[legacyKey1]);
+      }
+      const legacyKey2 = `warga-${idx}`;
+      if (agenda.finesPaid[legacyKey2] !== undefined) {
+        return Boolean(agenda.finesPaid[legacyKey2]);
+      }
+    }
+  }
+  return false;
+}
+
 
 export function formatMonthYearFromKey(monthKey: string): string {
   if (!monthKey || monthKey === '0000-00') return 'Periode Lainnya';

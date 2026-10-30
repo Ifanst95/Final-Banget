@@ -221,6 +221,7 @@ export default function App() {
               onDeleteAgenda={deleteBaksosAgenda}
               onSetAttendance={setBaksosAttendance}
               onMarkFinePaid={markBaksosFinePaid}
+              onUnmarkFinePaid={unmarkBaksosFinePaid}
               onOpenConfigModal={() => setIsConfigModalOpen(true)}
             />
           )}
