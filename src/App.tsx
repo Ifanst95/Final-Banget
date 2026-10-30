@@ -87,9 +87,9 @@ export default function App() {
     } catch {}
   }, []);
 
-  // Sembunyikan dan amankan menu penarikan keuangan dari akses view warga (hanya untuk Pengurus/Admin)
+  // Sembunyikan dan amankan menu penarikan keuangan dan rekap keseluruhan dari akses view warga (hanya untuk Pengurus/Admin)
   useEffect(() => {
-    if (!isAdmin && activeTab === 'penarikan') {
+    if (!isAdmin && (activeTab === 'penarikan' || activeTab === 'rekap_total_kk')) {
       setActiveTab('pengumuman');
     }
   }, [isAdmin, activeTab]);

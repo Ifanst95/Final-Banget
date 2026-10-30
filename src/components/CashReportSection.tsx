@@ -222,20 +222,24 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     period: string;
   } | null>(null);
 
-  // Unified Sub-tab selection: 'mutasi' (1. Buku Kas), 'per_kk' (2. Rekap Iuran Per KK), 'rekap_total_kk' (3. Rekap Keseluruhan Kas Per KK)
+  // Unified Sub-tab selection: 'mutasi' (1. Buku Kas), 'per_kk' (2. Rekap Iuran Per KK), 'rekap_total_kk' (3. Rekap Keseluruhan Kas Per KK - Khusus Pengurus)
   const [currentSubTab, setCurrentSubTab] = useState<'mutasi' | 'per_kk' | 'rekap_total_kk'>(
-    mode === 'rekap_total_kk' ? 'rekap_total_kk' : mode === 'per_kk' ? 'per_kk' : 'mutasi'
+    isAdmin && mode === 'rekap_total_kk' ? 'rekap_total_kk' : mode === 'per_kk' ? 'per_kk' : 'mutasi'
   );
 
   React.useEffect(() => {
+    if (!isAdmin && currentSubTab === 'rekap_total_kk') {
+      setCurrentSubTab('mutasi');
+      return;
+    }
     if (mode === 'rekap_total_kk') {
-      setCurrentSubTab('rekap_total_kk');
+      setCurrentSubTab(isAdmin ? 'rekap_total_kk' : 'mutasi');
     } else if (mode === 'per_kk') {
       setCurrentSubTab('per_kk');
     } else if (mode === 'mutasi') {
       setCurrentSubTab('mutasi');
     }
-  }, [mode]);
+  }, [mode, isAdmin, currentSubTab]);
 
   // State untuk Poin 3: Rekap Keseluruhan Kas Per KK (Gabungan Semua Periode)
   const [filterOverallStatus, setFilterOverallStatus] = useState<
@@ -3294,30 +3298,32 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setCurrentSubTab('rekap_total_kk');
-              if (onSwitchMode) onSwitchMode('rekap_total_kk');
-            }}
-            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              currentSubTab === 'rekap_total_kk'
-                ? 'bg-gradient-to-r from-purple-700 via-indigo-700 to-pink-600 text-white shadow-md shadow-purple-700/25 ring-2 ring-purple-300/80 scale-[1.01]'
-                : 'bg-white hover:bg-purple-50/80 text-purple-950 border border-purple-200 shadow-2xs'
-            }`}
-          >
-            <Coins className="w-4 h-4 text-amber-300" />
-            <span>3. Rekap Keseluruhan Kas Per KK</span>
-            <span
-              className={`font-mono text-[11px] font-black px-2 py-0.5 rounded-lg ${
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentSubTab('rekap_total_kk');
+                if (onSwitchMode) onSwitchMode('rekap_total_kk');
+              }}
+              className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 currentSubTab === 'rekap_total_kk'
-                  ? 'bg-amber-300 text-slate-950'
-                  : 'bg-purple-100 text-purple-900'
+                  ? 'bg-gradient-to-r from-purple-700 via-indigo-700 to-pink-600 text-white shadow-md shadow-purple-700/25 ring-2 ring-purple-300/80 scale-[1.01]'
+                  : 'bg-white hover:bg-purple-50/80 text-purple-950 border border-purple-200 shadow-2xs'
               }`}
             >
-              Semua Periode ({sortedPeriods.length})
-            </span>
-          </button>
+              <Coins className="w-4 h-4 text-amber-300" />
+              <span>3. Rekap Keseluruhan Kas Per KK</span>
+              <span
+                className={`font-mono text-[11px] font-black px-2 py-0.5 rounded-lg ${
+                  currentSubTab === 'rekap_total_kk'
+                    ? 'bg-amber-300 text-slate-950'
+                    : 'bg-purple-100 text-purple-900'
+                }`}
+              >
+                Semua Periode ({sortedPeriods.length})
+              </span>
+            </button>
+          )}
         </div>
 
         <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/90 border border-teal-200 text-xs font-bold text-teal-950 shadow-2xs">
@@ -4644,8 +4650,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         </div>
       )}
 
-      {/* VIEW 3: REKAP KESELURUHAN KAS PER KK (MENGGABUNGKAN TOTAL SEMUA PERIODE REKAP IURAN PER KK) */}
-      {currentSubTab === 'rekap_total_kk' && (
+      {/* VIEW 3: REKAP KESELURUHAN KAS PER KK (MENGGABUNGKAN TOTAL SEMUA PERIODE REKAP IURAN PER KK) - HANYA UNTUK PENGURUS/ADMIN */}
+      {isAdmin && currentSubTab === 'rekap_total_kk' && (
         <div className="bg-gradient-to-b from-white via-slate-50/50 to-purple-50/20 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden space-y-5 p-4 sm:p-6">
           {/* Header & Stats (Transparansi Penuh untuk Warga & Pengurus) */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-100">
@@ -4892,7 +4898,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     <th className="py-3 px-2 text-center w-12 border border-slate-300/70 text-white">No</th>
                     <th className="py-3 px-3 text-center border border-slate-300/70 text-white">No Blok</th>
                     <th className="py-3 px-4 min-w-[180px] border border-slate-300/70 text-white">Nama Kepala Keluarga</th>
-                    <th className="py-3 px-3 text-center border border-slate-300/70 text-white">Status Hunian</th>
 
                     {/* Render Kolom untuk Setiap Periode */}
                     {sortedPeriods.map((periodName) => (
@@ -4917,7 +4922,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   {filteredOverallKKList.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={6 + sortedPeriods.length}
+                        colSpan={5 + sortedPeriods.length}
                         className="py-8 text-center text-slate-400 italic border border-slate-300"
                       >
                         Tidak ada data KK yang cocok dengan filter ini.
@@ -5006,15 +5011,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                 </button>
                               )}
                             </div>
-                          </td>
-
-                          {/* 4. Status Hunian */}
-                          <td
-                            className={`py-2.5 px-3 text-center border border-slate-300 text-xs ${
-                              isRumahKosongHitam ? 'text-slate-400' : 'text-slate-600'
-                            }`}
-                          >
-                            {house.occupancy}
                           </td>
 
                           {/* Kolom Rincian Setiap Periode */}
@@ -5112,7 +5108,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 {filteredOverallKKList.length > 0 && (
                   <tfoot>
                     <tr className="bg-gradient-to-r from-slate-900 via-purple-950 to-indigo-950 text-white font-extrabold border-t-2 border-slate-300">
-                      <td colSpan={4 + sortedPeriods.length} className="py-3 px-4 text-right text-xs uppercase tracking-wider text-amber-200 border border-slate-300/70">
+                      <td colSpan={3 + sortedPeriods.length} className="py-3 px-4 text-right text-xs uppercase tracking-wider text-amber-200 border border-slate-300/70">
                         TOTAL AKUMULASI SISA TUNGGAKAN ({filteredOverallKKList.length} KK):
                       </td>
                       <td className="py-3 px-3 text-right font-mono text-xs tabular-nums text-rose-300 border border-slate-300/70">

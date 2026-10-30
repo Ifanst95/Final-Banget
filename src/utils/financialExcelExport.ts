@@ -537,7 +537,6 @@ export function exportFinancialReportToExcel({
         No: idx + 1,
         'No Blok': house.blockNumber,
         'Nama Kepala Keluarga': payerName,
-        'Status Hunian': house.occupancy,
         'Jumlah Periode Tercatat': sortedAllPeriods.length,
         'Periode Lunas': isPureKosong ? '-' : `${lunasPeriodsCount} dari ${sortedAllPeriods.length} Periode`,
         'Total Iuran Rutin (Rp)': totalIuranAll,
