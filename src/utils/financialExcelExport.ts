@@ -558,6 +558,8 @@ export function exportFinancialReportToExcel({
           periodStatusText = 'Lunas (Dimuka)';
         } else if (settlementMonth) {
           periodStatusText = `Lunas Bulan ${settlementMonth}`;
+        } else if (iuranPeriod > nominal && !isPureKosong) {
+          periodStatusText = `Bayar Lebih (+Rp ${iuranPeriod.toLocaleString('id-ID')})`;
         } else if (isPeriodLunas) {
           periodStatusText = `Lunas (+Rp ${iuranPeriod.toLocaleString('id-ID')})`;
         }

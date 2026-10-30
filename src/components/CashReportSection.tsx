@@ -1118,15 +1118,24 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
     if (sumIuranFromTxs > 0) {
       const isAdvance = sumIuranFromTxs > nominal;
+      const txPaidMonths = Math.max(1, Math.round(sumIuranFromTxs / nominal));
+      const txCoveredMonths = isAdvance ? getSubsequentMonthLabels(periodLabel, txPaidMonths) : [periodLabel];
       return {
         status: isAdvance ? ('Bayar Lebih' as const) : ('Lunas' as const),
         amount: sumIuranFromTxs,
         isAdvanceSubsequentMonth: false,
-        label: isAdvance ? 'Bayar Lebih' : 'Lunas',
+        label: isAdvance ? `Bayar Lebih (${txPaidMonths} Bln)` : 'Lunas',
         badgeClass: isAdvance
-          ? 'bg-indigo-600 text-white border border-indigo-500 font-bold shadow-xs'
+          ? 'bg-sky-600 text-white border border-sky-500 font-bold shadow-xs'
           : 'bg-emerald-600 text-white border border-emerald-500 font-bold shadow-xs',
         paidDate: matchingIuranTxs[0].date,
+        note: isAdvance
+          ? `Tercakup: ${txCoveredMonths.join(', ')} (Total iuran ${formatRupiah(sumIuranFromTxs)} masuk di bulan ini)`
+          : undefined,
+        basePaymentMonth: periodLabel,
+        paidMonthsCount: txPaidMonths,
+        coveredMonths: txCoveredMonths,
+        lastCoveredMonth: txCoveredMonths[txCoveredMonths.length - 1] || periodLabel,
       };
     }
 
@@ -1176,6 +1185,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     });
 
     if (isCoveredByAdvance || Boolean(priorAdvanceTx)) {
+      const originMonth = priorAdvanceTx
+        ? formatMonthYearFromDate(priorAdvanceTx.date) || houseBasePeriod
+        : houseBasePeriod;
+      const effectivePaidMonths = paidMonths > 1 ? paidMonths : priorAdvanceTx ? Math.round(priorAdvanceTx.amount / nominal) : 2;
+      const effectiveCovered = coveredMonths.length > 0 ? coveredMonths : getSubsequentMonthLabels(originMonth, effectivePaidMonths);
       return {
         status: 'Lunas' as const,
         amount: 0,
@@ -1183,7 +1197,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         label: 'Lunas (Dimuka)',
         badgeClass: 'bg-sky-100 text-sky-900 border border-sky-300 font-bold shadow-xs',
         paidDate: house.duesPaidDate || priorAdvanceTx?.date,
-        note: `Lunas di Muka (Total iuran sudah masuk di periode sebelumnya)`,
+        note: `Lunas di Muka (Total iuran sudah masuk di periode ${originMonth})`,
+        basePaymentMonth: originMonth,
+        paidMonthsCount: effectivePaidMonths,
+        coveredMonths: effectiveCovered,
+        lastCoveredMonth: effectiveCovered[effectiveCovered.length - 1] || originMonth,
       };
     }
 
@@ -1198,12 +1216,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         isAdvanceSubsequentMonth: false,
         label: isAdvance ? `Bayar Lebih (${paidMonths} Bln)` : 'Lunas',
         badgeClass: isAdvance
-          ? 'bg-indigo-600 text-white border border-indigo-500 font-bold shadow-xs'
+          ? 'bg-sky-600 text-white border border-sky-500 font-bold shadow-xs'
           : 'bg-emerald-600 text-white border border-emerald-500 font-bold shadow-xs',
         paidDate: house.duesPaidDate,
         note: isAdvance
           ? `Tercakup: ${coveredMonths.join(', ')} (Total iuran ${formatRupiah(totalDuesInBase)} masuk di bulan ini)`
           : undefined,
+        basePaymentMonth: houseBasePeriod,
+        paidMonthsCount: paidMonths,
+        coveredMonths: coveredMonths,
+        lastCoveredMonth: coveredMonths[coveredMonths.length - 1] || houseBasePeriod,
       };
     }
 
@@ -1225,15 +1247,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       if (house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih') {
         const isAdvance = house.duesStatus === 'Bayar Lebih';
         const advMonths = Math.max(2, house.duesPaidMonths || 2);
+        const advCovered = getSubsequentMonthLabels(defaultMonthLabel, advMonths);
         return {
           status: house.duesStatus,
           amount: isAdvance ? nominal * advMonths : nominal,
           isAdvanceSubsequentMonth: false,
           label: isAdvance ? `Bayar Lebih (${advMonths} Bln)` : 'Lunas',
           badgeClass: isAdvance
-            ? 'bg-indigo-100 text-indigo-800 border border-indigo-200 font-bold'
+            ? 'bg-sky-600 text-white border border-sky-500 font-bold shadow-xs'
             : 'bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold',
           paidDate: house.duesPaidDate,
+          note: isAdvance
+            ? `Tercakup: ${advCovered.join(', ')} (Total iuran ${formatRupiah(nominal * advMonths)} masuk di bulan ini)`
+            : undefined,
+          basePaymentMonth: defaultMonthLabel,
+          paidMonthsCount: advMonths,
+          coveredMonths: advCovered,
+          lastCoveredMonth: advCovered[advCovered.length - 1] || defaultMonthLabel,
         };
       }
       const paidPart = house.duesPaidAmount || 0;
@@ -1430,10 +1460,24 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       if (duesFilter !== 'semua') {
         if (item.isEmptyHouse) return false;
         if (selectedKKPeriod === 'semua') {
-          if (item.house.duesStatus !== duesFilter) return false;
+          if (duesFilter === 'Bayar Lebih') {
+            if (item.house.duesStatus !== 'Bayar Lebih' && (item.house.duesPaidMonths || 0) <= 1) return false;
+          } else if (duesFilter === 'Lunas') {
+            if (item.house.duesStatus !== 'Lunas' && item.house.duesStatus !== 'Bayar Lebih') return false;
+          } else {
+            if (item.house.duesStatus !== duesFilter) return false;
+          }
         } else {
-          const pStatus = getHouseStatusForPeriod(item.house, selectedKKPeriod).status;
-          if (pStatus !== duesFilter) return false;
+          const pStatus = getHouseStatusForPeriod(item.house, selectedKKPeriod);
+          if (duesFilter === 'Bayar Lebih') {
+            // Cocokkan baik bulan awal bayar lebih maupun bulan lanjutan yang tercakup pembayaran di muka
+            if (pStatus.status !== 'Bayar Lebih' && !pStatus.isAdvanceSubsequentMonth) return false;
+          } else if (duesFilter === 'Lunas') {
+            // Rumah yang bayar di muka juga termasuk status Lunas
+            if (pStatus.status !== 'Lunas' && pStatus.status !== 'Bayar Lebih' && !pStatus.isAdvanceSubsequentMonth) return false;
+          } else {
+            if (pStatus.status !== duesFilter) return false;
+          }
         }
       }
       if (searchKK.trim()) {
@@ -1471,6 +1515,29 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const defaultNominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
       const nominal = item.nominalPerMonth || defaultNominal;
       const isAdvanceSubsequent = Boolean(statusInfo?.isAdvanceSubsequentMonth);
+
+      // Advance payment metadata enrichment
+      const paidMonthsCount =
+        statusInfo?.paidMonthsCount ||
+        item.paidMonthsCount ||
+        (house.duesPaidMonths && house.duesPaidMonths > 1 ? house.duesPaidMonths : isAdvancePaid ? 2 : 1);
+
+      const basePaymentMonth =
+        statusInfo?.basePaymentMonth ||
+        house.duesMonthNote ||
+        selectedKKPeriod ||
+        defaultMonthLabel;
+
+      const coveredMonthsList =
+        statusInfo?.coveredMonths && statusInfo.coveredMonths.length > 0
+          ? statusInfo.coveredMonths
+          : item.coveredMonths && item.coveredMonths.length > 0
+          ? item.coveredMonths
+          : getSubsequentMonthLabels(basePaymentMonth, paidMonthsCount);
+
+      const lastCoveredMonth =
+        statusInfo?.lastCoveredMonth ||
+        (coveredMonthsList.length > 0 ? coveredMonthsList[coveredMonthsList.length - 1] : basePaymentMonth);
 
       // Exact Iuran Paid for this cell
       const iuranPaid = isPureKosong
@@ -1529,18 +1596,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const isSudahBayar =
         !isRumahKosongHitam &&
         !isBayarLebih &&
-        (isAdvanceSubsequent ||
-         tunggakanPaid > 0 ||
+        !isAdvanceSubsequent &&
+        (tunggakanPaid > 0 ||
          (statusInfo && (statusInfo.status === 'Lunas' || (statusInfo.amount || 0) > 0)) ||
          (selectedKKPeriod === 'semua' && isLunas) ||
          (iuranPaid > 0));
 
-      const isMenunggak = !isRumahKosongHitam && !isBayarLebih && !isSudahBayar;
+      const isMenunggak = !isRumahKosongHitam && !isBayarLebih && !isAdvanceSubsequent && !isSudahBayar;
 
       const rowCellClass = isRumahKosongHitam
         ? 'bg-black text-white border-neutral-800 font-medium'
         : isBayarLebih
         ? 'bg-sky-50 text-sky-950 border-sky-300 font-medium'
+        : isAdvanceSubsequent
+        ? 'bg-sky-50/70 text-sky-950 border-sky-200 font-medium'
         : isSudahBayar
         ? 'bg-emerald-50 text-emerald-950 border-emerald-300 font-medium'
         : 'bg-rose-50 text-rose-950 border-rose-300 font-medium';
@@ -1556,6 +1625,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         statusInfo,
         nominal,
         isAdvanceSubsequent,
+        paidMonthsCount,
+        basePaymentMonth,
+        coveredMonthsList,
+        lastCoveredMonth,
         iuranPaid,
         payerName,
         baksosInfo,
@@ -1569,7 +1642,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         rowCellClass,
       };
     });
-  }, [filteredPerKKList, selectedKKPeriod, transactions, getHouseStatusForPeriod, getHouseBaksosForPeriod, config.duesAmountPerMonth]);
+  }, [filteredPerKKList, selectedKKPeriod, transactions, getHouseStatusForPeriod, getHouseBaksosForPeriod, config.duesAmountPerMonth, defaultMonthLabel]);
 
   // Rekap table totals for KK table directly derived from recapRows
   const recapTotals = useMemo(() => {
@@ -4360,8 +4433,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   onClick={() => setDuesFilter('Bayar Lebih')}
                   className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
                     duesFilter === 'Bayar Lebih'
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'bg-indigo-50/90 text-indigo-900 hover:bg-indigo-100 border border-indigo-300 shadow-2xs'
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'bg-sky-50 text-sky-950 hover:bg-sky-100 border border-sky-300 shadow-2xs'
                   }`}
                 >
                   Bayar Lebih (&gt;1 Bln)
@@ -4442,6 +4515,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           statusInfo,
                           nominal,
                           isAdvanceSubsequent,
+                          paidMonthsCount,
+                          basePaymentMonth,
+                          coveredMonthsList,
+                          lastCoveredMonth,
                           iuranPaid,
                           payerName,
                           baksosInfo,
@@ -4463,50 +4540,78 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                 ? 'bg-black text-white border-neutral-800 hover:bg-neutral-900'
                                 : isBayarLebih
                                 ? 'bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100/60'
+                                : isAdvanceSubsequent
+                                ? 'bg-sky-50/70 text-sky-950 border-sky-200 hover:bg-sky-100/40'
                                 : isSudahBayar
                                 ? 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100/60'
                                 : 'bg-rose-50 text-rose-950 border-rose-300 hover:bg-rose-100/60'
                             }`}
                           >
                             {/* 1. No */}
-                            <td className={`py-2.5 px-2 text-center font-mono border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : 'text-slate-600'}`}>
+                            <td className={`py-2.5 px-2 text-center font-mono border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : isBayarLebih || isAdvanceSubsequent ? 'text-sky-950 font-bold' : 'text-slate-600'}`}>
                               {idx + 1}
                             </td>
 
                             {/* 2. No Blok */}
                             <td className={`py-2.5 px-3 text-center border ${rowCellClass}`}>
-                              <span
-                                className={`font-mono text-xs font-bold px-2 py-0.5 rounded-lg border shadow-2xs ${
-                                  isRumahKosongHitam
-                                    ? 'bg-neutral-900 text-white border-neutral-700'
-                                    : isBayarLebih
-                                    ? 'bg-sky-200/90 text-sky-950 border-sky-400'
-                                    : isSudahBayar
-                                    ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400'
-                                    : 'bg-rose-200/90 text-rose-950 border-rose-400'
-                                }`}
-                              >
-                                Blok {house.blockNumber}
-                              </span>
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span
+                                  className={`font-mono text-xs font-bold px-2 py-0.5 rounded-lg border shadow-2xs ${
+                                    isRumahKosongHitam
+                                      ? 'bg-neutral-900 text-white border-neutral-700'
+                                      : isBayarLebih
+                                      ? 'bg-sky-200/90 text-sky-950 border-sky-400 font-black'
+                                      : isAdvanceSubsequent
+                                      ? 'bg-sky-100 text-sky-950 border-sky-300 font-black'
+                                      : isSudahBayar
+                                      ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400'
+                                      : 'bg-rose-200/90 text-rose-950 border-rose-400'
+                                  }`}
+                                >
+                                  Blok {house.blockNumber}
+                                </span>
+                                {isBayarLebih && (
+                                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-sky-600 text-white border border-sky-700 whitespace-nowrap shadow-2xs">
+                                    Bayar Lebih
+                                  </span>
+                                )}
+                                {isAdvanceSubsequent && (
+                                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-sky-200 text-sky-950 border border-sky-400 whitespace-nowrap shadow-2xs">
+                                    ✓ Dimuka
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* 3. Nama Kepala Keluarga */}
                             <td className={`py-2.5 px-4 border ${rowCellClass}`}>
                               <div className="flex items-center justify-between gap-1.5">
                                 {payerName ? (
-                                  <span
-                                    className={`font-bold ${
-                                      isRumahKosongHitam
-                                        ? 'text-white'
-                                        : isBayarLebih
-                                        ? 'text-sky-950'
-                                        : isSudahBayar
-                                        ? 'text-emerald-950'
-                                        : 'text-rose-950'
-                                    }`}
-                                  >
-                                    {payerName}
-                                  </span>
+                                  <div className="flex flex-col">
+                                    <span
+                                      className={`font-bold ${
+                                        isRumahKosongHitam
+                                          ? 'text-white'
+                                          : isBayarLebih || isAdvanceSubsequent
+                                          ? 'text-sky-950 font-black'
+                                          : isSudahBayar
+                                          ? 'text-emerald-950'
+                                          : 'text-rose-950'
+                                      }`}
+                                    >
+                                      {payerName}
+                                    </span>
+                                    {isBayarLebih && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-sky-900 bg-sky-200/90 px-1.5 py-0.5 rounded border border-sky-300 w-fit mt-0.5 whitespace-nowrap shadow-2xs">
+                                        <span>★ Bayar Lebih ({paidMonthsCount} Bulan: {coveredMonthsList.map((m) => m.split(' ')[0]).join(', ')})</span>
+                                      </span>
+                                    )}
+                                    {isAdvanceSubsequent && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-sky-900 bg-sky-100 px-1.5 py-0.5 rounded border border-sky-300 w-fit mt-0.5 whitespace-nowrap shadow-2xs">
+                                        <span>✓ Lunas di Muka (Disetor pada {basePaymentMonth})</span>
+                                      </span>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span
                                     onClick={() => isAdmin && handleOpenEditHouseDues(house, false)}
@@ -4523,10 +4628,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                 {isAdmin && (
                                   <button
                                     type="button"
-                                    onClick={() => handleOpenEditHouseDues(house, false)}
+                                    onClick={() => handleOpenEditHouseDues(house, isBayarLebih)}
                                     className={`p-1 rounded transition-colors cursor-pointer shrink-0 ${
                                       isRumahKosongHitam
                                         ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                        : isBayarLebih || isAdvanceSubsequent
+                                        ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/60'
                                         : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-100/60'
                                     }`}
                                     title="Edit Nama KK / Iuran Ini"
@@ -4538,16 +4645,30 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             </td>
 
                             {/* 4. Periode Iuran */}
-                            <td className={`py-2.5 px-3 text-center font-bold border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : 'text-slate-700'}`}>
-                              {periodStr}
+                            <td className={`py-2.5 px-3 text-center border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : isBayarLebih || isAdvanceSubsequent ? 'text-sky-950' : 'text-slate-700'}`}>
+                              <div className="flex flex-col items-center">
+                                <span className="font-bold">{periodStr}</span>
+                                {isBayarLebih && (
+                                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-sky-200 text-sky-950 border border-sky-300 mt-0.5 whitespace-nowrap shadow-2xs">
+                                    Tercakup {paidMonthsCount} Bln (s/d {lastCoveredMonth})
+                                  </span>
+                                )}
+                                {isAdvanceSubsequent && (
+                                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-sky-100 text-sky-950 border border-sky-300 mt-0.5 whitespace-nowrap shadow-2xs">
+                                    ✓ Tercakup di Muka (Masuk kas di {basePaymentMonth})
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* 5. Iuran Bulanan */}
                             <td
-                              onClick={() => isAdmin && handleOpenEditHouseDues(house, false, 'iuran')}
+                              onClick={() => isAdmin && handleOpenEditHouseDues(house, isBayarLebih, 'iuran')}
                               className={`py-2.5 px-3 text-right font-mono tabular-nums border ${rowCellClass} ${
                                 isAdmin
-                                  ? 'cursor-pointer hover:ring-2 hover:ring-emerald-400/70 hover:bg-emerald-100/40 transition-all'
+                                  ? isBayarLebih || isAdvanceSubsequent
+                                    ? 'cursor-pointer hover:ring-2 hover:ring-sky-400/70 hover:bg-sky-100/40 transition-all'
+                                    : 'cursor-pointer hover:ring-2 hover:ring-emerald-400/70 hover:bg-emerald-100/40 transition-all'
                                   : ''
                               }`}
                               title={isAdmin ? 'Klik untuk edit Iuran Bulanan KK ini' : ''}
@@ -4555,13 +4676,28 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               <div className="flex items-center justify-end gap-1.5">
                                 {isAdvanceSubsequent ? (
                                   <div className="flex flex-col items-end">
-                                    <span className="font-bold text-emerald-800">Rp 0</span>
-                                    <span className="text-[10px] font-sans font-bold text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-md border border-emerald-300 mt-0.5 shadow-2xs">
-                                      ✓ Lunas (Tanpa Isian)
+                                    <span className="font-bold text-sky-900">Rp 0</span>
+                                    <span className="text-[10px] font-sans font-extrabold text-sky-900 bg-sky-100 px-2 py-0.5 rounded-md border border-sky-300 mt-0.5 shadow-2xs whitespace-nowrap">
+                                      ✓ Lunas di Muka (Bebas Tagihan)
+                                    </span>
+                                    <span className="text-[9px] text-sky-700 font-semibold whitespace-nowrap">
+                                      Uang iuran sudah masuk di {basePaymentMonth}
+                                    </span>
+                                  </div>
+                                ) : isBayarLebih ? (
+                                  <div className="flex flex-col items-end">
+                                    <span className="font-mono font-black text-sky-950 text-sm">
+                                      +{formatRupiah(iuranPaid)}
+                                    </span>
+                                    <span className="text-[10px] font-sans font-black text-sky-950 bg-sky-200/90 px-2 py-0.5 rounded-md border border-sky-400 mt-0.5 shadow-2xs whitespace-nowrap">
+                                      {paidMonthsCount} Bln x {formatRupiah(nominal)} (Bayar Lebih)
+                                    </span>
+                                    <span className="text-[9px] text-sky-800 font-semibold whitespace-nowrap">
+                                      Lunas s/d {lastCoveredMonth}
                                     </span>
                                   </div>
                                 ) : iuranPaid > 0 ? (
-                                  <span className={`font-bold ${isRumahKosongHitam ? 'text-emerald-400' : isBayarLebih ? 'text-sky-900' : isSudahBayar ? 'text-emerald-800' : 'text-slate-700'}`}>
+                                  <span className={`font-bold ${isRumahKosongHitam ? 'text-emerald-400' : isSudahBayar ? 'text-emerald-800' : 'text-slate-700'}`}>
                                     +{formatRupiah(iuranPaid)}
                                   </span>
                                 ) : isRumahKosongHitam ? (
@@ -4574,11 +4710,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleOpenEditHouseDues(house, false, 'iuran');
+                                      handleOpenEditHouseDues(house, isBayarLebih, 'iuran');
                                     }}
                                     className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
                                       isRumahKosongHitam
                                         ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                        : isBayarLebih || isAdvanceSubsequent
+                                        ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/70'
                                         : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-100/70'
                                     }`}
                                     title="Edit Iuran Bulanan KK ini"
@@ -4591,7 +4729,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                             {/* 6. Pembayaran Denda Baksos */}
                             <td
-                              onClick={() => isAdmin && handleOpenEditHouseDues(house, false, 'baksos')}
+                              onClick={() => isAdmin && handleOpenEditHouseDues(house, isBayarLebih, 'baksos')}
                               className={`py-2.5 px-3 text-center border ${rowCellClass} ${
                                 isAdmin
                                   ? 'cursor-pointer hover:ring-2 hover:ring-teal-400/80 hover:bg-teal-100/40 transition-all'
@@ -4639,11 +4777,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleOpenEditHouseDues(house, false, 'baksos');
+                                      handleOpenEditHouseDues(house, isBayarLebih, 'baksos');
                                     }}
                                     className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
                                       isRumahKosongHitam
                                         ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                        : isBayarLebih || isAdvanceSubsequent
+                                        ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/70'
                                         : 'text-slate-400 hover:text-teal-700 hover:bg-teal-100/70'
                                     }`}
                                     title="Edit Pembayaran Denda Baksos KK ini"
@@ -4656,7 +4796,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                             {/* 7. Pembayaran Tunggakan */}
                             <td
-                              onClick={() => isAdmin && handleOpenEditHouseDues(house, false, 'tunggakan')}
+                              onClick={() => isAdmin && handleOpenEditHouseDues(house, isBayarLebih, 'tunggakan')}
                               className={`py-2.5 px-3 text-right font-mono tabular-nums border ${rowCellClass} ${
                                 isAdmin
                                   ? 'cursor-pointer hover:ring-2 hover:ring-rose-400/80 hover:bg-rose-100/40 transition-all'
@@ -4675,11 +4815,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleOpenEditHouseDues(house, false, 'tunggakan');
+                                      handleOpenEditHouseDues(house, isBayarLebih, 'tunggakan');
                                     }}
                                     className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
                                       isRumahKosongHitam
                                         ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                        : isBayarLebih || isAdvanceSubsequent
+                                        ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/70'
                                         : 'text-slate-400 hover:text-rose-700 hover:bg-rose-100/70'
                                     }`}
                                     title="Edit Pembayaran Tunggakan KK ini"
@@ -4691,8 +4833,24 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             </td>
 
                             {/* 8. Tanggal Pembayaran */}
-                            <td className={`py-2.5 px-3 text-center font-mono text-[11px] border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : 'text-slate-700'}`}>
-                              {paidDate ? formatDateDDMMYYYY(paidDate) : '-'}
+                            <td className={`py-2.5 px-3 text-center font-mono text-[11px] border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : isBayarLebih || isAdvanceSubsequent ? 'text-sky-950' : 'text-slate-700'}`}>
+                              {paidDate ? (
+                                <div className="flex flex-col items-center">
+                                  <span className="font-bold">{formatDateDDMMYYYY(paidDate)}</span>
+                                  {isBayarLebih && (
+                                    <span className="text-[9px] text-sky-800 font-bold whitespace-nowrap">
+                                      (Bayar {paidMonthsCount} Bulan Sekaligus)
+                                    </span>
+                                  )}
+                                  {isAdvanceSubsequent && (
+                                    <span className="text-[9px] text-sky-800 font-semibold whitespace-nowrap">
+                                      (Tgl Bayar di {basePaymentMonth})
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                '-'
+                              )}
                             </td>
 
                             {/* 9. Total Semua Pembayaran */}
@@ -4709,22 +4867,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   </>
                                 ) : isAdvanceSubsequent ? (
                                   <>
-                                    <span className="font-mono font-black text-emerald-950">
+                                    <span className="font-mono font-black text-sky-950">
                                       {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
                                     </span>
-                                    <span className="text-[10px] font-sans font-extrabold text-emerald-800">
-                                      ✓ Lunas (Bayar di Muka)
+                                    <span className="text-[10px] font-sans font-extrabold text-sky-900 bg-sky-100 px-2 py-0.5 rounded-md border border-sky-300 mt-0.5 shadow-2xs whitespace-nowrap">
+                                      ✓ Lunas di Muka (Bebas Tagihan)
                                     </span>
                                   </>
                                 ) : isBayarLebih ? (
                                   <>
-                                    <span className="font-mono font-black text-sky-950">
+                                    <span className="font-mono font-black text-sky-950 text-sm">
                                       +{formatRupiah(totalSemua)}
                                     </span>
-                                    <span className="text-[10px] font-sans font-extrabold text-sky-800">
-                                      {house.duesPaidMonths && house.duesPaidMonths > 1
-                                        ? `Bayar Lebih ${house.duesPaidMonths - 1} Bln (Total ${house.duesPaidMonths} Bln)`
-                                        : 'Bayar Lebih'}
+                                    <span className="text-[10px] font-sans font-black text-sky-950 bg-sky-200/90 px-2 py-0.5 rounded-md border border-sky-400 mt-0.5 shadow-2xs whitespace-nowrap">
+                                      ✓ Bayar Lebih {paidMonthsCount} Bulan (Lunas s/d {lastCoveredMonth})
                                     </span>
                                   </>
                                 ) : isSudahBayar ? (
@@ -4755,24 +4911,34 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                 <div className="flex items-center justify-center gap-1">
                                   <button
                                     type="button"
-                                    onClick={() => handleOpenEditHouseDues(house, false)}
-                                    className="px-2 py-1 text-[11px] font-bold bg-white/95 hover:bg-white text-indigo-700 hover:text-indigo-900 border border-indigo-200 hover:border-indigo-400 rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer active:scale-95"
-                                    title="Edit Iuran & Catatan Pembayaran KK Ini"
+                                    onClick={() => handleOpenEditHouseDues(house, isBayarLebih)}
+                                    className={`px-2 py-1 text-[11px] font-bold rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
+                                      isBayarLebih || isAdvanceSubsequent
+                                        ? 'bg-sky-100 hover:bg-sky-200 text-sky-950 border-sky-300 hover:border-sky-400'
+                                        : 'bg-white/95 hover:bg-white text-indigo-700 hover:text-indigo-900 border border-indigo-200 hover:border-indigo-400'
+                                    }`}
+                                    title={
+                                      isBayarLebih
+                                        ? "Edit Rincian Bayar Lebih (>1 Bulan) KK Ini"
+                                        : isAdvanceSubsequent
+                                        ? "Kelola Pembayaran di Muka KK Ini"
+                                        : "Edit Iuran & Catatan Pembayaran KK Ini"
+                                    }
                                   >
                                     <Edit2 className="w-3 h-3" />
-                                    <span>Edit</span>
+                                    <span>{isBayarLebih ? 'Edit Lebih' : 'Edit'}</span>
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => setDeletingSingleHouse({ house, period: periodStr })}
-                                    disabled={!isSudahBayar && !isBayarLebih && totalSemua === 0 && house.duesStatus === 'Belum Bayar'}
+                                    disabled={!isSudahBayar && !isBayarLebih && !isAdvanceSubsequent && totalSemua === 0 && house.duesStatus === 'Belum Bayar'}
                                     className={`px-2 py-1 text-[11px] font-bold rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
-                                      isSudahBayar || isBayarLebih || totalSemua > 0 || house.duesStatus !== 'Belum Bayar'
+                                      isSudahBayar || isBayarLebih || isAdvanceSubsequent || totalSemua > 0 || house.duesStatus !== 'Belum Bayar'
                                         ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 hover:border-rose-400'
                                         : 'bg-slate-100/60 text-slate-400 border-slate-200 cursor-not-allowed opacity-40'
                                     }`}
                                     title={
-                                      isSudahBayar || isBayarLebih || totalSemua > 0 || house.duesStatus !== 'Belum Bayar'
+                                      isSudahBayar || isBayarLebih || isAdvanceSubsequent || totalSemua > 0 || house.duesStatus !== 'Belum Bayar'
                                         ? "Hapus & Batalkan Pembayaran KK Ini (Otomatis bersihkan dari Buku Kas)"
                                         : "Tidak ada pembayaran untuk dihapus"
                                     }
@@ -5236,15 +5402,29 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           {/* Kolom Rincian Setiap Periode */}
                           {periodsDetail.map((pDet) => (
                             <td
-                              key={pDet.periodLabel}
+                               key={pDet.periodLabel}
                               className="py-2.5 px-2.5 text-center border border-slate-300 font-mono text-xs"
                             >
                               {isPureKosong ? (
                                 <span className="text-[10px] text-neutral-400 italic">Bebas</span>
                               ) : pDet.isAdvanceSubsequent ? (
-                                <span className="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-800 text-[10px] font-bold border border-sky-300">
-                                  ✓ Dimuka
-                                </span>
+                                <div className="flex flex-col items-center">
+                                  <span className="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-950 text-[10px] font-extrabold border border-sky-300 whitespace-nowrap shadow-2xs">
+                                    ✓ Dimuka
+                                  </span>
+                                  <span className="text-[8px] text-sky-700 font-semibold mt-0.5">
+                                    (Bebas Tagihan)
+                                  </span>
+                                </div>
+                              ) : pDet.statusInfo?.status === 'Bayar Lebih' ? (
+                                <div className="flex flex-col items-center">
+                                  <span className="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-950 text-[10px] font-extrabold border border-sky-400 whitespace-nowrap shadow-2xs">
+                                    Bayar Lebih ({pDet.statusInfo.paidMonthsCount || 2} Bln)
+                                  </span>
+                                  <span className="font-bold text-sky-900 text-[11px] mt-0.5">
+                                    +{formatRupiah(pDet.iuranPaid)}
+                                  </span>
+                                </div>
                               ) : pDet.isArrearSettledLater && pDet.settlementMonth ? (
                                 <div className="flex flex-col items-center gap-0.5">
                                   <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-[10px] font-extrabold border border-emerald-300 shadow-2xs whitespace-nowrap">
