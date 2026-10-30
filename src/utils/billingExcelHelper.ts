@@ -64,6 +64,7 @@ function normalizeBlock(raw: any): string {
     .trim()
     .toUpperCase()
     .replace(/\s+/g, '')
+    .replace(/^BLOK/i, '')
     .replace(/-/g, '/');
 }
 
@@ -97,13 +98,19 @@ function parseExcelDate(raw: any, fallbackDate: string): string {
 
 /**
  * Downloads a comprehensive Excel template for Financial Billing / Penarikan Keuangan.
- * Features:
- * - Jumlah Iuran Bulanan
- * - Data Tunggakan Sebelumnya & Keterangan
- * - Denda Baksos (Rp 10.000 / ketidakhadiran)
- * - Pilihan jika hanya membayar salah satu: 'Semua Lunas' | 'Hanya Iuran' | 'Hanya Baksos' | 'Hanya Tunggakan' | 'Belum Bayar'
- * - Rumah kosong: dikosongkan jumlah iurannya (0)
- * - Rumah belum ditempati: bisa diedit jumlah iurannya
+ * Features exact column alignment with the web table:
+ * 1. No
+ * 2. No Blok
+ * 3. Kepala Keluarga / Penanggung Jawab
+ * 4. Status Rumah
+ * 5. 1. Iuran Bulanan
+ * 6. 2. Tunggakan Lalu
+ * 7. Keterangan Tunggakan Lalu
+ * 8. 3. Denda Baksos
+ * 9. Total Tagihan
+ * 10. Pilihan Pembayaran & Aksi
+ * 11. Tanggal Bayar
+ * 12. Catatan
  */
 export function downloadBillingExcelTemplate(
   residents: ResidentHouse[],
@@ -114,13 +121,13 @@ export function downloadBillingExcelTemplate(
   const todayStr = new Date().toISOString().slice(0, 10);
   const cleanPeriod = periodLabel.replace(/[\/\\?%*:|"<>]/g, '_').trim();
 
-  // 1. DATA SHEET
+  // 1. DATA SHEET (Sama persis dengan format kolom di web)
   const dataRows = residents.map((house, idx) => {
     const isVacant = house.occupancy === 'Kosong' || isHouseVacant(house);
     const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
     const isNotOccupiedYet = house.occupancy === 'Belum Ditempati';
 
-    // 1. Jumlah Iuran Bulanan: Kosongkan untuk rumah kosong, bisa diedit untuk belum ditempati & lainnya
+    // 1. Jumlah Iuran Bulanan: Kosongkan untuk rumah kosong (0), isi nominal untuk terisi
     const duesNominal = isVacant
       ? 0
       : house.customDuesAmount !== undefined
@@ -145,86 +152,94 @@ export function downloadBillingExcelTemplate(
     const duesUnpaid = house.duesStatus === 'Belum Bayar' ? duesNominal : 0;
     const totalBill = duesUnpaid + prevArrears + baksosFine;
 
-    // Default Pilihan Bayar
+    // Default Pilihan Bayar & Aksi sama persis dengan web
     let defaultChoice: PaymentChoiceOption = 'Belum Bayar';
     if (isVacant) {
       defaultChoice = 'Bebas Iuran';
-    } else if (house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih') {
+    } else if (house.duesStatus === 'Bayar Lebih') {
+      defaultChoice = 'Semua Lunas';
+    } else if (house.duesStatus === 'Lunas') {
       defaultChoice = totalBill === 0 ? 'Semua Lunas' : 'Hanya Iuran';
     }
 
     return {
       No: idx + 1,
       'No Blok': house.blockNumber,
-      'Kepala Keluarga': house.duesHeadNameOverride || house.headName,
+      'Kepala Keluarga / Penanggung Jawab': house.duesHeadNameOverride || house.headName,
       'Status Rumah': house.occupancy,
-      'Periode Penarikan': periodLabel,
-      'Jumlah Iuran Bulanan (Rp)': isVacant ? '' : duesNominal,
-      'Tunggakan Lalu (Rp)': prevArrears > 0 ? prevArrears : '',
+      '1. Iuran Bulanan': isVacant ? 0 : duesNominal,
+      '2. Tunggakan Lalu': prevArrears > 0 ? prevArrears : 0,
       'Keterangan Tunggakan Lalu': prevNote,
-      'Denda Baksos (Rp)': baksosFine > 0 ? baksosFine : '',
-      'Total Tagihan (Rp)': totalBill > 0 ? totalBill : 0,
-      'Pilihan Bayar': defaultChoice,
-      'Total Uang Diterima (Rp)': defaultChoice === 'Semua Lunas' ? totalBill : defaultChoice === 'Hanya Iuran' ? duesNominal : '',
-      'Tanggal Bayar (YYYY-MM-DD)': defaultChoice !== 'Belum Bayar' && defaultChoice !== 'Bebas Iuran' ? todayStr : '',
-      'Catatan': isVacant ? 'Rumah Kosong (Bebas Iuran)' : isNotOccupiedYet ? 'Belum Ditempati' : '',
+      '3. Denda Baksos': baksosFine > 0 ? baksosFine : 0,
+      'Total Tagihan': totalBill > 0 ? totalBill : 0,
+      'Pilihan Pembayaran & Aksi': defaultChoice,
+      'Tanggal Bayar': defaultChoice !== 'Belum Bayar' && defaultChoice !== 'Bebas Iuran' ? todayStr : '',
+      Catatan: isVacant ? 'Rumah Kosong (Bebas Tagihan)' : isNotOccupiedYet ? 'Belum Ditempati' : '',
     };
   });
 
   const wsData = XLSX.utils.json_to_sheet(dataRows);
   wsData['!cols'] = [
     { wch: 6 },  // No
-    { wch: 12 }, // No Blok
-    { wch: 28 }, // Kepala Keluarga
+    { wch: 14 }, // No Blok
+    { wch: 34 }, // Kepala Keluarga / Penanggung Jawab
     { wch: 18 }, // Status Rumah
-    { wch: 20 }, // Periode Penarikan
-    { wch: 24 }, // Jumlah Iuran Bulanan
-    { wch: 20 }, // Tunggakan Lalu
-    { wch: 28 }, // Keterangan Tunggakan Lalu
-    { wch: 18 }, // Denda Baksos
-    { wch: 20 }, // Total Tagihan
-    { wch: 24 }, // Pilihan Bayar
-    { wch: 24 }, // Total Uang Diterima
-    { wch: 22 }, // Tanggal Bayar
+    { wch: 18 }, // 1. Iuran Bulanan
+    { wch: 18 }, // 2. Tunggakan Lalu
+    { wch: 30 }, // Keterangan Tunggakan Lalu
+    { wch: 18 }, // 3. Denda Baksos
+    { wch: 18 }, // Total Tagihan
+    { wch: 28 }, // Pilihan Pembayaran & Aksi
+    { wch: 16 }, // Tanggal Bayar
     { wch: 32 }, // Catatan
   ];
 
   // 2. INSTRUCTIONS SHEET
   const instructions = [
     {
-      'Ketentuan / Kolom': 'Menu Penarikan Keuangan',
+      'Ketentuan / Kolom': 'Menu Penarikan Keuangan dan Bakti Sosial',
       'Aturan & Cara Pengisian':
-        'Menu khusus pengurus untuk mencatat penerimaan iuran bulanan, tunggakan sebelumnya, dan denda baksos.',
+        'Format tabel di Excel ini diselaraskan sama persis dengan tabel web "Input Data Penarikan Keuangan dan Bakti Sosial".',
     },
     {
-      'Ketentuan / Kolom': 'Kepala Keluarga',
+      'Ketentuan / Kolom': 'Kepala Keluarga / Penanggung Jawab',
       'Aturan & Cara Pengisian':
         'Dapat diedit sesuai nama pembayar / penanggung jawab penarikan di blok bersangkutan tanpa merusak data KTP asli di Buku Induk.',
     },
     {
-      'Ketentuan / Kolom': 'Jumlah Iuran Bulanan (Rp)',
+      'Ketentuan / Kolom': '1. Iuran Bulanan',
       'Aturan & Cara Pengisian':
-        'Untuk rumah kosong dikosongkan (0). Untuk rumah belum ditempati atau dihuni bisa diisi/diedit nominalnya.',
+        'Nominal iuran bulanan untuk periode ini. Rumah kosong murni terisi 0 (bebas iuran). Rumah belum ditempati atau dihuni bisa diisi nominalnya.',
     },
     {
-      'Ketentuan / Kolom': 'Tunggakan Lalu & Denda Baksos',
+      'Ketentuan / Kolom': '2. Tunggakan Lalu & Keterangan',
       'Aturan & Cara Pengisian':
-        'Otomatis terisi dari catatan tunggakan sebelumnya dan absensi kerja bakti yang belum dibayar (Rp 10.000/absen).',
+        'Nominal tunggakan bulan/tahun sebelumnya beserta keterangannya (misal: Tunggakan Agustus 2026).',
     },
     {
-      'Ketentuan / Kolom': 'Pilihan Bayar (Membayar Salah Satu / Semua)',
+      'Ketentuan / Kolom': '3. Denda Baksos',
       'Aturan & Cara Pengisian':
-        'Isi salah satu opsi:\n1. "Semua Lunas" -> Membayar Iuran + Baksos + Tunggakan Lalu sekaligus.\n2. "Hanya Iuran" -> Hanya membayar Iuran Bulanan saja (Baksos & Tunggakan tetap menunggak).\n3. "Hanya Baksos" -> Hanya membayar Denda Baksos saja (Iuran & Tunggakan tetap menunggak).\n4. "Hanya Tunggakan" -> Hanya membayar Tunggakan Lalu saja (Iuran & Baksos tetap menunggak).\n5. "Belum Bayar" -> Belum ada yang dibayar (semua masuk tunggakan).\n6. "Bebas Iuran" -> Khusus rumah kosong.',
+        'Akumulasi denda kerja bakti/bakti sosial warga yang belum lunas (Rp 10.000 / ketidakhadiran).',
+    },
+    {
+      'Ketentuan / Kolom': 'Total Tagihan',
+      'Aturan & Cara Pengisian':
+        'Total akumulasi yang harus dibayar: 1. Iuran Bulanan + 2. Tunggakan Lalu + 3. Denda Baksos.',
+    },
+    {
+      'Ketentuan / Kolom': 'Pilihan Pembayaran & Aksi',
+      'Aturan & Cara Pengisian':
+        'Isi status pembayaran sama seperti di web:\n1. "Semua Lunas" -> Membayar Iuran + Denda Baksos + Tunggakan Lalu sekaligus.\n2. "Hanya Iuran" -> Hanya membayar Iuran Bulanan saja (Baksos & Tunggakan tetap menunggak).\n3. "Hanya Baksos" -> Hanya membayar Denda Baksos saja (Iuran & Tunggakan tetap menunggak).\n4. "Hanya Tunggakan" -> Hanya membayar Tunggakan Lalu saja (Iuran & Baksos tetap menunggak).\n5. "Belum Bayar" -> Belum ada pembayaran untuk periode ini.\n6. "Bebas Iuran" -> Rumah kosong bebas tagihan.',
     },
     {
       'Ketentuan / Kolom': 'Alur Rekapan Otomatis',
       'Aturan & Cara Pengisian':
-        'Bagian yang dibayar otomatis masuk ke Rekap Iuran Per KK dan Buku Kas Utama (+). Bagian yang belum dibayar otomatis masuk ke Daftar Tunggakan Warga.',
+        'Komponen yang dibayar otomatis masuk ke Rekap Kas Per KK dan Buku Kas Utama (+). Komponen yang belum dibayar otomatis masuk ke Rekap Tunggakan.',
     },
   ];
 
   const wsInstructions = XLSX.utils.json_to_sheet(instructions);
-  wsInstructions['!cols'] = [{ wch: 32 }, { wch: 90 }];
+  wsInstructions['!cols'] = [{ wch: 36 }, { wch: 95 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsData, 'Penarikan_Keuangan');
@@ -312,31 +327,90 @@ export async function parseBillingExcelFile(
             return '';
           };
 
-          const rawBlock = getVal('No Blok', 'Blok', 'Nomor Blok', 'No. Blok', 'BlockNumber');
+          const rawBlock = getVal('No Blok', 'Blok', 'Nomor Blok', 'No. Blok', 'BlockNumber', 'Kavling');
           if (!rawBlock) return;
 
           const normBlock = normalizeBlock(rawBlock);
           const matchedResident = residentMap.get(normBlock);
 
           const rawHeadName = String(
-            getVal('Kepala Keluarga', 'Nama Kepala Keluarga', 'Nama', 'HeadName')
+            getVal(
+              'Kepala Keluarga / Penanggung Jawab',
+              'Kepala Keluarga/Penanggung Jawab',
+              'Kepala Keluarga',
+              'Nama Kepala Keluarga',
+              'Penanggung Jawab',
+              'Nama',
+              'HeadName'
+            )
           ).trim();
           const rawOccupancy = String(
-            getVal('Status Rumah', 'Hunian', 'Status Hunian', 'Occupancy')
+            getVal('Status Rumah', 'Status Hunian', 'Hunian', 'Occupancy')
           ).trim();
           const rawPeriod =
             String(getVal('Periode Penarikan', 'Periode Iuran', 'Periode', 'Bulan')).trim() ||
             targetPeriod;
 
-          const rawDuesAmount = getVal('Jumlah Iuran Bulanan (Rp)', 'Jumlah Iuran (Rp)', 'Jumlah Iuran', 'Nominal Iuran', 'Iuran');
-          const rawPrevArrears = getVal('Tunggakan Lalu (Rp)', 'Tunggakan Lalu', 'Tunggakan Sebelumnya', 'Tunggakan');
-          const rawPrevNote = String(getVal('Keterangan Tunggakan Lalu', 'Ket. Tunggakan Lalu', 'Keterangan Tunggakan')).trim();
-          const rawBaksosFine = getVal('Denda Baksos (Rp)', 'Denda Baksos', 'Denda');
+          const rawDuesAmount = getVal(
+            '1. Iuran Bulanan',
+            '1. Iuran Bulanan (Rp)',
+            'Iuran Bulanan',
+            'Jumlah Iuran Bulanan (Rp)',
+            'Jumlah Iuran (Rp)',
+            'Jumlah Iuran',
+            'Nominal Iuran',
+            'Iuran'
+          );
+          const rawPrevArrears = getVal(
+            '2. Tunggakan Lalu',
+            '2. Tunggakan Lalu (Rp)',
+            'Tunggakan Lalu (Rp)',
+            'Tunggakan Lalu',
+            'Tunggakan Sebelumnya',
+            'Tunggakan'
+          );
+          const rawPrevNote = String(
+            getVal(
+              'Keterangan Tunggakan Lalu',
+              'Ket. Tunggakan Lalu',
+              'Keterangan Tunggakan',
+              'Ket Tunggakan',
+              'Keterangan'
+            )
+          ).trim();
+          const rawBaksosFine = getVal(
+            '3. Denda Baksos',
+            '3. Denda Baksos (Rp)',
+            'Denda Baksos (Rp)',
+            'Denda Baksos',
+            'Denda'
+          );
           const rawChoice = String(
-            getVal('Pilihan Bayar', 'Status Bayar', 'Status Pembayaran', 'Status')
+            getVal(
+              'Pilihan Pembayaran & Aksi',
+              'Pilihan Pembayaran & Aksi (Lunas/Belum)',
+              'Pilihan Pembayaran',
+              'Pilihan Bayar',
+              'Status Pembayaran',
+              'Status Bayar',
+              'Aksi',
+              'Status'
+            )
           ).trim().toLowerCase();
-          const rawTotalReceived = getVal('Total Uang Diterima (Rp)', 'Total Diterima', 'Total Bayar', 'Uang Diterima');
-          const rawPaidDate = getVal('Tanggal Bayar (YYYY-MM-DD)', 'Tanggal Bayar', 'Tanggal', 'Tgl Bayar');
+          const rawTotalReceived = getVal(
+            'Total Tagihan',
+            'Total Tagihan (Rp)',
+            'Total Uang Diterima (Rp)',
+            'Total Diterima',
+            'Total Bayar',
+            'Uang Diterima'
+          );
+          const rawPaidDate = getVal(
+            'Tanggal Bayar',
+            'Tanggal Bayar (YYYY-MM-DD)',
+            'Tanggal',
+            'Tgl Bayar'
+          );
           const rawNotes = String(getVal('Catatan Penarikan', 'Catatan', 'Keterangan')).trim();
 
           const currentOccupancy = rawOccupancy || (matchedResident ? matchedResident.occupancy : 'Ditempati');

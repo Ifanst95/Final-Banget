@@ -12,6 +12,7 @@ import {
   Copy,
   Download,
   Edit2,
+  Eye,
   FileSpreadsheet,
   FileText,
   LayoutGrid,
@@ -71,7 +72,7 @@ interface CashReportSectionProps {
   baksosAgendas?: BaksosAgenda[];
   balances: BalanceBreakdown;
   isAdmin: boolean;
-  mode?: 'all' | 'mutasi' | 'per_kk';
+  mode?: 'all' | 'mutasi' | 'per_kk' | 'rekap_total_kk';
   onAddTransaction: (tx: Omit<CashTransaction, 'id'>) => void;
   onEditTransaction: (tx: CashTransaction) => void;
   onDeleteTransaction: (id: string) => void;
@@ -221,18 +222,27 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     period: string;
   } | null>(null);
 
-  // Unified Sub-tab selection: 'mutasi' (Buku Kas) or 'per_kk' (Iuran Per KK)
-  const [currentSubTab, setCurrentSubTab] = useState<'mutasi' | 'per_kk'>(
-    mode === 'per_kk' ? 'per_kk' : 'mutasi'
+  // Unified Sub-tab selection: 'mutasi' (1. Buku Kas), 'per_kk' (2. Rekap Iuran Per KK), 'rekap_total_kk' (3. Rekap Keseluruhan Kas Per KK)
+  const [currentSubTab, setCurrentSubTab] = useState<'mutasi' | 'per_kk' | 'rekap_total_kk'>(
+    mode === 'rekap_total_kk' ? 'rekap_total_kk' : mode === 'per_kk' ? 'per_kk' : 'mutasi'
   );
 
   React.useEffect(() => {
-    if (mode === 'per_kk') {
+    if (mode === 'rekap_total_kk') {
+      setCurrentSubTab('rekap_total_kk');
+    } else if (mode === 'per_kk') {
       setCurrentSubTab('per_kk');
     } else if (mode === 'mutasi') {
       setCurrentSubTab('mutasi');
     }
   }, [mode]);
+
+  // State untuk Poin 3: Rekap Keseluruhan Kas Per KK (Gabungan Semua Periode)
+  const [filterOverallStatus, setFilterOverallStatus] = useState<
+    'semua' | 'Lunas Semua' | 'Bayar Lebih' | 'Ada Tunggakan' | 'Kosong'
+  >('semua');
+  const [searchOverall, setSearchOverall] = useState<string>('');
+  const [selectedDetailHouse, setSelectedDetailHouse] = useState<ResidentHouse | null>(null);
 
   const defaultMonthLabel = config.duesCurrentMonth || 'September 2026';
   const defaultMonthKey = parseIndonesianMonthYearToKey(defaultMonthLabel) || '2026-09';
@@ -325,7 +335,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
   // WhatsApp share modal
   const [isWaModalOpen, setIsWaModalOpen] = useState<boolean>(false);
-  const [waRecapMode, setWaRecapMode] = useState<'gambar_kas' | 'keluar_masuk' | 'iuran_kk'>('gambar_kas');
+  const [waRecapMode, setWaRecapMode] = useState<
+    'gambar_kas' | 'keluar_masuk' | 'iuran_kk' | 'rekap_total_kk'
+  >('gambar_kas');
   const [copiedWaText, setCopiedWaText] = useState<boolean>(false);
   const [waCustomText, setWaCustomText] = useState<string>('');
   const [waImageDataUrl, setWaImageDataUrl] = useState<string | null>(null);
@@ -1541,6 +1553,273 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     };
   }, [residents]);
 
+  // =========================================================================
+  // POIN 3: REKAP KESELURUHAN KAS PER KK (MENGGABUNGKAN TOTAL SEMUA PERIODE)
+  // =========================================================================
+  const overallKKRecapList = useMemo(() => {
+    return residents.map((house, idx) => {
+      const isPureKosong =
+        house.occupancy === 'Kosong' ||
+        isHouseVacant(house) ||
+        Boolean(
+          house.duesHeadNameOverride &&
+            /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim())
+        );
+      const isUnoccupied = house.occupancy === 'Belum Ditempati';
+      const isRumahKosongHitam = isPureKosong;
+
+      const defaultNominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
+      const nominalPerMonth = isPureKosong ? 0 : defaultNominal;
+
+      const payerName = isPureKosong
+        ? house.duesHeadNameOverride && house.duesHeadNameOverride !== 'Rumah Kosong'
+          ? house.duesHeadNameOverride
+          : 'Rumah Kosong'
+        : isUnoccupied
+        ? house.duesHeadNameOverride || 'Belum Ditempati'
+        : house.duesHeadNameOverride || house.headName || '';
+
+      const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+
+      let totalIuranAllPeriods = 0;
+      let totalDendaAllPeriods = 0;
+      let totalTunggakanAllPeriods = 0;
+      let totalPeriodsPaidCount = 0;
+      let unpaidPeriodsCount = 0;
+
+      const periodsDetail = sortedPeriods.map((periodLabel) => {
+        const pKey = parseIndonesianMonthYearToKey(periodLabel) || '';
+        const statusInfo = getHouseStatusForPeriod(house, periodLabel);
+
+        const iuranPaid = isPureKosong
+          ? statusInfo && statusInfo.status === 'Lunas'
+            ? statusInfo.amount || 0
+            : 0
+          : statusInfo
+          ? statusInfo.isAdvanceSubsequentMonth
+            ? 0
+            : statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih'
+            ? statusInfo.amount !== undefined
+              ? statusInfo.amount
+              : nominalPerMonth
+            : statusInfo.amount || 0
+          : 0;
+
+        const baksosInfo = getHouseBaksosForPeriod(house, periodLabel);
+        const dendaPaid = isPureKosong ? 0 : baksosInfo.dendaPaid;
+
+        const tunggakanTxs = transactions.filter((t) => {
+          if (t.type !== 'masuk' || !isTunggakanTx(t)) return false;
+          if (!blockRegex.test(t.description)) return false;
+          return getMonthKeyFromDate(t.date) === pKey;
+        });
+        const tunggakanPaid = isPureKosong ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
+
+        const periodTotal = iuranPaid + dendaPaid + tunggakanPaid;
+
+        const isLunasThisPeriod = isPureKosong
+          ? true
+          : Boolean(
+              statusInfo?.isAdvanceSubsequentMonth ||
+                statusInfo?.status === 'Lunas' ||
+                statusInfo?.status === 'Bayar Lebih' ||
+                iuranPaid >= nominalPerMonth
+            );
+
+        if (isLunasThisPeriod && !isPureKosong) {
+          totalPeriodsPaidCount++;
+        } else if (!isPureKosong && !isUnoccupied) {
+          unpaidPeriodsCount++;
+        }
+
+        totalIuranAllPeriods += iuranPaid;
+        totalDendaAllPeriods += dendaPaid;
+        totalTunggakanAllPeriods += tunggakanPaid;
+
+        return {
+          periodLabel,
+          pKey,
+          statusInfo,
+          iuranPaid,
+          dendaPaid,
+          tunggakanPaid,
+          periodTotal,
+          isLunasThisPeriod,
+          isAdvanceSubsequent: Boolean(statusInfo?.isAdvanceSubsequentMonth),
+          statusBadge: isPureKosong
+            ? 'Bebas Iuran'
+            : statusInfo?.isAdvanceSubsequentMonth
+            ? 'Lunas (Dimuka)'
+            : statusInfo?.label || (isLunasThisPeriod ? 'Lunas' : 'Belum Bayar'),
+          badgeClass: isPureKosong
+            ? 'bg-neutral-900 text-neutral-300 border-neutral-700'
+            : statusInfo?.isAdvanceSubsequentMonth
+            ? 'bg-sky-100 text-sky-900 border-sky-300 font-bold'
+            : isLunasThisPeriod
+            ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
+            : 'bg-rose-100 text-rose-900 border-rose-300 font-bold',
+          paidDate:
+            statusInfo?.paidDate ||
+            tunggakanTxs[0]?.date ||
+            (isLunasThisPeriod ? house.duesPaidDate : undefined),
+        };
+      });
+
+      const grandTotalAllPeriods =
+        totalIuranAllPeriods + totalDendaAllPeriods + totalTunggakanAllPeriods;
+
+      // Sisa tunggakan berjalan
+      const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
+      const unpaidBaksosList = baksosAgendas.filter((agenda) => {
+        const attendance =
+          agenda.attendance?.[house.id] ||
+          (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
+        const isFinePaid = agenda.finesPaid?.[house.id];
+        return attendance === 'Tidak Hadir' && !isFinePaid;
+      });
+      const baksosFineAmount = isPureKosong
+        ? 0
+        : house.customBaksosFineAmount !== undefined
+        ? house.customBaksosFineAmount
+        : unpaidBaksosList.length * 10000;
+      const duesArrears = isPureKosong
+        ? 0
+        : house.duesStatus === 'Belum Bayar'
+        ? Math.max(0, nominalPerMonth - (house.duesPaidAmount || 0))
+        : 0;
+      const previousArrears = isPureKosong ? 0 : house.previousArrears || 0;
+      const remainingArrearsTotal = duesArrears + baksosFineAmount + previousArrears;
+
+      let overallStatus: 'Lunas Semua' | 'Bayar Lebih' | 'Ada Tunggakan' | 'Kosong';
+      let overallBadgeClass = '';
+
+      if (isPureKosong) {
+        overallStatus = 'Kosong';
+        overallBadgeClass = 'bg-black text-white border-neutral-700';
+      } else if (unpaidPeriodsCount === 0 && remainingArrearsTotal === 0) {
+        if (house.duesStatus === 'Bayar Lebih' || (house.duesPaidMonths || 0) > 1) {
+          overallStatus = 'Bayar Lebih';
+          overallBadgeClass = 'bg-sky-100 text-sky-950 border border-sky-300 font-bold';
+        } else {
+          overallStatus = 'Lunas Semua';
+          overallBadgeClass = 'bg-emerald-100 text-emerald-950 border border-emerald-300 font-bold';
+        }
+      } else if (remainingArrearsTotal === 0 && house.duesStatus === 'Bayar Lebih') {
+        overallStatus = 'Bayar Lebih';
+        overallBadgeClass = 'bg-sky-100 text-sky-950 border border-sky-300 font-bold';
+      } else {
+        overallStatus = 'Ada Tunggakan';
+        overallBadgeClass = 'bg-rose-100 text-rose-950 border border-rose-300 font-bold';
+      }
+
+      const rowCellClass = isRumahKosongHitam
+        ? 'bg-black text-white border-neutral-800'
+        : overallStatus === 'Bayar Lebih'
+        ? 'bg-sky-50 text-sky-950 border-sky-300'
+        : overallStatus === 'Lunas Semua'
+        ? 'bg-emerald-50 text-emerald-950 border-emerald-300'
+        : 'bg-rose-50 text-rose-950 border-rose-300';
+
+      return {
+        house,
+        idx,
+        isPureKosong,
+        isUnoccupied,
+        isRumahKosongHitam,
+        nominalPerMonth,
+        payerName,
+        periodsDetail,
+        totalIuranAllPeriods,
+        totalDendaAllPeriods,
+        totalTunggakanAllPeriods,
+        grandTotalAllPeriods,
+        totalPeriodsCount: sortedPeriods.length,
+        totalPeriodsPaidCount,
+        unpaidPeriodsCount,
+        remainingArrearsTotal,
+        overallStatus,
+        overallBadgeClass,
+        rowCellClass,
+      };
+    });
+  }, [
+    residents,
+    sortedPeriods,
+    transactions,
+    baksosAgendas,
+    getHouseStatusForPeriod,
+    getHouseBaksosForPeriod,
+    config.duesAmountPerMonth,
+  ]);
+
+  const filteredOverallKKList = useMemo(() => {
+    return overallKKRecapList.filter((item) => {
+      if (filterOverallStatus !== 'semua') {
+        if (filterOverallStatus === 'Kosong') {
+          if (!item.isPureKosong) return false;
+        } else {
+          if (item.isPureKosong) return false;
+          if (item.overallStatus !== filterOverallStatus) return false;
+        }
+      }
+
+      if (searchOverall.trim()) {
+        const q = searchOverall.toLowerCase().trim();
+        const matchBlock = item.house.blockNumber.toLowerCase().includes(q);
+        const matchName =
+          item.payerName.toLowerCase().includes(q) ||
+          item.house.headName.toLowerCase().includes(q);
+        const matchStatus = item.overallStatus.toLowerCase().includes(q);
+        if (!matchBlock && !matchName && !matchStatus) return false;
+      }
+
+      return true;
+    });
+  }, [overallKKRecapList, filterOverallStatus, searchOverall]);
+
+  const overallTotals = useMemo(() => {
+    let sumIuran = 0;
+    let sumDenda = 0;
+    let sumTunggakan = 0;
+    let sumGrandTotal = 0;
+    let sumRemainingArrears = 0;
+
+    filteredOverallKKList.forEach((r) => {
+      sumIuran += r.totalIuranAllPeriods;
+      sumDenda += r.totalDendaAllPeriods;
+      sumTunggakan += r.totalTunggakanAllPeriods;
+      sumGrandTotal += r.grandTotalAllPeriods;
+      sumRemainingArrears += r.remainingArrearsTotal;
+    });
+
+    return {
+      sumIuran,
+      sumDenda,
+      sumTunggakan,
+      sumGrandTotal,
+      sumRemainingArrears,
+    };
+  }, [filteredOverallKKList]);
+
+  const overallStats = useMemo(() => {
+    const occupied = overallKKRecapList.filter((r) => !r.isPureKosong);
+    const lunasCount = occupied.filter(
+      (r) => r.overallStatus === 'Lunas Semua' || r.overallStatus === 'Bayar Lebih'
+    ).length;
+    const tunggakanCount = occupied.filter((r) => r.overallStatus === 'Ada Tunggakan').length;
+    const bayarLebihCount = occupied.filter((r) => r.overallStatus === 'Bayar Lebih').length;
+    const pctLunas =
+      occupied.length > 0 ? Math.round((lunasCount / occupied.length) * 100) : 0;
+
+    return {
+      totalOccupied: occupied.length,
+      lunasCount,
+      tunggakanCount,
+      bayarLebihCount,
+      pctLunas,
+    };
+  }, [overallKKRecapList]);
+
   // DATA STRUKTUR TABEL BUKU KAS YANG DISEMPURNAKAN & DISEDERHANAKAN:
   // 1. Sisa saldo bulan sebelumnya
   // 1. Sisa saldo bulan sebelumnya
@@ -2660,6 +2939,39 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         `• Arus Kas Bersih: ${periodSummary.netCashflow >= 0 ? '+' : ''}${formatRupiah(periodSummary.netCashflow)}\n\n` +
         `_Transparansi bersama untuk kemakmuran warga._`
       );
+    } else if (waRecapMode === 'rekap_total_kk') {
+      const occupied = residents.filter((r) => r.occupancy !== 'Kosong');
+      return (
+        `*REKAP KESELURUHAN KAS PER KK — ${brand.toUpperCase()}*\n` +
+        `Gabungan Seluruh Periode: ${sortedPeriods[0] || ''} s/d ${sortedPeriods[sortedPeriods.length - 1] || ''} (Per ${dateNow})\n\n` +
+        `*1. TOTAL AKUMULASI PENERIMAAN KAS DARI SELURUH PERIODE:*\n` +
+        `• Total Iuran Rutin Terkumpul: ${formatRupiah(overallTotals.sumIuran)}\n` +
+        `• Total Pembayaran Denda Baksos: ${formatRupiah(overallTotals.sumDenda)}\n` +
+        `• Total Pembayaran Tunggakan: ${formatRupiah(overallTotals.sumTunggakan)}\n` +
+        `👉 *TOTAL KESELURUHAN KAS MASUK PER KK: ${formatRupiah(overallTotals.sumGrandTotal)}*\n` +
+        `• Total Sisa Tunggakan Belum Lunas: ${formatRupiah(overallTotals.sumRemainingArrears)}\n\n` +
+        `*2. TINGKAT KELUNASAN WARGA:*\n` +
+        `• Lunas Semua Periode: ${overallStats.lunasCount} KK (${overallStats.pctLunas}%)\n` +
+        `• Ada Tunggakan: ${overallStats.tunggakanCount} KK\n` +
+        `• Total Rumah Berpenghuni: ${occupied.length} KK\n\n` +
+        `*3. DAFTAR KELUNASAN WARGA (RINGKASAN):*\n` +
+        overallKKRecapList
+          .filter((r) => !r.isPureKosong)
+          .map(
+            (r, i) =>
+              `${i + 1}. Blok ${r.house.blockNumber} (${r.payerName}): Total Masuk ${formatRupiah(
+                r.grandTotalAllPeriods
+              )} — ${
+                r.overallStatus === 'Lunas Semua'
+                  ? '✓ LUNAS SEMUA'
+                  : r.overallStatus === 'Bayar Lebih'
+                  ? '★ BAYAR LEBIH'
+                  : `⚠ Sisa Tunggakan: ${formatRupiah(r.remainingArrearsTotal)}`
+              }`
+          )
+          .join('\n') +
+        `\n\n_Laporan rekapitulasi gabungan seluruh periode kas terpadu Gang Mandor._`
+      );
     } else {
       const occupied = residents.filter((r) => r.occupancy !== 'Kosong');
       const lunasList = occupied.filter((r) => r.duesStatus === 'Lunas' || r.duesStatus === 'Bayar Lebih');
@@ -2680,7 +2992,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         `_Terima kasih atas partisipasi dan kerukunan seluruh warga._`
       );
     }
-  }, [config, selectedTxMonth, balances, periodSummary, residents, defaultMonthLabel, kkStats, waRecapMode]);
+  }, [
+    config,
+    selectedTxMonth,
+    balances,
+    periodSummary,
+    residents,
+    defaultMonthLabel,
+    kkStats,
+    waRecapMode,
+    overallTotals,
+    overallStats,
+    overallKKRecapList,
+    sortedPeriods,
+  ]);
 
   // GENERATOR BENTUK GAMBAR BUKU KAS KELUAR MASUK UNTUK WHATSAPP
   const generateWaImageNow = useCallback(async () => {
@@ -2916,16 +3241,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
 
 
-      {/* UNIFIED SUB-TABS: 1. Buku Kas Keluar & Masuk | 2. Kas Per KK */}
-      <div className="bg-gradient-to-r from-slate-100 via-teal-50/80 to-emerald-50/80 p-1.5 sm:p-2 rounded-2xl border-2 border-emerald-200/90 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
+      {/* UNIFIED SUB-TABS: 1. Buku Kas Keluar & Masuk | 2. Kas Per KK | 3. Rekap Keseluruhan Kas Per KK */}
+      <div className="bg-gradient-to-r from-slate-100 via-teal-50/80 to-emerald-50/80 p-1.5 sm:p-2 rounded-2xl border-2 border-emerald-200/90 shadow-sm flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 w-full xl:w-auto">
           <button
             type="button"
             onClick={() => {
               setCurrentSubTab('mutasi');
               if (onSwitchMode) onSwitchMode('kas');
             }}
-            className={`flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               currentSubTab === 'mutasi'
                 ? 'bg-gradient-to-r from-teal-700 via-emerald-600 to-green-600 text-white shadow-md shadow-emerald-700/25 ring-2 ring-teal-300/80 scale-[1.01]'
                 : 'bg-white hover:bg-emerald-50/80 text-teal-950 border border-teal-200 shadow-2xs'
@@ -2950,7 +3275,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               setCurrentSubTab('per_kk');
               if (onSwitchMode) onSwitchMode('iuran_kk');
             }}
-            className={`flex-1 sm:flex-initial px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-2 ${
+            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
               currentSubTab === 'per_kk'
                 ? 'bg-gradient-to-r from-indigo-700 via-blue-600 to-teal-600 text-white shadow-md shadow-indigo-700/25 ring-2 ring-indigo-300/80 scale-[1.01]'
                 : 'bg-white hover:bg-indigo-50/80 text-indigo-950 border border-indigo-200 shadow-2xs'
@@ -2966,6 +3291,31 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               }`}
             >
               {residents.filter((r) => r.occupancy !== 'Kosong').length} KK
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentSubTab('rekap_total_kk');
+              if (onSwitchMode) onSwitchMode('rekap_total_kk');
+            }}
+            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              currentSubTab === 'rekap_total_kk'
+                ? 'bg-gradient-to-r from-purple-700 via-indigo-700 to-pink-600 text-white shadow-md shadow-purple-700/25 ring-2 ring-purple-300/80 scale-[1.01]'
+                : 'bg-white hover:bg-purple-50/80 text-purple-950 border border-purple-200 shadow-2xs'
+            }`}
+          >
+            <Coins className="w-4 h-4 text-amber-300" />
+            <span>3. Rekap Keseluruhan Kas Per KK</span>
+            <span
+              className={`font-mono text-[11px] font-black px-2 py-0.5 rounded-lg ${
+                currentSubTab === 'rekap_total_kk'
+                  ? 'bg-amber-300 text-slate-950'
+                  : 'bg-purple-100 text-purple-900'
+              }`}
+            >
+              Semua Periode ({sortedPeriods.length})
             </span>
           </button>
         </div>
@@ -4291,6 +4641,641 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               </div>
             </div>
 
+        </div>
+      )}
+
+      {/* VIEW 3: REKAP KESELURUHAN KAS PER KK (MENGGABUNGKAN TOTAL SEMUA PERIODE REKAP IURAN PER KK) */}
+      {currentSubTab === 'rekap_total_kk' && (
+        <div className="bg-gradient-to-b from-white via-slate-50/50 to-purple-50/20 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden space-y-5 p-4 sm:p-6">
+          {/* Header & Stats (Transparansi Penuh untuk Warga & Pengurus) */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+            <div>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-purple-700 via-indigo-700 to-pink-600 text-white shadow-sm shrink-0">
+                  <Coins className="w-5 h-5 text-amber-200" />
+                </div>
+                <div>
+                  <h3 className="font-black text-slate-900 text-base sm:text-lg flex items-center gap-2 flex-wrap">
+                    <span>3. Rekap Keseluruhan Kas Per KK</span>
+                    <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-black uppercase tracking-wider border border-purple-200">
+                      Gabungan Semua Periode ({sortedPeriods.length})
+                    </span>
+                    {isAdmin ? (
+                      <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[10px] font-black uppercase tracking-wider border border-teal-200">
+                        Mode Pengurus
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-wider border border-slate-200">
+                        Informasi Warga
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Rekapitulasi gabungan total seluruh periode pembayaran iuran bulanan warga ({formatRupiah(config.duesAmountPerMonth || 25000)}/bulan), penerimaan denda baksos, dan penyelesaian tunggakan per kepala keluarga.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  exportFinancialReportToExcel({
+                    config,
+                    transactions,
+                    residents,
+                    baksosAgendas,
+                    balances,
+                    exportScope: 'rekap_total_only',
+                  })
+                }
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 active:scale-95 text-white text-xs font-bold cursor-pointer shadow-xs transition-all font-sans"
+                title="Download Data Rekap Keseluruhan Kas Per KK ke Microsoft Excel (.xlsx)"
+              >
+                <Download className="w-3.5 h-3.5 text-purple-200" />
+                <span>Export Excel Rekap Semua KK</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setWaRecapMode('rekap_total_kk');
+                  setWaCustomText('');
+                  setIsWaModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold cursor-pointer shadow-xs transition-all font-sans"
+                title="Bagikan Rekapitulasi Keseluruhan Kas Per KK ke WhatsApp"
+              >
+                <MessageCircle className="w-3.5 h-3.5 text-emerald-200" />
+                <span>Share WhatsApp Rekap</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 5 KARTU STATISTIK GABUNGAN SEMUA PERIODE */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-purple-50 via-indigo-50/60 to-pink-50/40 border border-purple-200 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 text-[11px] font-bold">
+                <span>Grand Total Kas Masuk</span>
+                <Coins className="w-4 h-4 text-purple-600" />
+              </div>
+              <div className="font-mono text-sm sm:text-base font-black text-purple-900">
+                +{formatRupiah(overallTotals.sumGrandTotal)}
+              </div>
+              <p className="text-[10px] text-slate-500 font-medium">Dari seluruh KK &amp; periode</p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50/60 to-emerald-50/40 border border-emerald-200 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 text-[11px] font-bold">
+                <span>Total Iuran Bulanan</span>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="font-mono text-sm sm:text-base font-black text-emerald-900">
+                +{formatRupiah(overallTotals.sumIuran)}
+              </div>
+              <p className="text-[10px] text-slate-500 font-medium">Akumulasi iuran rutin warga</p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-cyan-50 via-sky-50/60 to-blue-50/40 border border-cyan-200 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 text-[11px] font-bold">
+                <span>Total Denda Baksos</span>
+                <Users className="w-4 h-4 text-cyan-600" />
+              </div>
+              <div className="font-mono text-sm sm:text-base font-black text-cyan-900">
+                +{formatRupiah(overallTotals.sumDenda)}
+              </div>
+              <p className="text-[10px] text-slate-500 font-medium">Denda ketidakhadiran lunas</p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50/60 to-yellow-50/40 border border-amber-200 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 text-[11px] font-bold">
+                <span>Total Bayar Tunggakan</span>
+                <TrendingUp className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="font-mono text-sm sm:text-base font-black text-amber-900">
+                +{formatRupiah(overallTotals.sumTunggakan)}
+              </div>
+              <p className="text-[10px] text-slate-500 font-medium">Tunggakan lampau diselesaikan</p>
+            </div>
+
+            <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50 via-purple-50/60 to-slate-50 border border-indigo-200 shadow-2xs space-y-1">
+              <div className="flex items-center justify-between text-slate-500 text-[11px] font-bold">
+                <span>Tingkat Kepatuhan</span>
+                <BarChart3 className="w-4 h-4 text-indigo-600" />
+              </div>
+              <div className="font-mono text-sm sm:text-base font-black text-indigo-900">
+                {overallStats.pctLunas}% Tertib
+              </div>
+              <p className="text-[10px] text-slate-500 font-medium">
+                {overallStats.lunasCount} dari {overallStats.totalOccupied} KK lunas semua
+              </p>
+            </div>
+          </div>
+
+          {/* BARIS KONTROL, FILTER, MODE TAMPILAN & PENCARIAN */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-purple-50/30 to-slate-50 border border-slate-200/90 shadow-2xs space-y-3">
+            {/* Baris 1: Filter Periode Info & Switcher Mode Tampilan (Ringkas vs Matriks Lengkap) */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="font-extrabold text-slate-800 mr-1 flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-purple-600" />
+                  Periode yang Digabungkan ({sortedPeriods.length}):
+                </span>
+                {sortedPeriods.map((p) => (
+                  <span
+                    key={p}
+                    className="px-2.5 py-1 rounded-xl bg-purple-100 text-purple-900 border border-purple-200 font-bold text-[11px] shadow-2xs"
+                  >
+                    {p}
+                  </span>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-purple-200 text-xs font-bold text-purple-950 shadow-2xs self-start lg:self-auto">
+                <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                <span>Matriks Lengkap Seluruh Periode</span>
+              </div>
+            </div>
+
+            {/* Baris 2: Filter Status Kelunasan & Pencarian KK */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-200/70">
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setFilterOverallStatus('semua')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    filterOverallStatus === 'semua'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs'
+                  }`}
+                >
+                  Semua ({overallKKRecapList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterOverallStatus('Lunas Semua')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    filterOverallStatus === 'Lunas Semua'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-emerald-50/90 text-emerald-900 hover:bg-emerald-100 border border-emerald-300 shadow-2xs'
+                  }`}
+                >
+                  Lunas Semua Periode ({overallStats.lunasCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterOverallStatus('Bayar Lebih')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    filterOverallStatus === 'Bayar Lebih'
+                      ? 'bg-sky-600 text-white shadow-xs'
+                      : 'bg-sky-50/90 text-sky-900 hover:bg-sky-100 border border-sky-300 shadow-2xs'
+                  }`}
+                >
+                  Bayar Lebih ({overallStats.bayarLebihCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterOverallStatus('Ada Tunggakan')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    filterOverallStatus === 'Ada Tunggakan'
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-rose-50/90 text-rose-900 hover:bg-rose-100 border border-rose-300 shadow-2xs'
+                  }`}
+                >
+                  Ada Tunggakan ({overallStats.tunggakanCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterOverallStatus('Kosong')}
+                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                    filterOverallStatus === 'Kosong'
+                      ? 'bg-neutral-900 text-white shadow-xs'
+                      : 'bg-neutral-100 text-neutral-800 hover:bg-neutral-200 border border-neutral-300 shadow-2xs'
+                  }`}
+                >
+                  Rumah Kosong ({overallKKRecapList.filter((r) => r.isPureKosong).length})
+                </button>
+              </div>
+
+              <div className="relative w-full sm:w-64">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Cari nama KK / nomor blok..."
+                  value={searchOverall}
+                  onChange={(e) => setSearchOverall(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 shadow-2xs transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* TABEL REKAP KESELURUHAN KAS PER KK */}
+          <div className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-1.5 pb-1">
+              <span className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                <Table className="w-4 h-4 text-purple-600" />
+                <span>
+                  Tabel Rekapitulasi Keseluruhan Kas Per Kepala Keluarga ({filteredOverallKKList.length} KK)
+                </span>
+              </span>
+              <span className="text-[11px] text-slate-500 font-medium">
+                Menggabungkan {sortedPeriods.length} Periode ({sortedPeriods.join(' • ')})
+              </span>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-slate-300/90 shadow-sm bg-white">
+              <table className="w-full text-left text-xs border-collapse border border-slate-300 whitespace-nowrap">
+                <thead>
+                  <tr className="bg-gradient-to-r from-slate-900 via-purple-950 to-indigo-950 text-white font-extrabold border-b border-slate-300">
+                    <th className="py-3 px-2 text-center w-12 border border-slate-300/70 text-white">No</th>
+                    <th className="py-3 px-3 text-center border border-slate-300/70 text-white">No Blok</th>
+                    <th className="py-3 px-4 min-w-[180px] border border-slate-300/70 text-white">Nama Kepala Keluarga</th>
+                    <th className="py-3 px-3 text-center border border-slate-300/70 text-white">Status Hunian</th>
+
+                    {/* Render Kolom untuk Setiap Periode */}
+                    {sortedPeriods.map((periodName) => (
+                      <th
+                        key={periodName}
+                        className="py-3 px-3 text-center border border-slate-300/70 text-purple-200 font-bold bg-purple-900/40"
+                      >
+                        {periodName}
+                      </th>
+                    ))}
+
+                    <th className="py-3 px-3 text-right border border-slate-300/70 text-rose-200">
+                      Sisa Tunggakan
+                    </th>
+                    <th className="py-3 px-3 text-center border border-slate-300/70 text-white w-28">
+                      Aksi &amp; Detail
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody className="divide-y divide-slate-300">
+                  {filteredOverallKKList.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={6 + sortedPeriods.length}
+                        className="py-8 text-center text-slate-400 italic border border-slate-300"
+                      >
+                        Tidak ada data KK yang cocok dengan filter ini.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredOverallKKList.map((row) => {
+                      const {
+                        house,
+                        idx,
+                        isPureKosong,
+                        isRumahKosongHitam,
+                        payerName,
+                        periodsDetail,
+                        totalIuranAllPeriods,
+                        totalDendaAllPeriods,
+                        totalTunggakanAllPeriods,
+                        grandTotalAllPeriods,
+                        totalPeriodsPaidCount,
+                        unpaidPeriodsCount,
+                        remainingArrearsTotal,
+                        overallStatus,
+                        overallBadgeClass,
+                        rowCellClass,
+                      } = row;
+
+                      return (
+                        <tr
+                          key={house.id}
+                          className={`transition-colors border-b ${rowCellClass}`}
+                        >
+                          {/* 1. No */}
+                          <td
+                            className={`py-2.5 px-2 text-center font-mono border ${
+                              isRumahKosongHitam ? 'text-slate-300' : 'text-slate-600'
+                            }`}
+                          >
+                            {idx + 1}
+                          </td>
+
+                          {/* 2. No Blok */}
+                          <td className="py-2.5 px-3 text-center border border-slate-300">
+                            <span
+                              className={`font-mono text-xs font-bold px-2 py-0.5 rounded-lg border shadow-2xs ${
+                                isRumahKosongHitam
+                                  ? 'bg-neutral-900 text-white border-neutral-700'
+                                  : overallStatus === 'Bayar Lebih'
+                                  ? 'bg-sky-200/90 text-sky-950 border-sky-400'
+                                  : overallStatus === 'Lunas Semua'
+                                  ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400'
+                                  : 'bg-rose-200/90 text-rose-950 border-rose-400'
+                              }`}
+                            >
+                              Blok {house.blockNumber}
+                            </span>
+                          </td>
+
+                          {/* 3. Nama Kepala Keluarga */}
+                          <td className="py-2.5 px-4 border border-slate-300">
+                            <div className="flex items-center justify-between gap-1.5">
+                              <span
+                                className={`font-bold ${
+                                  isRumahKosongHitam
+                                    ? 'text-white'
+                                    : overallStatus === 'Bayar Lebih'
+                                    ? 'text-sky-950'
+                                    : overallStatus === 'Lunas Semua'
+                                    ? 'text-emerald-950'
+                                    : 'text-rose-950'
+                                }`}
+                              >
+                                {payerName}
+                              </span>
+                              {isAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditHouseDues(house, false)}
+                                  className={`p-1 rounded transition-colors cursor-pointer shrink-0 ${
+                                    isRumahKosongHitam
+                                      ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                      : 'text-slate-400 hover:text-purple-700 hover:bg-purple-100/60'
+                                  }`}
+                                  title="Edit Data / Iuran KK Ini"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* 4. Status Hunian */}
+                          <td
+                            className={`py-2.5 px-3 text-center border border-slate-300 text-xs ${
+                              isRumahKosongHitam ? 'text-slate-400' : 'text-slate-600'
+                            }`}
+                          >
+                            {house.occupancy}
+                          </td>
+
+                          {/* Kolom Rincian Setiap Periode */}
+                          {periodsDetail.map((pDet) => (
+                            <td
+                              key={pDet.periodLabel}
+                              className="py-2.5 px-2.5 text-center border border-slate-300 font-mono text-xs"
+                            >
+                              {isPureKosong ? (
+                                <span className="text-[10px] text-neutral-400 italic">Bebas</span>
+                              ) : pDet.isAdvanceSubsequent ? (
+                                <span className="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-800 text-[10px] font-bold border border-sky-300">
+                                  ✓ Dimuka
+                                </span>
+                              ) : pDet.iuranPaid > 0 ? (
+                                <div className="flex flex-col items-center">
+                                  <span className="font-bold text-emerald-800">
+                                    +{formatRupiah(pDet.iuranPaid)}
+                                  </span>
+                                  {pDet.dendaPaid > 0 && (
+                                    <span className="text-[9px] text-cyan-700 font-medium">
+                                      +Denda {formatRupiah(pDet.dendaPaid)}
+                                    </span>
+                                  )}
+                                  {pDet.tunggakanPaid > 0 && (
+                                    <span className="text-[9px] text-amber-700 font-medium">
+                                      +Tung {formatRupiah(pDet.tunggakanPaid)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[10px] font-bold border border-rose-300">
+                                  Belum
+                                </span>
+                              )}
+                            </td>
+                          ))}
+
+                          {/* Sisa Tunggakan Berjalan */}
+                          <td className="py-2.5 px-3 text-right font-mono tabular-nums border border-slate-300 font-bold">
+                            {remainingArrearsTotal > 0 ? (
+                              <span className="text-rose-700">
+                                {formatRupiah(remainingArrearsTotal)}
+                              </span>
+                            ) : (
+                              <span className="text-emerald-700 font-semibold text-[11px]">
+                                Rp 0 (Bersih)
+                              </span>
+                            )}
+                          </td>
+
+                          {/* 11. Aksi & Detail */}
+                          <td className="py-2.5 px-3 text-center border border-slate-300">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDetailHouse(house)}
+                                className="px-2 py-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px] shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                                title="Lihat Histori Rincian Setiap Periode untuk KK ini"
+                              >
+                                <Eye className="w-3 h-3 text-purple-200" />
+                                <span>Rincian</span>
+                              </button>
+
+                              {house.phone && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const waMsg =
+                                      `Halo Bpk/Ibu ${payerName} (Blok ${house.blockNumber}),\n` +
+                                      `Berikut rekap keseluruhan pembayaran kas Gang Mandor Blok K2/25–K3/24 gabungan seluruh periode (${sortedPeriods.join(' • ')}):\n` +
+                                      `• Total Iuran Rutin: ${formatRupiah(totalIuranAllPeriods)}\n` +
+                                      `• Total Denda Baksos: ${formatRupiah(totalDendaAllPeriods)}\n` +
+                                      `• Total Bayar Tunggakan: ${formatRupiah(totalTunggakanAllPeriods)}\n` +
+                                      `👉 *TOTAL KAS MASUK PER KK: ${formatRupiah(grandTotalAllPeriods)}*\n` +
+                                      `• Status: ${overallStatus === 'Lunas Semua' ? 'LUNAS SEMUA PERIODE' : overallStatus === 'Bayar Lebih' ? 'BAYAR LEBIH (>1 BULAN)' : `Ada Tunggakan: ${formatRupiah(remainingArrearsTotal)}`}\n\n` +
+                                      `Terima kasih atas partisipasi aktif dalam kerukunan warga Gang Mandor.`;
+                                    openWhatsAppShare(waMsg);
+                                  }}
+                                  className="p-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 transition-colors cursor-pointer"
+                                  title="Kirim Ringkasan Keseluruhan ke WhatsApp Warga"
+                                >
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+
+                {/* FOOTER TABEL: TOTAL AKUMULASI GANG MANDOR */}
+                {filteredOverallKKList.length > 0 && (
+                  <tfoot>
+                    <tr className="bg-gradient-to-r from-slate-900 via-purple-950 to-indigo-950 text-white font-extrabold border-t-2 border-slate-300">
+                      <td colSpan={4 + sortedPeriods.length} className="py-3 px-4 text-right text-xs uppercase tracking-wider text-amber-200 border border-slate-300/70">
+                        TOTAL AKUMULASI SISA TUNGGAKAN ({filteredOverallKKList.length} KK):
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-xs tabular-nums text-rose-300 border border-slate-300/70">
+                        {formatRupiah(overallTotals.sumRemainingArrears)}
+                      </td>
+                      <td className="py-3 px-3 text-center font-sans text-xs text-purple-200 border border-slate-300/70">
+                        -
+                      </td>
+                    </tr>
+                  </tfoot>
+                )}
+              </table>
+            </div>
+
+            {/* STATUS PENCOCOKAN AKUMULASI SELURUH PERIODE */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50/80 to-purple-50 border-2 border-purple-300 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <div className="font-extrabold text-purple-950 flex items-center gap-2 text-sm">
+                    <span>Rekap Keseluruhan Kas Per KK: 100% Terintegrasi Seluruh Periode</span>
+                    <span className="px-2 py-0.5 rounded-md bg-purple-600 text-white text-[10px] font-black uppercase tracking-wider">
+                      Semua Periode ({sortedPeriods.length})
+                    </span>
+                  </div>
+                  <div className="text-slate-600 text-[11px] mt-0.5 flex items-center gap-2 flex-wrap">
+                    <span>Periode: <strong className="text-slate-900">{sortedPeriods.join(' • ')}</strong></span>
+                    <span>•</span>
+                    <span>Iuran Rutin: <strong className="text-emerald-800">{formatRupiah(overallTotals.sumIuran)}</strong></span>
+                    <span>•</span>
+                    <span>Denda Baksos: <strong className="text-cyan-800">{formatRupiah(overallTotals.sumDenda)}</strong></span>
+                    <span>•</span>
+                    <span>Tunggakan Bayar: <strong className="text-amber-800">{formatRupiah(overallTotals.sumTunggakan)}</strong></span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 bg-white/90 px-3.5 py-1.5 rounded-xl border border-purple-200">
+                <div className="text-right">
+                  <div className="text-[10px] text-slate-500 font-semibold uppercase">Total Seluruh Kas Masuk</div>
+                  <div className="font-mono text-base font-black text-purple-900">
+                    +{formatRupiah(overallTotals.sumGrandTotal)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DETAIL HISTORI KK PERIODE (RINCIAN SETIAP BULAN) */}
+      {selectedDetailHouse && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-purple-800 via-indigo-800 to-slate-900 p-4 sm:p-5 text-white flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-purple-500/20 border border-purple-400/30 text-purple-300">
+                  <Coins className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h4 className="font-extrabold text-sm sm:text-base text-white flex items-center gap-2">
+                    <span>Rincian Pembayaran Kas — Blok {selectedDetailHouse.blockNumber}</span>
+                  </h4>
+                  <p className="text-[11px] text-purple-200/90 font-medium">
+                    Kepala Keluarga: {selectedDetailHouse.duesHeadNameOverride || selectedDetailHouse.headName} • Status: {selectedDetailHouse.occupancy}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDetailHouse(null)}
+                className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1 text-xs">
+              {/* Rincian per Periode */}
+              <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900 text-white font-bold text-[11px]">
+                      <th className="py-2.5 px-3">Periode</th>
+                      <th className="py-2.5 px-3 text-right">Iuran (Rp)</th>
+                      <th className="py-2.5 px-3 text-right">Denda Baksos (Rp)</th>
+                      <th className="py-2.5 px-3 text-right">Tunggakan (Rp)</th>
+                      <th className="py-2.5 px-3 text-right text-amber-300">Total Masuk (Rp)</th>
+                      <th className="py-2.5 px-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {(() => {
+                      const matchRow = overallKKRecapList.find((r) => r.house.id === selectedDetailHouse.id);
+                      if (!matchRow) return null;
+                      return matchRow.periodsDetail.map((p) => (
+                        <tr key={p.periodLabel} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-2.5 px-3 font-bold text-slate-800">{p.periodLabel}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-800 font-bold">
+                            {p.iuranPaid > 0 ? `+${formatRupiah(p.iuranPaid)}` : p.isAdvanceSubsequent ? '✓ Dimuka' : 'Rp 0'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-cyan-800">
+                            {p.dendaPaid > 0 ? `+${formatRupiah(p.dendaPaid)}` : 'Rp 0'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-amber-800">
+                            {p.tunggakanPaid > 0 ? `+${formatRupiah(p.tunggakanPaid)}` : 'Rp 0'}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-purple-900 bg-purple-50/50">
+                            +{formatRupiah(p.periodTotal)}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${p.badgeClass}`}>
+                              {p.statusBadge}
+                            </span>
+                          </td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Rangkuman Total Akumulasi KK Ini */}
+              {(() => {
+                const matchRow = overallKKRecapList.find((r) => r.house.id === selectedDetailHouse.id);
+                if (!matchRow) return null;
+                return (
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50 to-pink-50 border border-purple-200 space-y-2">
+                    <div className="flex items-center justify-between font-bold text-slate-700">
+                      <span>Total Akumulasi Pembayaran Kas Masuk:</span>
+                      <span className="font-mono text-base font-black text-purple-950">
+                        +{formatRupiah(matchRow.grandTotalAllPeriods)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px] text-slate-600 border-t border-purple-200/60 pt-1.5">
+                      <span>Sisa Tunggakan Belum Dibayar:</span>
+                      <span className={`font-mono font-bold ${matchRow.remainingArrearsTotal > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                        {matchRow.remainingArrearsTotal > 0 ? formatRupiah(matchRow.remainingArrearsTotal) : 'Rp 0 (Bersih / Bebas Tunggakan)'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center shrink-0">
+              <span className="text-[11px] text-slate-500 font-medium">
+                Pencatatan resmi terpadu Gang Mandor Blok K2/25–K3/24
+              </span>
+              <button
+                type="button"
+                onClick={() => setSelectedDetailHouse(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs cursor-pointer shadow-xs transition-all"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -5930,22 +6915,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
             {/* Modal Body */}
             <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
-              {/* Tab Selector: 1. Bentuk Gambar Kas (Utama) | 2. Format Teks Keluar Masuk | 3. Format Teks Iuran KK */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-2xl text-xs font-bold">
+              {/* Tab Selector: 1. Bentuk Gambar Kas | 2. Format Teks Arus Kas | 3. Format Teks Iuran KK | 4. Format Teks Rekap Keseluruhan KK */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-2xl text-xs font-bold">
                 <button
                   type="button"
                   onClick={() => {
                     setWaRecapMode('gambar_kas');
                     if (!waImageDataUrl) generateWaImageNow();
                   }}
-                  className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     waRecapMode === 'gambar_kas'
                       ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                   }`}
                 >
-                  <LucideImage className="w-4 h-4 text-amber-300" />
-                  <span>1. Bentuk Gambar Kas</span>
+                  <LucideImage className="w-3.5 h-3.5 text-amber-300" />
+                  <span className="truncate">1. Gambar Kas</span>
                 </button>
                 <button
                   type="button"
@@ -5953,14 +6938,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     setWaRecapMode('keluar_masuk');
                     setWaCustomText('');
                   }}
-                  className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     waRecapMode === 'keluar_masuk'
                       ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                   }`}
                 >
-                  <FileText className="w-4 h-4 text-teal-300" />
-                  <span>2. Teks Arus Kas</span>
+                  <FileText className="w-3.5 h-3.5 text-teal-300" />
+                  <span className="truncate">2. Teks Arus Kas</span>
                 </button>
                 <button
                   type="button"
@@ -5968,14 +6953,29 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     setWaRecapMode('iuran_kk');
                     setWaCustomText('');
                   }}
-                  className={`py-2 px-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                     waRecapMode === 'iuran_kk'
                       ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                   }`}
                 >
-                  <Users className="w-4 h-4 text-cyan-300" />
-                  <span>3. Teks Iuran Per KK</span>
+                  <Users className="w-3.5 h-3.5 text-cyan-300" />
+                  <span className="truncate">3. Iuran Per KK</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWaRecapMode('rekap_total_kk');
+                    setWaCustomText('');
+                  }}
+                  className={`py-2 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    waRecapMode === 'rekap_total_kk'
+                      ? 'bg-purple-600 text-white shadow-sm ring-1 ring-purple-500'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <Coins className="w-3.5 h-3.5 text-amber-300" />
+                  <span className="truncate">4. Rekap Semua KK</span>
                 </button>
               </div>
 

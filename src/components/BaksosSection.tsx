@@ -4,18 +4,23 @@ import {
   Calendar,
   Check,
   CheckCircle2,
+  Download,
   Edit2,
+  FileSpreadsheet,
   Home,
   MapPin,
   Plus,
   Share2,
   ShieldCheck,
   Trash2,
+  Upload,
   Users,
   X,
 } from 'lucide-react';
 import { BaksosAgenda, BaksosAttendanceStatus, ResidentHouse, SiteConfig } from '../types';
 import { formatDateDDMMYYYY, formatRupiah, isHouseVacant, openWhatsAppShare } from '../utils/helpers';
+import { downloadBaksosExcelTemplate } from '../utils/baksosExcelHelper';
+import { BaksosExcelUploadModal } from './BaksosExcelUploadModal';
 
 interface BaksosSectionProps {
   config: SiteConfig;
@@ -46,6 +51,7 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
     agendas[0]?.id || ''
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBaksosUploadModalOpen, setIsBaksosUploadModalOpen] = useState(false);
   const [editingAgenda, setEditingAgenda] = useState<BaksosAgenda | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -181,7 +187,7 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
 
         {/* 3. Menu-menu Lainnya di Bawahnya Lagi */}
         {isAdmin && (
-          <div className="pt-2 border-t border-emerald-700/60 flex items-center gap-2">
+          <div className="pt-2 border-t border-emerald-700/60 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={handleOpenAdd}
@@ -190,6 +196,28 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
               <Plus className="w-4 h-4" />
               <span>Tambah Agenda Baksos</span>
             </button>
+            {currentAgenda && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => downloadBaksosExcelTemplate(currentAgenda, residents)}
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-extrabold bg-white hover:bg-slate-100 text-slate-900 rounded-xl shadow-md transition-all cursor-pointer whitespace-nowrap"
+                  title="Download Template Excel Presensi Baksos (Format Sama Web)"
+                >
+                  <Download className="w-4 h-4 text-emerald-700" />
+                  <span>Download Template Excel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsBaksosUploadModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-black bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl shadow-md transition-all cursor-pointer whitespace-nowrap"
+                  title="Upload Excel Presensi Baksos untuk update massal kehadiran dan denda"
+                >
+                  <Upload className="w-4 h-4 text-slate-950" />
+                  <span>Upload Excel Presensi</span>
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={onOpenConfigModal}
@@ -779,6 +807,23 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal Upload Excel Presensi Baksos */}
+      {isBaksosUploadModalOpen && currentAgenda && (
+        <BaksosExcelUploadModal
+          isOpen={isBaksosUploadModalOpen}
+          onClose={() => setIsBaksosUploadModalOpen(false)}
+          agenda={currentAgenda}
+          residents={residents}
+          onConfirmImport={(updatedAttendance, updatedFinesPaid) => {
+            onEditAgenda({
+              ...currentAgenda,
+              attendance: updatedAttendance,
+              finesPaid: updatedFinesPaid,
+            });
+          }}
+        />
       )}
     </div>
   );

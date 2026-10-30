@@ -62,7 +62,15 @@ export const INITIAL_NAV_MENUS: MenuItemConfig[] = [
         description: 'Pencatatan status kelunasan dan riwayat pembayaran iuran rutin per kepala keluarga.',
         targetId: 'per_kk',
       },
+      {
+        id: 'rekap_total_kk',
+        label: '3. Rekap Keseluruhan Kas Per KK',
+        title: 'Rekapitulasi Keseluruhan Kas Per KK (Semua Periode)',
+        description: 'Rekap gabungan total seluruh periode pembayaran iuran bulanan, denda baksos, dan tunggakan per kepala keluarga.',
+        targetId: 'rekap_total_kk',
+      },
     ],
+
   },
   {
     id: 'baksos',

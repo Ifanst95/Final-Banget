@@ -13,6 +13,7 @@ import {
   getMonthKeyFromDate,
   getSubsequentMonthLabels,
   isHouseVacant,
+  parseIndonesianMonthYearToKey,
 } from './helpers';
 
 export interface FinancialExportOptions {
@@ -21,7 +22,7 @@ export interface FinancialExportOptions {
   residents: ResidentHouse[];
   baksosAgendas?: BaksosAgenda[];
   balances: BalanceBreakdown;
-  exportScope?: 'all' | 'mutasi_only' | 'per_kk_only' | 'tunggakan_only';
+  exportScope?: 'all' | 'mutasi_only' | 'per_kk_only' | 'rekap_total_only' | 'tunggakan_only';
 }
 
 /**
@@ -389,6 +390,183 @@ export function exportFinancialReportToExcel({
     XLSX.utils.book_append_sheet(wb, wsPerKK, 'Laporan Kas Per KK');
   }
 
+  // 3B. SHEET: REKAP KESELURUHAN KAS PER KK (GABUNGAN SEMUA PERIODE)
+  if (exportScope === 'all' || exportScope === 'rekap_total_only') {
+    const rawList =
+      config.duesAvailablePeriods && config.duesAvailablePeriods.length > 0
+        ? config.duesAvailablePeriods
+        : [currentPeriod, 'September 2026'];
+    const txMonths = transactions
+      .map((t) => formatMonthYearFromKey(getMonthKeyFromDate(t.date)))
+      .filter((l): l is string => Boolean(l));
+    const currentActiveKey = parseIndonesianMonthYearToKey(currentPeriod) || '2026-10';
+    const sortedAllPeriods = Array.from(new Set([currentPeriod, ...rawList, ...txMonths]))
+      .filter((p) => {
+        const key = parseIndonesianMonthYearToKey(p);
+        if (!key) return false;
+        if (key > currentActiveKey) return false;
+        if (key === '2026-04' || p.toLowerCase().includes('april')) return false;
+        return true;
+      })
+      .sort((a, b) => (parseIndonesianMonthYearToKey(a) || '').localeCompare(parseIndonesianMonthYearToKey(b) || ''));
+
+    const overallRows = residents.map((house, idx) => {
+      const isPureKosong =
+        house.occupancy === 'Kosong' ||
+        isHouseVacant(house) ||
+        Boolean(house.duesHeadNameOverride && /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim()));
+      const isUnoccupied = house.occupancy === 'Belum Ditempati';
+      const nominal = isPureKosong ? 0 : getHouseDuesNominal(house);
+      const payerName = isPureKosong
+        ? (house.duesHeadNameOverride && house.duesHeadNameOverride !== 'Rumah Kosong'
+            ? house.duesHeadNameOverride
+            : 'Rumah Kosong')
+        : isUnoccupied
+        ? (house.duesHeadNameOverride || 'Belum Ditempati')
+        : (house.duesHeadNameOverride || house.headName || '');
+
+      const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+
+      let totalIuranAll = 0;
+      let totalDendaAll = 0;
+      let totalTunggakanAll = 0;
+      let lunasPeriodsCount = 0;
+
+      sortedAllPeriods.forEach((pLabel) => {
+        const pKey = parseIndonesianMonthYearToKey(pLabel) || '';
+        
+        // Iuran
+        const matchingIuranTxs = transactions.filter((t) => {
+          if (t.type !== 'masuk') return false;
+          const cat = t.category || '';
+          const desc = (t.description || '').toLowerCase();
+          const isIuran = cat === 'Iuran Warga' || desc.includes('iuran');
+          if (!isIuran || !blockRegex.test(t.description)) return false;
+          return getMonthKeyFromDate(t.date) === pKey;
+        });
+        const sumTxs = matchingIuranTxs.reduce((s, t) => s + t.amount, 0);
+
+        let iuranPeriod = 0;
+        let isPeriodLunas = false;
+
+        if (isPureKosong) {
+          iuranPeriod = sumTxs;
+          isPeriodLunas = true;
+        } else if (sumTxs > 0) {
+          iuranPeriod = sumTxs;
+          isPeriodLunas = true;
+        } else {
+          // Check advance or base match
+          const houseBase = house.duesMonthNote || currentPeriod;
+          const baseKey = parseIndonesianMonthYearToKey(houseBase);
+          const isPaid = house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih';
+          const paidMonths = house.duesPaidMonths || (house.duesStatus === 'Bayar Lebih' ? 2 : isPaid ? 1 : 0);
+          const covered = isPaid ? getSubsequentMonthLabels(houseBase, Math.max(1, paidMonths)) : [];
+          const isAdv = isPaid && paidMonths > 1 && baseKey && pKey > baseKey && covered.some(m => parseIndonesianMonthYearToKey(m) === pKey);
+
+          if (isAdv) {
+            iuranPeriod = 0;
+            isPeriodLunas = true;
+          } else if (((baseKey && pKey === baseKey) || pLabel === houseBase) && isPaid) {
+            iuranPeriod = paidMonths > 1 ? nominal * paidMonths : nominal;
+            isPeriodLunas = true;
+          } else if (pLabel === currentPeriod) {
+            if (isPaid) {
+              iuranPeriod = house.duesStatus === 'Bayar Lebih' ? nominal * Math.max(2, house.duesPaidMonths || 2) : nominal;
+              isPeriodLunas = true;
+            } else {
+              iuranPeriod = house.duesPaidAmount || 0;
+              isPeriodLunas = false;
+            }
+          }
+        }
+
+        if (isPeriodLunas && !isPureKosong) lunasPeriodsCount++;
+        totalIuranAll += iuranPeriod;
+
+        // Denda baksos
+        const baksosTxs = transactions.filter((t) => {
+          if (t.type !== 'masuk') return false;
+          const cat = t.category || '';
+          const desc = (t.description || '').toLowerCase();
+          return (cat === 'Denda Baksos' || desc.includes('denda')) && blockRegex.test(t.description) && getMonthKeyFromDate(t.date) === pKey;
+        });
+        const agendaPaid = baksosAgendas.filter((a) => {
+          return getMonthKeyFromDate(a.date) === pKey && a.attendance?.[house.id] === 'Tidak Hadir' && Boolean(a.finesPaid?.[house.id]);
+        }).reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
+        const dendaPeriod = isPureKosong ? 0 : Math.max(baksosTxs.reduce((s, t) => s + t.amount, 0), agendaPaid);
+        totalDendaAll += dendaPeriod;
+
+        // Tunggakan
+        const tunggakanTxs = transactions.filter((t) => {
+          if (t.type !== 'masuk') return false;
+          const desc = (t.description || '').toLowerCase();
+          const cat = t.category || '';
+          const isTung = cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan') || desc.includes('bayar tunggakan');
+          return isTung && blockRegex.test(t.description) && getMonthKeyFromDate(t.date) === pKey;
+        });
+        const tunggakanPeriod = isPureKosong ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
+        totalTunggakanAll += tunggakanPeriod;
+      });
+
+      const grandTotalAll = totalIuranAll + totalDendaAll + totalTunggakanAll;
+
+      // Tunggakan tersisa
+      const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
+      const unpaidBaksos = baksosAgendas.filter((agenda) => {
+        const att = agenda.attendance?.[house.id] || (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
+        return att === 'Tidak Hadir' && !agenda.finesPaid?.[house.id];
+      });
+      const baksosFineArrears = isPureKosong ? 0 : (house.customBaksosFineAmount !== undefined ? house.customBaksosFineAmount : unpaidBaksos.length * 10000);
+      const duesArrears = isPureKosong ? 0 : (house.duesStatus === 'Belum Bayar' ? Math.max(0, nominal - (house.duesPaidAmount || 0)) : 0);
+      const prevArrears = isPureKosong ? 0 : (house.previousArrears || 0);
+      const remainingTotal = duesArrears + baksosFineArrears + prevArrears;
+
+      let statusOverall = 'LUNAS SEMUA PERIODE';
+      if (isPureKosong) {
+        statusOverall = 'BEBAS IURAN (KOSONG)';
+      } else if (lunasPeriodsCount === sortedAllPeriods.length && remainingTotal === 0) {
+        statusOverall = (house.duesStatus === 'Bayar Lebih' || (house.duesPaidMonths || 0) > 1) ? 'BAYAR LEBIH (>1 BLN)' : 'LUNAS SEMUA PERIODE';
+      } else if (remainingTotal === 0 && house.duesStatus === 'Bayar Lebih') {
+        statusOverall = 'BAYAR LEBIH (>1 BLN)';
+      } else {
+        statusOverall = 'ADA TUNGGAKAN';
+      }
+
+      return {
+        No: idx + 1,
+        'No Blok': house.blockNumber,
+        'Nama Kepala Keluarga': payerName,
+        'Status Hunian': house.occupancy,
+        'Jumlah Periode Tercatat': sortedAllPeriods.length,
+        'Periode Lunas': isPureKosong ? '-' : `${lunasPeriodsCount} dari ${sortedAllPeriods.length} Periode`,
+        'Total Iuran Rutin (Rp)': totalIuranAll,
+        'Total Denda Baksos (Rp)': totalDendaAll,
+        'Total Pembayaran Tunggakan (Rp)': totalTunggakanAll,
+        'TOTAL KESELURUHAN KAS MASUK (Rp)': grandTotalAll,
+        'Sisa Tunggakan Berjalan (Rp)': remainingTotal,
+        'Status Kelunasan Keseluruhan': statusOverall,
+      };
+    });
+
+    const wsOverall = XLSX.utils.json_to_sheet(overallRows);
+    wsOverall['!cols'] = [
+      { wch: 5 },
+      { wch: 10 },
+      { wch: 24 },
+      { wch: 16 },
+      { wch: 22 },
+      { wch: 24 },
+      { wch: 22 },
+      { wch: 22 },
+      { wch: 26 },
+      { wch: 30 },
+      { wch: 24 },
+      { wch: 26 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsOverall, 'Rekap Keseluruhan Kas Per KK');
+  }
+
   // 4. SHEET: RINCIAN TUNGGAKAN & DENDA WARGA
   if (exportScope === 'all' || exportScope === 'tunggakan_only') {
     const arrearsRows = residents.map((house, idx) => {
@@ -451,6 +629,8 @@ export function exportFinancialReportToExcel({
       ? 'Laporan_Mutasi_Kas_Gang_Mandor'
       : exportScope === 'per_kk_only'
       ? 'Laporan_Kas_Per_KK_Gang_Mandor'
+      : exportScope === 'rekap_total_only'
+      ? 'Laporan_Rekap_Keseluruhan_Kas_Per_KK_Gang_Mandor'
       : exportScope === 'tunggakan_only'
       ? 'Laporan_Tunggakan_Warga_Gang_Mandor'
       : 'Laporan_Keuangan_Lengkap_Gang_Mandor';

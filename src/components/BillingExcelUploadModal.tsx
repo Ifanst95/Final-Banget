@@ -503,78 +503,186 @@ export const BillingExcelUploadModal: React.FC<BillingExcelUploadModalProps> = (
                   </div>
                 </div>
 
-                <div className="border border-slate-200 rounded-2xl overflow-hidden max-h-64 overflow-y-auto">
+                <div className="border border-slate-300/90 rounded-2xl overflow-hidden max-h-72 overflow-y-auto shadow-xs">
                   <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
-                    <thead className="sticky top-0 bg-slate-100 text-slate-700 font-bold border-b border-slate-200 z-10">
+                    <thead className="sticky top-0 bg-slate-100 text-slate-800 font-extrabold border-b border-slate-300 z-10">
                       <tr>
-                        <th className="py-2 px-2.5 text-center w-8">No</th>
-                        <th className="py-2 px-2.5">No Blok</th>
-                        <th className="py-2 px-3">Kepala Keluarga</th>
-                        <th className="py-2 px-2.5 text-right">Iuran Bulanan</th>
-                        <th className="py-2 px-2.5 text-right">Tunggakan Lalu</th>
-                        <th className="py-2 px-2.5 text-right">Denda Baksos</th>
-                        <th className="py-2 px-2.5 text-center">Pilihan Bayar</th>
-                        <th className="py-2 px-3 text-right">Uang Diterima</th>
-                        <th className="py-2 px-2.5 text-center">Tgl Bayar</th>
+                        <th className="py-2.5 px-2 text-center w-10 border border-slate-300 bg-slate-100">No</th>
+                        <th className="py-2.5 px-2.5 text-center w-24 border border-slate-300 bg-slate-100">No Blok</th>
+                        <th className="py-2.5 px-3 min-w-[190px] border border-slate-300 bg-slate-100">
+                          Kepala Keluarga / Penanggung Jawab
+                        </th>
+                        <th className="py-2.5 px-2.5 text-center border border-slate-300 bg-slate-100">Status Rumah</th>
+                        <th className="py-2.5 px-3 text-right border border-slate-300 bg-emerald-100/80 text-emerald-950 font-bold">
+                          1. Iuran Bulanan
+                        </th>
+                        <th className="py-2.5 px-3 text-right border border-slate-300 bg-purple-100/80 text-purple-950 font-bold">
+                          2. Tunggakan Lalu
+                        </th>
+                        <th className="py-2.5 px-3 text-right border border-slate-300 bg-amber-100/80 text-amber-950 font-bold">
+                          3. Denda Baksos
+                        </th>
+                        <th className="py-2.5 px-3 text-right border border-slate-300 bg-rose-100/80 text-rose-950 font-black">
+                          Total Tagihan
+                        </th>
+                        <th className="py-2.5 px-3 text-center min-w-[200px] border border-slate-300 bg-slate-100 text-slate-800">
+                          Pilihan Pembayaran &amp; Aksi
+                        </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredRows.map((r, i) => (
-                        <tr
-                          key={i}
-                          className={`hover:bg-slate-50/70 transition-colors ${
-                            r.isVacant ? 'bg-slate-50/50' : ''
-                          }`}
-                        >
-                          <td className="py-2 px-2.5 text-center font-mono text-slate-400 text-[11px]">
-                            {i + 1}
-                          </td>
-                          <td className="py-2 px-2.5 font-mono font-bold text-slate-900">
-                            {r.blockNumber}
-                          </td>
-                          <td className="py-2 px-3">
-                            <div className="font-semibold text-slate-800">{r.headName}</div>
-                          </td>
-                          <td className="py-2 px-2.5 text-right font-mono">
-                            {r.isVacant && r.duesAmount === 0 ? (
-                              <span className="text-slate-400 italic">Rp 0 (Kosong)</span>
-                            ) : (
-                              formatRupiah(r.duesAmount)
-                            )}
-                          </td>
-                          <td className="py-2 px-2.5 text-right font-mono text-rose-700">
-                            {r.previousArrears > 0 ? formatRupiah(r.previousArrears) : '-'}
-                          </td>
-                          <td className="py-2 px-2.5 text-right font-mono text-amber-700">
-                            {r.baksosFine > 0 ? formatRupiah(r.baksosFine) : '-'}
-                          </td>
-                          <td className="py-2 px-2.5 text-center">
-                            <span
-                              className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                                r.paymentChoice === 'Semua Lunas'
-                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                  : r.paymentChoice === 'Hanya Iuran'
-                                  ? 'bg-teal-100 text-teal-800 border border-teal-200'
-                                  : r.paymentChoice === 'Hanya Baksos'
-                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                  : r.paymentChoice === 'Hanya Tunggakan'
-                                  ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                                  : r.paymentChoice === 'Bebas Iuran'
-                                  ? 'bg-slate-200 text-slate-700'
-                                  : 'bg-rose-100 text-rose-800 border border-rose-200'
-                              }`}
-                            >
-                              {r.paymentChoice}
-                            </span>
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono font-bold text-emerald-800">
-                            {r.totalReceived > 0 ? formatRupiah(r.totalReceived) : '-'}
-                          </td>
-                          <td className="py-2 px-2.5 text-center font-mono text-[11px] text-slate-500">
-                            {r.paidDate ? formatDateDDMMYYYY(r.paidDate) : '-'}
-                          </td>
-                        </tr>
-                      ))}
+                    <tbody className="divide-y divide-slate-300">
+                      {filteredRows.map((r, i) => {
+                        const isKosong = r.isVacant || /kosong/i.test(r.occupancy) || r.paymentChoice === 'Bebas Iuran';
+                        const isSemuaLunas = r.paymentChoice === 'Semua Lunas';
+                        const isBayarSebagian =
+                          r.paymentChoice === 'Hanya Iuran' ||
+                          r.paymentChoice === 'Hanya Baksos' ||
+                          r.paymentChoice === 'Hanya Tunggakan';
+
+                        const rowClass = isKosong
+                          ? 'bg-black text-white border-neutral-800'
+                          : isSemuaLunas
+                          ? 'bg-emerald-50 text-emerald-950 border-emerald-300'
+                          : isBayarSebagian
+                          ? 'bg-sky-50 text-sky-950 border-sky-300'
+                          : 'bg-rose-50 text-rose-950 border-rose-300';
+
+                        return (
+                          <tr key={i} className={`border-b transition-colors ${rowClass}`}>
+                            {/* 1. No */}
+                            <td className={`py-2 px-2 text-center font-mono border ${isKosong ? 'text-slate-300 border-neutral-800' : 'text-slate-600 border-slate-300'}`}>
+                              {i + 1}
+                            </td>
+
+                            {/* 2. No Blok */}
+                            <td className="py-2 px-2.5 text-center border border-slate-300">
+                              <span
+                                className={`font-mono font-bold text-xs px-2 py-0.5 rounded-lg border shadow-2xs ${
+                                  isKosong
+                                    ? 'bg-neutral-900 text-white border-neutral-700'
+                                    : isSemuaLunas
+                                    ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400'
+                                    : isBayarSebagian
+                                    ? 'bg-sky-200/90 text-sky-950 border-sky-400'
+                                    : 'bg-rose-200/90 text-rose-950 border-rose-400'
+                                }`}
+                              >
+                                Blok {r.blockNumber}
+                              </span>
+                            </td>
+
+                            {/* 3. Kepala Keluarga / Penanggung Jawab */}
+                            <td className="py-2 px-3 border border-slate-300">
+                              <span className={`font-extrabold text-xs ${isKosong ? 'text-white' : 'text-slate-900'}`}>
+                                {r.headName}
+                              </span>
+                            </td>
+
+                            {/* 4. Status Rumah */}
+                            <td className="py-2 px-2.5 text-center border border-slate-300">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                  isKosong
+                                    ? 'bg-neutral-900 text-slate-300 border-neutral-700'
+                                    : isSemuaLunas
+                                    ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
+                                    : isBayarSebagian
+                                    ? 'bg-sky-100 text-sky-950 border-sky-300'
+                                    : 'bg-rose-100 text-rose-950 border-rose-300'
+                                }`}
+                              >
+                                {r.occupancy || (isKosong ? 'Kosong' : 'Ditempati')}
+                              </span>
+                            </td>
+
+                            {/* 5. 1. Iuran Bulanan */}
+                            <td className="py-2 px-3 text-right font-mono border border-slate-300 font-bold">
+                              {isKosong ? (
+                                <span className="text-slate-400 italic text-[11px]">Rp 0 (Bebas)</span>
+                              ) : r.paidDues ? (
+                                <span className={isKosong ? 'text-emerald-400' : 'text-emerald-800'}>
+                                  {formatRupiah(r.duesAmount)}
+                                </span>
+                              ) : (
+                                <span className={isKosong ? 'text-slate-400' : 'text-rose-900'}>
+                                  {formatRupiah(r.duesAmount)}
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 6. 2. Tunggakan Lalu */}
+                            <td className="py-2 px-3 text-right font-mono border border-slate-300">
+                              {r.previousArrears > 0 ? (
+                                <div>
+                                  <span className={`font-bold ${isKosong ? 'text-amber-300' : 'text-purple-900'}`}>
+                                    {formatRupiah(r.previousArrears)}
+                                  </span>
+                                  {r.previousArrearsNote && (
+                                    <span className="block text-[9px] text-slate-500 font-sans truncate max-w-[120px] text-right">
+                                      {r.previousArrearsNote}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 font-sans text-[11px]">-</span>
+                              )}
+                            </td>
+
+                            {/* 7. 3. Denda Baksos */}
+                            <td className="py-2 px-3 text-right font-mono border border-slate-300">
+                              {r.baksosFine > 0 ? (
+                                <div>
+                                  <span className={`font-bold ${isKosong ? 'text-rose-400' : 'text-amber-900'}`}>
+                                    {formatRupiah(r.baksosFine)}
+                                  </span>
+                                  {r.unpaidBaksosCount > 0 && (
+                                    <span className="block text-[9px] text-amber-700 font-sans">
+                                      ({r.unpaidBaksosCount}x Absen)
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 font-sans text-[11px]">-</span>
+                              )}
+                            </td>
+
+                            {/* 8. Total Tagihan */}
+                            <td className="py-2 px-3 text-right font-mono font-black border border-slate-300 tabular-nums">
+                              {r.totalBill > 0 ? (
+                                <span className={isKosong ? 'text-rose-400' : 'text-rose-700'}>
+                                  {formatRupiah(r.totalBill)}
+                                </span>
+                              ) : (
+                                <span className={isKosong ? 'text-slate-300 text-xs' : 'text-emerald-800 text-xs'}>
+                                  Rp 0 (Lunas)
+                                </span>
+                              )}
+                            </td>
+
+                            {/* 9. Pilihan Pembayaran & Aksi */}
+                            <td className="py-2 px-3 text-center border border-slate-300">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border shadow-2xs ${
+                                  isKosong
+                                    ? 'bg-neutral-900 text-slate-300 border-neutral-700'
+                                    : r.paymentChoice === 'Semua Lunas'
+                                    ? 'bg-emerald-200 text-emerald-950 border-emerald-400'
+                                    : r.paymentChoice === 'Hanya Iuran'
+                                    ? 'bg-teal-200 text-teal-950 border-teal-400'
+                                    : r.paymentChoice === 'Hanya Baksos'
+                                    ? 'bg-amber-200 text-amber-950 border-amber-400'
+                                    : r.paymentChoice === 'Hanya Tunggakan'
+                                    ? 'bg-purple-200 text-purple-950 border-purple-400'
+                                    : 'bg-rose-200 text-rose-950 border-rose-400'
+                                }`}
+                              >
+                                {r.paymentChoice === 'Semua Lunas' && <CheckCircle2 className="w-3 h-3 text-emerald-700 inline" />}
+                                <span>{r.paymentChoice}</span>
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

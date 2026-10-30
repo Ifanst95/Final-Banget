@@ -119,6 +119,44 @@ function sanitizeNavigationMenus(menus?: MenuItemConfig[]): MenuItemConfig[] {
     sanitized.push(penarikanMenu);
   }
 
+  // Pastikan menu kas memiliki 3 submenu lengkap (1. Buku Kas, 2. Rekap Iuran Per KK, 3. Rekap Keseluruhan Kas Per KK)
+  const kasMenu = sanitized.find((m) => m.id === 'kas');
+  if (kasMenu) {
+    if (!kasMenu.subMenus || kasMenu.subMenus.length === 0) {
+      kasMenu.subMenus = [
+        {
+          id: 'mutasi',
+          label: '1. Buku Kas (Keluar & Masuk)',
+          title: 'Buku Kas Keluar & Masuk',
+          description: 'Pencatatan rincian mutasi arus kas keluar dan masuk kas gang secara transparan.',
+          targetId: 'mutasi',
+        },
+        {
+          id: 'per_kk',
+          label: '2. Rekap Iuran Kas Per KK',
+          title: 'Rekap Pembayaran Iuran Kas Per KK',
+          description: 'Pencatatan status kelunasan dan riwayat pembayaran iuran rutin per kepala keluarga.',
+          targetId: 'per_kk',
+        },
+        {
+          id: 'rekap_total_kk',
+          label: '3. Rekap Keseluruhan Kas Per KK',
+          title: 'Rekapitulasi Keseluruhan Kas Per KK (Semua Periode)',
+          description: 'Rekap gabungan total seluruh periode pembayaran iuran bulanan, denda baksos, dan tunggakan per kepala keluarga.',
+          targetId: 'rekap_total_kk',
+        },
+      ];
+    } else if (!kasMenu.subMenus.some((sm) => sm.id === 'rekap_total_kk')) {
+      kasMenu.subMenus.push({
+        id: 'rekap_total_kk',
+        label: '3. Rekap Keseluruhan Kas Per KK',
+        title: 'Rekapitulasi Keseluruhan Kas Per KK (Semua Periode)',
+        description: 'Rekap gabungan total seluruh periode pembayaran iuran bulanan, denda baksos, dan tunggakan per kepala keluarga.',
+        targetId: 'rekap_total_kk',
+      });
+    }
+  }
+
   return sanitized.length > 0 ? sanitized : INITIAL_NAV_MENUS;
 }
 

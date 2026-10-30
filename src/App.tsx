@@ -172,7 +172,7 @@ export default function App() {
             />
           )}
 
-          {(activeTab === 'kas' || activeTab === 'iuran_kk') && (
+          {(activeTab === 'kas' || activeTab === 'iuran_kk' || activeTab === 'rekap_total_kk') && (
             <CashReportSection
               config={siteConfig}
               transactions={transactions}
@@ -180,7 +180,13 @@ export default function App() {
               baksosAgendas={baksosAgendas}
               balances={calculatedBalances}
               isAdmin={isAdmin}
-              mode={activeTab === 'iuran_kk' ? 'per_kk' : 'mutasi'}
+              mode={
+                activeTab === 'rekap_total_kk'
+                  ? 'rekap_total_kk'
+                  : activeTab === 'iuran_kk'
+                  ? 'per_kk'
+                  : 'mutasi'
+              }
               onSwitchMode={(mode) => setActiveTab(mode)}
               onAddTransaction={addTransaction}
               onEditTransaction={updateTransaction}

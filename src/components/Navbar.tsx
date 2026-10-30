@@ -167,7 +167,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   // Smoothly scroll active tab into view in horizontal mobile/tablet scrollbar
   useEffect(() => {
     if (!scrollNavRef.current) return;
-    const activeTabId = activeTab === 'iuran_kk' ? 'kas' : activeTab;
+    const activeTabId =
+      activeTab === 'iuran_kk' || activeTab === 'rekap_total_kk' ? 'kas' : activeTab;
     const activeBtn = scrollNavRef.current.querySelector<HTMLElement>(
       `[data-tab-id="${activeTabId}"]`
     );
@@ -384,7 +385,9 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id || (item.id === 'kas' && activeTab === 'iuran_kk');
+              const isActive =
+                activeTab === item.id ||
+                (item.id === 'kas' && (activeTab === 'iuran_kk' || activeTab === 'rekap_total_kk'));
               const isAmberTab = item.id === 'warga' && isActive;
               return (
                 <button
