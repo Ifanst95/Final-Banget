@@ -34,6 +34,7 @@ import {
   getMonthKeyFromDate,
   getSubsequentMonthLabels,
   isHouseVacant,
+  isPeriodCoveredInDuesNote,
   parseIndonesianMonthYearToKey,
 } from '../utils/helpers';
 import { downloadBillingExcelTemplate } from '../utils/billingExcelHelper';
@@ -128,6 +129,8 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
   const [payChoice, setPayChoice] = useState<PaymentSelectionMode>('all');
   const [payDuesSelected, setPayDuesSelected] = useState<boolean>(true);
   const [payDuesMonths, setPayDuesMonths] = useState<number>(1);
+  const [payMultiMonthMode, setPayMultiMonthMode] = useState<boolean>(false);
+  const [paySelectedUpcomingMonths, setPaySelectedUpcomingMonths] = useState<string[]>([]);
   const [payBaksosSelected, setPayBaksosSelected] = useState<boolean>(true);
   const [payArrearsSelected, setPayArrearsSelected] = useState<boolean>(true);
   const [payArrearsAmount, setPayArrearsAmount] = useState<number>(0);
@@ -149,13 +152,23 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
       config.duesAvailablePeriods && config.duesAvailablePeriods.length > 0
         ? config.duesAvailablePeriods
         : [defaultPeriod, 'September 2026'];
-    const coveredByResidents = residents.flatMap((r) =>
-      r.duesPaidMonths && r.duesPaidMonths > 1
-        ? getSubsequentMonthLabels(r.duesMonthNote || defaultPeriod, r.duesPaidMonths)
-        : []
-    );
+    const coveredByResidents = residents.flatMap((r) => {
+      if (!r.duesMonthNote) return [];
+      const explicit = r.duesMonthNote.split(/[,;/+]+/).map((s) => s.trim()).filter((s) => s.length >= 4);
+      if (explicit.length > 0) return explicit;
+      if (r.duesPaidMonths && r.duesPaidMonths > 1) {
+        return getSubsequentMonthLabels(r.duesMonthNote || defaultPeriod, r.duesPaidMonths);
+      }
+      return [];
+    });
     return Array.from(new Set([...fromConfig, ...coveredByResidents])).filter(Boolean);
   }, [config.duesAvailablePeriods, defaultPeriod, residents]);
+
+  // Daftar 12 bulan kedepannya dari bulan penarikan berjalan (misal: jika Januari 2026, list: Februari 2026, Maret 2026, dst)
+  const currentBasePeriod = inputMonth.trim() || defaultPeriod;
+  const upcomingCandidateMonths = useMemo(() => {
+    return getSubsequentMonthLabels(currentBasePeriod, 13).slice(1);
+  }, [currentBasePeriod]);
 
   // Aggregate computation per house for the 3 distinct billing components:
   // 1. Iuran Bulanan (bisa diedit, dukung bayar >1 bulan & otomatis lunas di bulan berikutnya)
@@ -167,17 +180,30 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
       const isUnoccupied = house.occupancy === 'Belum Ditempati';
       const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
 
-      // 1. Cek Cakupan Multi-Bulan (Bayar Lebih dari 1 Bulan & Otomatis Masuk ke Bulan Berikutnya)
-      const houseBasePeriod = house.duesMonthNote || defaultPeriod;
-      const paidMonths = house.duesPaidMonths || (house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih' ? 1 : 0);
+      // 1. Cek Cakupan Multi-Bulan (Bayar Lebih dari 1 Bulan & Otomatis Tagihan Rp 0 di Bulan Berikutnya yang Dipilih)
+      const duesNote = (house.duesMonthNote || '').trim();
+      const noteMonths = duesNote.split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
+      const houseBasePeriod = noteMonths[0] || duesNote || defaultPeriod;
+      const baseKey = parseIndonesianMonthYearToKey(houseBasePeriod);
+      const targetKey = parseIndonesianMonthYearToKey(inputMonth);
       const isPaidState = house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih';
+      const paidMonths = house.duesPaidMonths || (noteMonths.length > 1 ? noteMonths.length : (house.duesStatus === 'Bayar Lebih' ? 2 : isPaidState ? 1 : 0));
       const coveredMonths = isPaidState
-        ? getSubsequentMonthLabels(houseBasePeriod, Math.max(1, paidMonths))
+        ? (noteMonths.length > 1 ? noteMonths : getSubsequentMonthLabels(houseBasePeriod, Math.max(1, paidMonths)))
         : [];
 
       // Apakah rumah ini lunas untuk bulan penarikan yang sedang dibuka (inputMonth)?
-      const isCoveredForInputMonth = isPaidState && coveredMonths.includes(inputMonth);
-      const isAdvancePaidForInputMonth = isCoveredForInputMonth && inputMonth !== houseBasePeriod;
+      const isCoveredForInputMonth =
+        isPaidState &&
+        (coveredMonths.includes(inputMonth) ||
+          (targetKey ? coveredMonths.some((m) => parseIndonesianMonthYearToKey(m) === targetKey) : false) ||
+          isPeriodCoveredInDuesNote(house.duesMonthNote, inputMonth));
+
+      // Jika inputMonth merupakan bulan kedepannya yang dipilih pengurus (targetKey > baseKey), otomatis tagihan = Rp 0 (Lunas di Muka)
+      const isAdvancePaidForInputMonth =
+        isCoveredForInputMonth &&
+        Boolean(baseKey && targetKey && targetKey > baseKey);
+
       const isDuesPaid = isCoveredForInputMonth || (inputMonth === houseBasePeriod && isPaidState);
 
       const monthlyDuesNominal = isAdvancePaidForInputMonth
@@ -344,9 +370,27 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
   const handleOpenPaymentModal = (item: typeof billingList[0], initialMode: PaymentSelectionMode = 'all') => {
     setPayingHouse(item.house);
     setPayChoice(initialMode);
-    setPayDuesMonths(1);
     setPayDate(new Date().toISOString().slice(0, 10));
     setPayNote('');
+
+    // Cek apakah KK ini sudah memiliki riwayat bayar lebih dari 1 bulan sebelumnya
+    const noteParts = (item.house.duesMonthNote || '').split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
+    const hasPriorAdvance = Boolean(
+      (item.house.duesPaidMonths && item.house.duesPaidMonths > 1) ||
+      item.house.duesStatus === 'Bayar Lebih' ||
+      noteParts.length > 1
+    );
+
+    if (hasPriorAdvance && noteParts.length > 1) {
+      const priorUpcoming = noteParts.slice(1);
+      setPayMultiMonthMode(true);
+      setPaySelectedUpcomingMonths(priorUpcoming);
+      setPayDuesMonths(1 + priorUpcoming.length);
+    } else {
+      setPayMultiMonthMode(false);
+      setPaySelectedUpcomingMonths([]);
+      setPayDuesMonths(1);
+    }
 
     if (initialMode === 'all') {
       setPayDuesSelected(item.remainingDues > 0 || !item.isDuesPaid);
@@ -418,14 +462,14 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
     // 1. Eksekusi Pembayaran Iuran Bulanan jika dipilih -> Masuk ke Rekap Per KK, Kas Utama & Otomatis Lunas Bulan Berikutnya
     if (payDuesSelected) {
       const baseNominal = billingItem.monthlyDuesNominal || defaultNominal;
-      const monthsCount = Math.max(1, payDuesMonths);
+      const isMulti = payMultiMonthMode && paySelectedUpcomingMonths.length > 0;
+      const coveredList = isMulti ? [targetPeriod, ...paySelectedUpcomingMonths] : [targetPeriod];
+      const monthsCount = coveredList.length;
       const duesTotalAmount = baseNominal * monthsCount;
       totalCashReceived += duesTotalAmount;
 
-      const coveredList = getSubsequentMonthLabels(targetPeriod, monthsCount);
-      const isMulti = monthsCount > 1;
       const coveredRangeText = isMulti
-        ? `${targetPeriod} - ${coveredList[coveredList.length - 1]} (${monthsCount} Bulan)`
+        ? `${targetPeriod} - ${coveredList[coveredList.length - 1]} (${monthsCount} Bulan: ${coveredList.join(', ')})`
         : targetPeriod;
 
       house.duesStatus = isMulti ? 'Bayar Lebih' : 'Lunas';
@@ -433,7 +477,7 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
       house.duesPaidMonths = monthsCount;
       house.duesPrepaidBalance = isMulti ? (monthsCount - 1) * baseNominal : 0;
       house.duesPaidDate = payDate;
-      house.duesMonthNote = targetPeriod;
+      house.duesMonthNote = coveredList.join(', ');
 
       // Otomatis daftarkan bulan-bulan yang dicakup ke config periode yang tersedia
       if (onCreatePeriod) {
@@ -482,11 +526,11 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
       }
     }
 
-    // 3. Eksekusi Pembayaran Tunggakan Sebelumnya jika dipilih -> Masuk Kas Utama
-    if (payArrearsSelected && payArrearsAmount > 0 && house.previousArrears > 0) {
-      const deduct = Math.min(payArrearsAmount, house.previousArrears);
+    // 3. Eksekusi Pembayaran Tunggakan Sebelumnya jika dipilih -> Masuk Kas Utama (tanpa pembatasan/validasi nominal)
+    if (payArrearsSelected && payArrearsAmount > 0) {
+      const deduct = payArrearsAmount;
       totalCashReceived += deduct;
-      house.previousArrears -= deduct;
+      house.previousArrears = Math.max(0, (house.previousArrears || 0) - deduct);
 
       onAddTransaction({
         date: payDate,
@@ -875,12 +919,13 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
     let sum = 0;
     if (payDuesSelected) {
       const baseNominal = payingBillingItem.monthlyDuesNominal || defaultNominal;
-      sum += Math.max(1, payDuesMonths) * baseNominal;
+      const count = payMultiMonthMode ? (1 + paySelectedUpcomingMonths.length) : 1;
+      sum += count * baseNominal;
     }
     if (payBaksosSelected) sum += payingBillingItem.baksosFineAmount;
-    if (payArrearsSelected) sum += Math.min(payArrearsAmount, payingBillingItem.previousArrears);
+    if (payArrearsSelected) sum += (Number(payArrearsAmount) || 0);
     return sum;
-  }, [payingBillingItem, payDuesSelected, payDuesMonths, payBaksosSelected, payArrearsSelected, payArrearsAmount, defaultNominal]);
+  }, [payingBillingItem, payDuesSelected, payMultiMonthMode, paySelectedUpcomingMonths, payBaksosSelected, payArrearsSelected, payArrearsAmount, defaultNominal]);
 
   // HITUNG DATA ROLLOVER SIMPAN PENARIKAN & PINDAH BULAN BERIKUTNYA
   const activePeriod = inputMonth.trim() || defaultPeriod;
@@ -2018,10 +2063,10 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                       />
                       <div>
                         <strong className="text-xs text-slate-900 block flex items-center gap-1.5 flex-wrap">
-                          <span>1. Iuran Kas Bulanan ({inputMonth})</span>
-                          {payDuesMonths > 1 && (
+                          <span>1. Iuran Kas Bulanan ({currentBasePeriod})</span>
+                          {payMultiMonthMode && paySelectedUpcomingMonths.length > 0 && (
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-600 text-white shadow-xs">
-                              {payDuesMonths} Bulan Sekaligus
+                              {1 + paySelectedUpcomingMonths.length} Bulan Sekaligus
                             </span>
                           )}
                         </strong>
@@ -2034,141 +2079,266 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                     </label>
                     <div className="text-right">
                       <span className="font-mono font-black text-sm text-emerald-800">
-                        {formatRupiah(payDuesMonths * (payingBillingItem.monthlyDuesNominal || defaultNominal))}
+                        {formatRupiah((payMultiMonthMode ? 1 + paySelectedUpcomingMonths.length : 1) * (payingBillingItem.monthlyDuesNominal || defaultNominal))}
                       </span>
-                      {payDuesMonths > 1 && (
+                      {payMultiMonthMode && paySelectedUpcomingMonths.length > 0 && (
                         <span className="block text-[10px] text-slate-500 font-mono">
-                          ({payDuesMonths} x {formatRupiah(payingBillingItem.monthlyDuesNominal || defaultNominal)})
+                          ({1 + paySelectedUpcomingMonths.length} x {formatRupiah(payingBillingItem.monthlyDuesNominal || defaultNominal)})
                         </span>
                       )}
                     </div>
                   </div>
 
-                  {/* KONTROL PILIHAN BAYAR LEBIH DARI 1 BULAN */}
+                  {/* KONTROL PILIHAN BAYAR LEBIH DARI 1 BULAN & DAFTAR BULAN KEDEPANNYA */}
                   {payDuesSelected && (
-                    <div className="mt-3 pt-3 border-t border-emerald-200/80 space-y-2.5">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="mt-3 pt-3 border-t border-emerald-200/80 space-y-3">
+                      {/* Pilihan Opsi: Hanya 1 Bulan vs Lebih dari 1 Bulan */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white/80 p-2 rounded-xl border border-emerald-200">
                         <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
                           <Calendar className="w-3.5 h-3.5 text-emerald-700" />
-                          <span>Pilih Jumlah Bulan Iuran:</span>
+                          <span>Pilihan Jangka Waktu Pembayaran:</span>
                         </span>
 
-                        {/* Stepper / Input Number */}
-                        <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            onClick={() => setPayDuesMonths(Math.max(1, payDuesMonths - 1))}
-                            disabled={payDuesMonths <= 1}
-                            className="w-7 h-7 rounded-lg bg-emerald-100 hover:bg-emerald-200 disabled:opacity-40 disabled:cursor-not-allowed text-emerald-900 font-black flex items-center justify-center cursor-pointer transition-colors"
-                            title="Kurang 1 bulan"
-                          >
-                            -
-                          </button>
-                          <div className="flex items-center gap-1 px-2.5 py-1 bg-white border border-emerald-300 rounded-lg shadow-inner">
-                            <input
-                              type="number"
-                              min={1}
-                              max={24}
-                              value={payDuesMonths}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value, 10);
-                                setPayDuesMonths(isNaN(val) || val < 1 ? 1 : Math.min(24, val));
-                              }}
-                              className="w-10 text-center font-mono font-black text-xs text-slate-900 focus:outline-none"
-                            />
-                            <span className="text-xs font-bold text-slate-600">Bulan</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setPayDuesMonths(Math.min(24, payDuesMonths + 1))}
-                            className="w-7 h-7 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-black flex items-center justify-center cursor-pointer transition-colors"
-                            title="Tambah 1 bulan"
-                          >
-                            +
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Presets Tombol Cepat */}
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[11px]">
-                        {[
-                          { count: 1, label: '1 Bln (Bulan Ini)' },
-                          { count: 2, label: '+1 Bln (Total 2 Bln)' },
-                          { count: 3, label: '+2 Bln (Total 3 Bln)' },
-                          { count: 6, label: '+5 Bln (Total 6 Bln)' },
-                          { count: 12, label: '1 Thn (Total 12 Bln)' },
-                        ].map((preset) => (
-                          <button
-                            key={preset.count}
-                            type="button"
-                            onClick={() => setPayDuesMonths(preset.count)}
-                            className={`py-1.5 px-1 rounded-lg font-bold border transition-all cursor-pointer text-center text-[10.5px] ${
-                              payDuesMonths === preset.count
-                                ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs ring-1 ring-emerald-400'
-                                : 'bg-white text-slate-700 border-emerald-200 hover:bg-emerald-100/60'
+                            onClick={() => {
+                              setPayMultiMonthMode(false);
+                              setPaySelectedUpcomingMonths([]);
+                              setPayDuesMonths(1);
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              !payMultiMonthMode
+                                ? 'bg-emerald-600 text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                             }`}
                           >
-                            {preset.label}
+                            Hanya 1 Bulan ({currentBasePeriod})
                           </button>
-                        ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPayMultiMonthMode(true);
+                              if (paySelectedUpcomingMonths.length === 0) {
+                                setPaySelectedUpcomingMonths(upcomingCandidateMonths.slice(0, 1));
+                                setPayDuesMonths(2);
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                              payMultiMonthMode
+                                ? 'bg-indigo-600 text-white shadow-xs'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                            <span>Bayar Lebih dari 1 Bulan</span>
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Pratinjau Bulan yang Dicakup & Otomatis Masuk Bulan Berikutnya */}
-                      <div className="p-2.5 bg-white/95 border border-emerald-200 rounded-xl space-y-2 text-[11px]">
-                        <div className="flex items-center justify-between text-slate-700 font-semibold">
-                          <span>Bulan yang Dicakup Pembayaran:</span>
-                          <span className="text-emerald-800 font-mono font-bold">
-                            {payDuesMonths > 1
-                              ? `Bayar Lebih ${payDuesMonths - 1} Bulan (Total ${payDuesMonths} Bulan: ${formatRupiah(payDuesMonths * (payingBillingItem.monthlyDuesNominal || defaultNominal))})`
-                              : `1 Bulan (${formatRupiah(payingBillingItem.monthlyDuesNominal || defaultNominal)})`}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1">
-                          {getSubsequentMonthLabels(inputMonth.trim() || defaultPeriod, payDuesMonths).map((mLabel, idx) => (
-                            <span
-                              key={mLabel}
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                                idx === 0
-                                  ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-                                  : 'bg-indigo-100 text-indigo-900 border border-indigo-300'
-                              }`}
-                            >
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>{mLabel}</span>
-                              {idx === 0 && payDuesMonths > 1 && (
-                                <span className="text-[9px] font-normal text-emerald-700">
-                                  (Bulan Ini)
-                                </span>
-                              )}
-                              {idx > 0 && (
-                                <span className="text-[9px] font-normal text-indigo-700">
-                                  (Otomatis Lunas)
-                                </span>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                        {payDuesMonths > 1 && (
-                          <>
-                            <div className="p-2 bg-indigo-100/80 rounded-lg border border-indigo-300 text-[10.5px] text-indigo-950 leading-relaxed">
-                              💡 <strong>Hitungan Bayar Lebih:</strong> Bayar lebih <strong>{payDuesMonths - 1} bulan</strong> sudah otomatis termasuk pembayaran bulan dia membayar (<strong>{inputMonth.trim() || defaultPeriod}</strong>) dan {payDuesMonths - 1} bulan berikutnya, sehingga total mencakup <strong>{payDuesMonths} Bulan</strong> ({formatRupiah(payDuesMonths * (payingBillingItem.monthlyDuesNominal || defaultNominal))}).
+                      {/* Tampilan Khusus Jika Membayar Lebih Dari 1 Bulan */}
+                      {payMultiMonthMode && (
+                        <div className="space-y-3 animate-in fade-in duration-200">
+                          {/* Banner Penjelasan & Kewajiban Memilih */}
+                          <div className="p-3 bg-indigo-50 border-2 border-indigo-300 rounded-2xl text-xs space-y-1.5 text-indigo-950">
+                            <div className="flex items-center gap-2 font-bold text-indigo-900">
+                              <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+                              <span>Wajib Memilih Bulan Kedepannya (Otomatis Tagihan Rp 0):</span>
                             </div>
-                            <p className="text-[10px] text-indigo-950 bg-indigo-50/80 p-2 rounded-lg border border-indigo-200 leading-relaxed font-medium">
-                              ✨ <strong>Otomatis Masuk ke Bulan Berikutnya:</strong> Warga otomatis berstatus <strong>LUNAS</strong> saat Anda memilih bulan-bulan di atas di penarikan keuangan maupun rekap kas per KK tanpa perlu ditagih/diinput ulang.
+                            <p className="text-[11px] text-indigo-800 leading-relaxed">
+                              Misal warga membayar iuran <strong>3 bulan</strong> di bulan <strong>{currentBasePeriod}</strong>, maka pengurus <strong>wajib memilih {upcomingCandidateMonths[0]} dan {upcomingCandidateMonths[1]}</strong> pada daftar di bawah. Di bulan-bulan yang dipilih tersebut, tagihan iuran warga <strong>otomatis Rp 0 (Lunas di Muka)</strong> tanpa perlu diinput ulang!
                             </p>
-                            <div className="p-2 bg-indigo-50/90 rounded-lg border border-indigo-200 text-[10px] space-y-1">
-                              <span className="font-bold text-indigo-950 block">📝 Catatan Transaksi Kas Otomatis:</span>
-                              <div className="font-mono text-indigo-900 bg-white/90 p-1.5 rounded border border-indigo-200 break-words font-semibold text-[10px]">
-                                {(() => {
-                                  const covList = getSubsequentMonthLabels(inputMonth.trim() || defaultPeriod, payDuesMonths);
-                                  const rangeTxt = `${inputMonth.trim() || defaultPeriod} s/d ${covList[covList.length - 1]} (Total ${payDuesMonths} Bulan)`;
-                                  return `Iuran Kas Warga Bayar Lebih ${payDuesMonths - 1} Bulan (${rangeTxt}) Blok ${payingBillingItem.house.blockNumber} (${payingBillingItem.displayName})${payNote ? ` - ${payNote}` : ''}`;
-                                })()}
+                          </div>
+
+                          {/* Tombol Cepat Pilihan Preset Bulan */}
+                          <div className="space-y-1">
+                            <span className="text-[11px] font-bold text-slate-700 block">
+                              Pilihan Cepat Daftar Bulan Kedepannya:
+                            </span>
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const sel = upcomingCandidateMonths.slice(0, 1);
+                                  setPaySelectedUpcomingMonths(sel);
+                                  setPayDuesMonths(2);
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer text-center ${
+                                  paySelectedUpcomingMonths.length === 1
+                                    ? 'bg-indigo-700 text-white border-indigo-700 shadow-xs'
+                                    : 'bg-white text-indigo-900 border-indigo-200 hover:bg-indigo-50'
+                                }`}
+                              >
+                                2 Bulan (+1 Bln)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const sel = upcomingCandidateMonths.slice(0, 2);
+                                  setPaySelectedUpcomingMonths(sel);
+                                  setPayDuesMonths(3);
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer text-center ${
+                                  paySelectedUpcomingMonths.length === 2
+                                    ? 'bg-indigo-700 text-white border-indigo-700 shadow-xs'
+                                    : 'bg-white text-indigo-900 border-indigo-200 hover:bg-indigo-50'
+                                }`}
+                              >
+                                3 Bulan (+2 Bln)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const sel = upcomingCandidateMonths.slice(0, 5);
+                                  setPaySelectedUpcomingMonths(sel);
+                                  setPayDuesMonths(6);
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer text-center ${
+                                  paySelectedUpcomingMonths.length === 5
+                                    ? 'bg-indigo-700 text-white border-indigo-700 shadow-xs'
+                                    : 'bg-white text-indigo-900 border-indigo-200 hover:bg-indigo-50'
+                                }`}
+                              >
+                                6 Bulan (+5 Bln)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const sel = upcomingCandidateMonths.slice(0, 11);
+                                  setPaySelectedUpcomingMonths(sel);
+                                  setPayDuesMonths(12);
+                                }}
+                                className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer text-center ${
+                                  paySelectedUpcomingMonths.length === 11
+                                    ? 'bg-indigo-700 text-white border-indigo-700 shadow-xs'
+                                    : 'bg-white text-indigo-900 border-indigo-200 hover:bg-indigo-50'
+                                }`}
+                              >
+                                1 Tahun (12 Bln)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPaySelectedUpcomingMonths([]);
+                                  setPayDuesMonths(1);
+                                }}
+                                className="py-1.5 px-2 rounded-xl text-[11px] font-bold border border-slate-300 text-slate-600 hover:bg-slate-100 transition-all cursor-pointer text-center"
+                              >
+                                Reset Pilihan
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Daftar Interaktif Bulan Kedepannya (Checklist Card) */}
+                          <div className="space-y-1.5 pt-1">
+                            <span className="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+                              <span>Daftar Bulan Kedepannya yang Wajib Dipilih Pengurus:</span>
+                              <span className="text-[10px] text-indigo-700 font-semibold">
+                                *Klik bulan untuk memilih sampai bulan tersebut
+                              </span>
+                            </span>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-1 bg-slate-50/80 rounded-2xl border border-slate-200">
+                              {upcomingCandidateMonths.map((mLabel, idx) => {
+                                const isChecked = paySelectedUpcomingMonths.includes(mLabel);
+                                const baseNominal = payingBillingItem.monthlyDuesNominal || defaultNominal;
+
+                                return (
+                                  <div
+                                    key={mLabel}
+                                    onClick={() => {
+                                      if (isChecked) {
+                                        if (paySelectedUpcomingMonths.indexOf(mLabel) === paySelectedUpcomingMonths.length - 1) {
+                                          const nextList = paySelectedUpcomingMonths.filter((m) => m !== mLabel);
+                                          setPaySelectedUpcomingMonths(nextList);
+                                          setPayDuesMonths(1 + nextList.length);
+                                        } else {
+                                          const nextList = upcomingCandidateMonths.slice(0, idx + 1);
+                                          setPaySelectedUpcomingMonths(nextList);
+                                          setPayDuesMonths(1 + nextList.length);
+                                        }
+                                      } else {
+                                        const nextList = upcomingCandidateMonths.slice(0, idx + 1);
+                                        setPaySelectedUpcomingMonths(nextList);
+                                        setPayDuesMonths(1 + nextList.length);
+                                      }
+                                    }}
+                                    className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                                      isChecked
+                                        ? 'bg-gradient-to-br from-indigo-50 to-teal-50 border-indigo-500 shadow-xs ring-2 ring-indigo-300/80'
+                                        : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30'
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between gap-1.5">
+                                      <div className="flex items-center gap-2">
+                                        <div
+                                          className={`w-4 h-4 rounded-md flex items-center justify-center transition-colors ${
+                                            isChecked
+                                              ? 'bg-indigo-600 text-white'
+                                              : 'border border-slate-300 bg-white'
+                                          }`}
+                                        >
+                                          {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                                        </div>
+                                        <span className={`text-xs font-bold ${isChecked ? 'text-indigo-950' : 'text-slate-800'}`}>
+                                          {mLabel}
+                                        </span>
+                                      </div>
+
+                                      <span
+                                        className={`px-1.5 py-0.5 rounded text-[9px] font-black tracking-tight ${
+                                          isChecked
+                                            ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                            : 'bg-slate-100 text-slate-500'
+                                        }`}
+                                      >
+                                        {isChecked ? 'Tagihan Rp 0' : 'Belum Dipilih'}
+                                      </span>
+                                    </div>
+
+                                    <div className="mt-1 pt-1 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                                      <span className={isChecked ? 'text-indigo-700 font-semibold' : 'text-slate-400'}>
+                                        {isChecked ? '✨ Otomatis Lunas di Muka' : 'Klik untuk memilih'}
+                                      </span>
+                                      <span className="font-mono font-bold text-slate-700">
+                                        +{formatRupiah(baseNominal)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Peringatan jika belum ada bulan kedepan yang dipilih */}
+                          {paySelectedUpcomingMonths.length === 0 ? (
+                            <div className="p-3 rounded-xl bg-rose-50 border-2 border-rose-300 text-rose-950 text-xs font-bold flex items-center gap-2 animate-pulse">
+                              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                              <span>
+                                ⚠️ Pengurus wajib memilih minimal 1 bulan kedepannya (misal: {upcomingCandidateMonths[0]} dan {upcomingCandidateMonths[1]}) jika memilih opsi Bayar Lebih dari 1 Bulan!
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs space-y-1.5 text-emerald-950">
+                              <div className="flex items-center justify-between font-bold">
+                                <span className="flex items-center gap-1.5">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                  <span>Total {1 + paySelectedUpcomingMonths.length} Bulan Terpilih:</span>
+                                </span>
+                                <span className="font-mono font-black text-emerald-800 text-sm">
+                                  {formatRupiah((1 + paySelectedUpcomingMonths.length) * (payingBillingItem.monthlyDuesNominal || defaultNominal))}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-emerald-800 leading-relaxed font-medium">
+                                📅 <strong>Rincian Bulan:</strong> {currentBasePeriod} (Bulan Berjalan) + {paySelectedUpcomingMonths.join(', ')} (Otomatis Tagihan Rp 0).
+                              </p>
+                              <div className="text-[10.5px] text-teal-900 bg-teal-100/70 p-2 rounded-lg border border-teal-200">
+                                ✨ <strong>Hasil Otomatis:</strong> Di bulan <strong>{paySelectedUpcomingMonths.join(', ')}</strong>, tagihan warga di blok ini otomatis bernilai <strong>Rp 0 (Lunas di Muka)</strong>.
                               </div>
                             </div>
-                          </>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -2251,8 +2421,8 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                     </span>
                   </div>
 
-                  {/* Nominal Pelunasan Tunggakan Lalu jika dicicil/bayar sebagian */}
-                  {payArrearsSelected && payingBillingItem.previousArrears > 0 && (
+                  {/* Nominal Pelunasan Tunggakan Lalu jika dicicil/bayar sebagian (tanpa validasi min/max) */}
+                  {payArrearsSelected && (
                     <div className="mt-2.5 pt-2 border-t border-purple-200/70 flex items-center justify-between gap-2 text-xs">
                       <span className="text-[11px] font-semibold text-purple-900">
                         Nominal Tunggakan Dibayar Sekarang:
@@ -2260,12 +2430,10 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                       <div className="w-36">
                         <input
                           type="number"
-                          min={1000}
-                          max={payingBillingItem.previousArrears}
-                          step={5000}
-                          value={payArrearsAmount}
-                          onChange={(e) => setPayArrearsAmount(Number(e.target.value) || 0)}
-                          className="w-full px-2.5 py-1 text-xs font-mono font-bold bg-white border border-purple-300 rounded-lg text-right"
+                          value={payArrearsAmount === 0 ? '' : payArrearsAmount}
+                          onChange={(e) => setPayArrearsAmount(e.target.value === '' ? 0 : Number(e.target.value))}
+                          placeholder="0"
+                          className="w-full px-2.5 py-1 text-xs font-mono font-bold bg-white border border-purple-300 rounded-lg text-right focus:outline-none focus:ring-1 focus:ring-purple-500"
                         />
                       </div>
                     </div>
@@ -2329,7 +2497,10 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                 </button>
                 <button
                   type="submit"
-                  disabled={calculatedModalTotalPayment === 0}
+                  disabled={
+                    calculatedModalTotalPayment === 0 ||
+                    (payDuesSelected && payMultiMonthMode && paySelectedUpcomingMonths.length === 0)
+                  }
                   className="flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs rounded-xl shadow-md cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Check className="w-4 h-4" />

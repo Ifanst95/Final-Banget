@@ -1,10 +1,10 @@
 {
   "version": 5,
-  "revision": 1486,
+  "revision": 1493,
   "isDefaultSeed": false,
-  "updatedAt": "2026-10-30T06:34:36.858Z",
+  "updatedAt": "2026-10-30T08:29:04.938Z",
   "updatedBy": "Pengurus Gang Mandor (Online)",
-  "clientId": "client-769y4enu-mvujxt50",
+  "clientId": "device-test-verifier",
   "siteConfig": {
     "brandName": "GANG MANDOR PRO",
     "title": "GANG MANDOR PRO",
@@ -2490,20 +2490,20 @@
     {
       "id": "warga-k3-22",
       "blockNumber": "K3/22",
-      "headName": "Saudara Tante Mona",
+      "headName": "Rumah Kosong",
       "phone": "082299220282",
       "ownership": "Kontrak",
       "occupancy": "Ditempati",
       "rukem": "Ikut Rukem",
       "wifiStatus": "Tidak Pasang",
       "wifiProvider": "-",
-      "duesStatus": "Lunas",
+      "duesStatus": "Belum Bayar",
       "customDuesAmount": 30000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 1,
+      "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "2026-08-01",
-      "duesMonthNote": "Agustus 2026",
+      "duesPaidDate": "",
+      "duesMonthNote": "Mei 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "members": [
@@ -2518,8 +2518,8 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-30T04:48:38.306Z",
-      "duesHeadNameOverride": "Saudara Tante Mona"
+      "updatedAt": "2026-10-30T08:09:59.972Z",
+      "duesHeadNameOverride": "Rumah Kosong"
     },
     {
       "id": "warga-k3-23",

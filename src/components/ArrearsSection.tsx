@@ -27,7 +27,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { BaksosAgenda, CashTransaction, ResidentHouse, SiteConfig } from '../types';
-import { formatRupiah, isHouseVacant, openWhatsAppShare } from '../utils/helpers';
+import { formatRupiah, getSubsequentMonthLabels, isHouseVacant, openWhatsAppShare } from '../utils/helpers';
 import { exportFinancialReportToExcel } from '../utils/financialExcelExport';
 import { BalanceBreakdown } from '../hooks/useStorage';
 
@@ -221,7 +221,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
     e.preventDefault();
     if (!partialPayItem) return;
 
-    const payVal = Math.max(1000, Number(partialAmount) || 0);
+    const payVal = Math.max(0, Number(partialAmount) || 0);
     if (payVal <= 0) return;
 
     let remainingPayment = payVal;
@@ -268,11 +268,13 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       if (totalAccumulated > nominal) {
         const extraBalance = totalAccumulated - nominal;
         const estimatedMonths = Math.max(2, Math.floor(totalAccumulated / (nominal || 50000)));
+        const coveredList = getSubsequentMonthLabels(config.duesCurrentMonth || 'Oktober 2026', estimatedMonths);
         house.duesStatus = 'Bayar Lebih';
         house.duesPaidAmount = 0;
         house.duesPaidMonths = estimatedMonths;
         house.duesPrepaidBalance = extraBalance;
         house.duesPaidDate = todayStr;
+        house.duesMonthNote = coveredList.join(', ');
       } else if (totalAccumulated === nominal) {
         house.duesStatus = 'Lunas';
         house.duesPaidAmount = 0;
@@ -1243,11 +1245,9 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                 </label>
                 <input
                   type="number"
-                  required
-                  min={1000}
-                  step={1000}
-                  value={partialAmount}
-                  onChange={(e) => setPartialAmount(Number(e.target.value))}
+                  value={partialAmount === 0 ? '' : partialAmount}
+                  onChange={(e) => setPartialAmount(e.target.value === '' ? 0 : Number(e.target.value))}
+                  placeholder="0"
                   className="w-full px-3 py-2 text-sm font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none"
                   autoFocus
                 />

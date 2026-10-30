@@ -295,6 +295,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [houseDuesAmountInput, setHouseDuesAmountInput] = useState<number>(50000);
   const [houseDuesStatusInput, setHouseDuesStatusInput] = useState<'Lunas' | 'Bayar Lebih' | 'Belum Bayar'>('Lunas');
   const [houseDuesPaidMonthsInput, setHouseDuesPaidMonthsInput] = useState<number>(1);
+  const [houseDuesUpcomingMonths, setHouseDuesUpcomingMonths] = useState<string[]>([]);
   const [houseDuesTotalReceivedInput, setHouseDuesTotalReceivedInput] = useState<number>(50000);
   const [houseDuesPartialInput, setHouseDuesPartialInput] = useState<number>(0);
   const [houseDuesPrevArrearsInput, setHouseDuesPrevArrearsInput] = useState<number>(0);
@@ -1124,10 +1125,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
     const isCoveredByAdvance =
       isPaidState &&
-      paidMonths > 1 &&
-      baseKey &&
-      targetKey > baseKey &&
-      coveredMonths.some((m) => parseIndonesianMonthYearToKey(m) === targetKey);
+      (paidMonths > 1 || (house.duesMonthNote && isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel))) &&
+      (
+        (baseKey && targetKey > baseKey && coveredMonths.some((m) => parseIndonesianMonthYearToKey(m) === targetKey)) ||
+        Boolean(house.duesMonthNote && isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel) && baseKey && targetKey > baseKey)
+      );
 
     // Cari juga di Buku Kas apakah ada transaksi advance di bulan sebelumnya yang mencakup bulan ini
     const priorAdvanceTx = transactions.find((t) => {
@@ -2483,6 +2485,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     setHouseDuesAmountInput(nominal);
     setHouseDuesStatusInput(initialStatus);
     setHouseDuesPaidMonthsInput(currentMonths);
+
+    // Inisialisasi daftar bulan kedepannya jika KK ini membayar lebih dari 1 bulan
+    const noteParts = (house.duesMonthNote || '').split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
+    let initialUpcoming: string[] = [];
+    if (initialStatus === 'Bayar Lebih' || (house.duesPaidMonths && house.duesPaidMonths > 1) || noteParts.length > 1) {
+      if (noteParts.length > 1) {
+        initialUpcoming = noteParts.slice(1);
+      } else {
+        const baseM = (noteParts[0] || currentPeriodStr).trim();
+        initialUpcoming = getSubsequentMonthLabels(baseM, Math.max(2, currentMonths)).slice(1);
+      }
+    }
+    setHouseDuesUpcomingMonths(initialUpcoming);
+
     setHouseDuesTotalReceivedInput(defaultTotalReceived);
     setHouseDuesPartialInput(house.duesPaidAmount || 0);
     setHouseDuesPrevArrearsInput(isVacant ? 0 : (house.previousArrears || 0));
@@ -2531,8 +2547,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       : partialNum;
 
     const prepaidBalance = isAdvancePay ? Math.max(0, totalReceived - amountNum) : 0;
-    const monthLabel = houseDuesMonthInput.trim() || defaultMonthLabel;
-    const targetMonthKey = parseIndonesianMonthYearToKey(monthLabel);
+    const baseMonthCandidate = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
+    const autoCoveredList = getSubsequentMonthLabels(baseMonthCandidate, monthsCount);
+    const monthLabel = isAdvancePay
+      ? (houseDuesMonthInput.includes(',') ? houseDuesMonthInput : autoCoveredList.join(', '))
+      : (houseDuesMonthInput.trim() || defaultMonthLabel);
+    const targetMonthKey = parseIndonesianMonthYearToKey(baseMonthCandidate) || parseIndonesianMonthYearToKey(monthLabel);
     let paidDateVal = houseDuesPaidDateInput || '';
     if (!paidDateVal) {
       const todayStr = new Date().toISOString().slice(0, 10);
@@ -2844,7 +2864,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             duesPaidMonths: isAdvance ? monthsCount : 1,
             duesPrepaidBalance: isAdvance ? Math.max(0, finalAmount - nom) : 0,
             duesPaidDate: txDate,
-            duesMonthNote: txIuranStartMonth.trim() || defaultMonthLabel,
+            duesMonthNote: isAdvance ? coveredList.join(', ') : (txIuranStartMonth.trim() || defaultMonthLabel),
           });
         }
       }
@@ -5983,7 +6003,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         </label>
                         <select
                           value={houseDuesStatusInput}
-                          onChange={(e) => setHouseDuesStatusInput(e.target.value as any)}
+                          onChange={(e) => {
+                            const nextStatus = e.target.value as any;
+                            setHouseDuesStatusInput(nextStatus);
+                            if (nextStatus === 'Bayar Lebih') {
+                              const nextMonths = Math.max(2, houseDuesPaidMonthsInput || 2);
+                              setHouseDuesPaidMonthsInput(nextMonths);
+                              setHouseDuesTotalReceivedInput(houseDuesAmountInput * nextMonths);
+                              const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
+                              const generatedMonths = getSubsequentMonthLabels(baseMonth, nextMonths);
+                              setHouseDuesMonthInput(generatedMonths.join(', '));
+                            } else if (nextStatus === 'Lunas') {
+                              setHouseDuesPaidMonthsInput(1);
+                              setHouseDuesTotalReceivedInput(houseDuesAmountInput);
+                              const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
+                              setHouseDuesMonthInput(baseMonth);
+                            }
+                          }}
                           className="w-full px-3 py-2 text-xs font-bold bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:outline-none"
                         >
                           {isEditingVacant ? (
@@ -6007,7 +6043,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     {(houseDuesStatusInput === 'Lunas' || houseDuesStatusInput === 'Bayar Lebih') && (
                       <div className="space-y-2 pt-1 border-t border-emerald-200/60">
                         <label className="block text-[11px] font-bold text-emerald-950">
-                          Bulan / Periode Pembayaran
+                          Bulan / Periode Pembayaran (Terisi Otomatis)
                         </label>
                         <input
                           type="text"
@@ -6034,7 +6070,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   key={preset.cnt}
                                   type="button"
                                   onClick={() => {
-                                    const baseMonth = defaultMonthLabel;
+                                    const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
                                     const generatedMonths = getSubsequentMonthLabels(baseMonth, preset.cnt);
                                     setHouseDuesMonthInput(generatedMonths.join(', '));
                                     setHouseDuesPaidMonthsInput(preset.cnt);
@@ -6061,6 +6097,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     const val = Math.max(2, Number(e.target.value) || 2);
                                     setHouseDuesPaidMonthsInput(val);
                                     setHouseDuesTotalReceivedInput(houseDuesAmountInput * val);
+                                    const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
+                                    const generatedMonths = getSubsequentMonthLabels(baseMonth, val);
+                                    setHouseDuesMonthInput(generatedMonths.join(', '));
                                   }}
                                   className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950"
                                 />
@@ -6074,7 +6113,17 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   min={houseDuesAmountInput * 2}
                                   step={5000}
                                   value={houseDuesTotalReceivedInput}
-                                  onChange={(e) => setHouseDuesTotalReceivedInput(Number(e.target.value) || 0)}
+                                  onChange={(e) => {
+                                    const val = Number(e.target.value) || 0;
+                                    setHouseDuesTotalReceivedInput(val);
+                                    if (houseDuesAmountInput > 0 && val >= houseDuesAmountInput * 2) {
+                                      const autoMonths = Math.floor(val / houseDuesAmountInput);
+                                      setHouseDuesPaidMonthsInput(autoMonths);
+                                      const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
+                                      const generatedMonths = getSubsequentMonthLabels(baseMonth, autoMonths);
+                                      setHouseDuesMonthInput(generatedMonths.join(', '));
+                                    }
+                                  }}
                                   className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950"
                                 />
                               </div>

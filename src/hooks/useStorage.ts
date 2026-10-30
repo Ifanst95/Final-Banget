@@ -944,6 +944,9 @@ export function useStorage() {
 
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible' && isAutoSyncEnabled) {
+        if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
+          connectSSE();
+        }
         if (hasPendingPushRef.current) {
           pushSnapshotToServer(dbStateRef.current);
         } else {
@@ -952,8 +955,28 @@ export function useStorage() {
       }
     };
 
+    const handleStorageEvent = (event: StorageEvent) => {
+      if (!isMounted || !isAutoSyncEnabled) return;
+      if (event.key === STORAGE_KEYS.UNIFIED_SNAPSHOT && event.newValue) {
+        if (hasPendingPushRef.current || isPushingMutationRef.current) return;
+        try {
+          const incoming = JSON.parse(event.newValue) as PortalDatabasePayload;
+          if (incoming && incoming.clientId !== clientIdRef.current) {
+            const inRev = Number(incoming.revision) || 0;
+            const curRev = Number(dbStateRef.current.revision) || 0;
+            if (inRev > curRev || (dbStateRef.current.isDefaultSeed && !incoming.isDefaultSeed)) {
+              applySnapshotToStateAndStorage(incoming);
+            }
+          }
+        } catch {}
+      }
+    };
+
     const handleOnline = () => {
       setIsOnlineConnected(true);
+      if (!eventSource || eventSource.readyState === EventSource.CLOSED) {
+        connectSSE();
+      }
       if (hasPendingPushRef.current) {
         pushSnapshotToServer(dbStateRef.current);
       } else if (isAutoSyncEnabled) {
@@ -976,6 +999,7 @@ export function useStorage() {
     window.addEventListener('focus', handleVisibilityOrFocus);
     document.addEventListener('visibilitychange', handleVisibilityOrFocus);
     window.addEventListener('online', handleOnline);
+    window.addEventListener('storage', handleStorageEvent);
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
@@ -997,6 +1021,7 @@ export function useStorage() {
       window.removeEventListener('focus', handleVisibilityOrFocus);
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('storage', handleStorageEvent);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [
