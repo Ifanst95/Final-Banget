@@ -193,6 +193,8 @@ export default function App() {
               onUpdateResident={updateResident}
               onMarkFinePaid={markBaksosFinePaid}
               onUnmarkFinePaid={unmarkBaksosFinePaid}
+              onSetAttendance={setBaksosAttendance}
+              onUpdateBaksosAgenda={updateBaksosAgenda}
               onCreatePeriod={createPeriod}
               onDeletePeriod={deletePeriod}
               onBatchImportDues={batchImportDues}

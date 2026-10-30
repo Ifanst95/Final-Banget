@@ -1297,7 +1297,8 @@ export function useStorage() {
   const syncHouseDuesEditAndTransactions = (
     updatedHouse: ResidentHouse,
     newTransactions: Omit<CashTransaction, 'id'>[],
-    oldTxIdsToDelete: string[] = []
+    oldTxIdsToDelete: string[] = [],
+    updatedBaksosAgendas?: BaksosAgenda[]
   ) => {
     commitLocalMutation((cur) => {
       const stamped: ResidentHouse = { ...updatedHouse, updatedAt: new Date().toISOString() };
@@ -1308,10 +1309,12 @@ export function useStorage() {
         id: `tx-dues-sync-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
       }));
 
+      const baseAgendas = updatedBaksosAgendas || cur.baksosAgendas;
+
       return {
         residents: cur.residents.map((h) => (h.id === stamped.id ? stamped : h)),
         transactions: [...preparedNewTxs, ...filteredTxs],
-        baksosAgendas: computeSyncedBaksosAgendas(cur.baksosAgendas, stamped),
+        baksosAgendas: computeSyncedBaksosAgendas(baseAgendas, stamped),
       };
     });
   };
