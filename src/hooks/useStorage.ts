@@ -926,6 +926,12 @@ export function useStorage() {
     const handleBeforeUnload = () => {
       if (hasPendingPushRef.current) {
         persistSnapshotLocally(dbStateRef.current);
+        try {
+          if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+            const blob = new Blob([JSON.stringify(dbStateRef.current)], { type: 'application/json' });
+            navigator.sendBeacon('/api/database', blob);
+          }
+        } catch {}
       }
     };
 
