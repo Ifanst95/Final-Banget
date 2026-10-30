@@ -432,6 +432,8 @@ export function exportFinancialReportToExcel({
       let totalTunggakanAll = 0;
       let lunasPeriodsCount = 0;
 
+      const periodStatusMap: Record<string, string> = {};
+
       sortedAllPeriods.forEach((pLabel) => {
         const pKey = parseIndonesianMonthYearToKey(pLabel) || '';
         
@@ -448,6 +450,7 @@ export function exportFinancialReportToExcel({
 
         let iuranPeriod = 0;
         let isPeriodLunas = false;
+        let isAdv = false;
 
         if (isPureKosong) {
           iuranPeriod = sumTxs;
@@ -462,7 +465,7 @@ export function exportFinancialReportToExcel({
           const isPaid = house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih';
           const paidMonths = house.duesPaidMonths || (house.duesStatus === 'Bayar Lebih' ? 2 : isPaid ? 1 : 0);
           const covered = isPaid ? getSubsequentMonthLabels(houseBase, Math.max(1, paidMonths)) : [];
-          const isAdv = isPaid && paidMonths > 1 && baseKey && pKey > baseKey && covered.some(m => parseIndonesianMonthYearToKey(m) === pKey);
+          isAdv = Boolean(isPaid && paidMonths > 1 && baseKey && pKey > baseKey && covered.some(m => parseIndonesianMonthYearToKey(m) === pKey));
 
           if (isAdv) {
             iuranPeriod = 0;
@@ -480,6 +483,85 @@ export function exportFinancialReportToExcel({
             }
           }
         }
+
+        // Deteksi pelunasan tunggakan jika tertunggak di bulan sebelumnya
+        let settlementMonth: string | null = null;
+        if (!isPeriodLunas && !isPureKosong && !isUnoccupied) {
+          const currentActiveKey = parseIndonesianMonthYearToKey(currentPeriod) || '2026-10';
+          const periodMonthName = (pLabel.split(' ')[0] || '').toLowerCase();
+
+          const explicitTx = transactions.find((t) => {
+            if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
+            const txKey = getMonthKeyFromDate(t.date);
+            if (!txKey || txKey <= pKey) return false;
+            const desc = t.description.toLowerCase();
+            return desc.includes(periodMonthName) || desc.includes(pLabel.toLowerCase()) || desc.includes(pKey);
+          });
+          if (explicitTx) {
+            const txKey = getMonthKeyFromDate(explicitTx.date);
+            settlementMonth = formatMonthYearFromKey(txKey) || formatMonthYearFromDate(explicitTx.date);
+          }
+
+          if (!settlementMonth) {
+            const laterTungTxs = transactions
+              .filter((t) => {
+                if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
+                const txKey = getMonthKeyFromDate(t.date);
+                if (!txKey || txKey <= pKey) return false;
+                const cat = t.category || '';
+                const desc = (t.description || '').toLowerCase();
+                return cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan');
+              })
+              .sort((a, b) => a.date.localeCompare(b.date));
+
+            if (laterTungTxs.length > 0) {
+              const txKey = getMonthKeyFromDate(laterTungTxs[0].date);
+              settlementMonth = formatMonthYearFromKey(txKey) || formatMonthYearFromDate(laterTungTxs[0].date);
+            }
+          }
+
+          if (!settlementMonth && house.previousArrearsNote) {
+            const note = house.previousArrearsNote.toLowerCase();
+            const match = note.match(/lunas\s+(?:di\s+|pada\s+|bulan\s+)?([a-z]+(?:\s+\d{4})?)/i);
+            if (match && match[1]) {
+              const parsedMonth = match[1].trim();
+              const capMonth = parsedMonth.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+              settlementMonth = capMonth.includes('202') ? capMonth : `${capMonth} 2026`;
+            }
+          }
+
+          if (!settlementMonth) {
+            const hasZeroArrears = (house.previousArrears || 0) === 0;
+            const isCurrentlyPaid = house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih';
+            if (hasZeroArrears && isCurrentlyPaid && pKey < currentActiveKey) {
+              if (house.duesPaidDate) {
+                const payMonthKey = getMonthKeyFromDate(house.duesPaidDate);
+                if (payMonthKey && payMonthKey > pKey) {
+                  settlementMonth = formatMonthYearFromKey(payMonthKey) || formatMonthYearFromDate(house.duesPaidDate);
+                }
+              }
+              if (!settlementMonth) {
+                settlementMonth = currentPeriod;
+              }
+            }
+          }
+
+          if (settlementMonth) {
+            isPeriodLunas = true;
+          }
+        }
+
+        let periodStatusText = 'Belum Bayar';
+        if (isPureKosong) {
+          periodStatusText = 'Bebas Iuran (Kosong)';
+        } else if (isAdv) {
+          periodStatusText = 'Lunas (Dimuka)';
+        } else if (settlementMonth) {
+          periodStatusText = `Lunas Bulan ${settlementMonth}`;
+        } else if (isPeriodLunas) {
+          periodStatusText = `Lunas (+Rp ${iuranPeriod.toLocaleString('id-ID')})`;
+        }
+        periodStatusMap[`Periode ${pLabel}`] = periodStatusText;
 
         if (isPeriodLunas && !isPureKosong) lunasPeriodsCount++;
         totalIuranAll += iuranPeriod;
@@ -537,6 +619,7 @@ export function exportFinancialReportToExcel({
         No: idx + 1,
         'No Blok': house.blockNumber,
         'Nama Kepala Keluarga': payerName,
+        ...periodStatusMap,
         'Jumlah Periode Tercatat': sortedAllPeriods.length,
         'Periode Lunas': isPureKosong ? '-' : `${lunasPeriodsCount} dari ${sortedAllPeriods.length} Periode`,
         'Total Iuran Rutin (Rp)': totalIuranAll,

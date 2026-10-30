@@ -34,6 +34,7 @@ import {
   Lock,
   ShieldCheck,
   Image as LucideImage,
+  Sparkles,
 } from 'lucide-react';
 import {
   BaksosAgenda,
@@ -48,6 +49,7 @@ import {
   INDONESIAN_MONTHS,
   calculatePreviousMonthBalanceSummary,
   formatDateDDMMYYYY,
+  formatMonthYearFromDate,
   formatMonthYearFromKey,
   formatRupiah,
   getLastDayOfMonthISO,
@@ -1123,13 +1125,26 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       ? getSubsequentMonthLabels(houseBasePeriod, Math.max(1, paidMonths))
       : [];
 
-    const isCoveredByAdvance =
+    const explicitNoteMonths = (house.duesMonthNote || '').split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
+    const isExplicitSubsequent =
       isPaidState &&
-      (paidMonths > 1 || (house.duesMonthNote && isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel))) &&
-      (
-        (baseKey && targetKey > baseKey && coveredMonths.some((m) => parseIndonesianMonthYearToKey(m) === targetKey)) ||
-        Boolean(house.duesMonthNote && isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel) && baseKey && targetKey > baseKey)
-      );
+      explicitNoteMonths.length > 1 &&
+      explicitNoteMonths
+        .slice(1)
+        .some(
+          (m) =>
+            m.toLowerCase() === periodLabel.toLowerCase() ||
+            (targetKey && parseIndonesianMonthYearToKey(m) === targetKey)
+        );
+
+    const isCoveredByAdvance =
+      isExplicitSubsequent ||
+      (isPaidState &&
+        (paidMonths > 1 || (house.duesMonthNote && isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel))) &&
+        (
+          (baseKey && targetKey > baseKey && coveredMonths.some((m) => parseIndonesianMonthYearToKey(m) === targetKey)) ||
+          Boolean(house.duesMonthNote && isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel) && baseKey && targetKey > baseKey)
+        ));
 
     // Cari juga di Buku Kas apakah ada transaksi advance di bulan sebelumnya yang mencakup bulan ini
     const priorAdvanceTx = transactions.find((t) => {
@@ -1623,7 +1638,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
         const periodTotal = iuranPaid + dendaPaid + tunggakanPaid;
 
-        const isLunasThisPeriod = isPureKosong
+        const isStandardLunasThisPeriod = isPureKosong
           ? true
           : Boolean(
               statusInfo?.isAdvanceSubsequentMonth ||
@@ -1631,6 +1646,92 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 statusInfo?.status === 'Bayar Lebih' ||
                 iuranPaid >= nominalPerMonth
             );
+
+        // Deteksi Otomatis Pelunasan Tunggakan:
+        // Jika iuran di bulan sebelumnya tertunggak (belum bayar pada periode tersebut),
+        // otomatis cek di bulan apa pelunasannya dilakukan (misal: "Lunas Bulan Oktober 2026")
+        let isArrearSettledLater = false;
+        let settlementMonth: string | null = null;
+
+        if (!isPureKosong && !isStandardLunasThisPeriod && !isUnoccupied) {
+          const currentActiveKey = parseIndonesianMonthYearToKey(defaultMonthLabel) || '2026-10';
+          const periodMonthName = (periodLabel.split(' ')[0] || '').toLowerCase();
+
+          // 1. Cek transaksi kas masuk untuk KK ini di bulan setelah pKey yang spesifik menyebut nama/periode bulan ini
+          const explicitTx = transactions.find((t) => {
+            if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
+            const txKey = getMonthKeyFromDate(t.date);
+            if (!txKey || txKey <= pKey) return false;
+            const desc = t.description.toLowerCase();
+            return (
+              desc.includes(periodMonthName) ||
+              desc.includes(periodLabel.toLowerCase()) ||
+              desc.includes(pKey)
+            );
+          });
+
+          if (explicitTx) {
+            const txKey = getMonthKeyFromDate(explicitTx.date);
+            settlementMonth = formatMonthYearFromKey(txKey) || formatMonthYearFromDate(explicitTx.date);
+            isArrearSettledLater = true;
+          }
+
+          // 2. Cek transaksi tunggakan kas masuk untuk KK ini di bulan-bulan berikutnya
+          if (!settlementMonth) {
+            const laterTungTxs = transactions
+              .filter((t) => {
+                if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
+                const txKey = getMonthKeyFromDate(t.date);
+                if (!txKey || txKey <= pKey) return false;
+                return isTunggakanTx(t);
+              })
+              .sort((a, b) => a.date.localeCompare(b.date));
+
+            if (laterTungTxs.length > 0) {
+              const txKey = getMonthKeyFromDate(laterTungTxs[0].date);
+              settlementMonth = formatMonthYearFromKey(txKey) || formatMonthYearFromDate(laterTungTxs[0].date);
+              isArrearSettledLater = true;
+            }
+          }
+
+          // 3. Cek catatan previousArrearsNote pada data rumah jika tertulis eksplisit kapan lunasnya
+          if (!settlementMonth && house.previousArrearsNote) {
+            const note = house.previousArrearsNote.toLowerCase();
+            const match = note.match(/lunas\s+(?:di\s+|pada\s+|bulan\s+)?([a-z]+(?:\s+\d{4})?)/i);
+            if (match && match[1]) {
+              const parsedMonth = match[1].trim();
+              const capMonth = parsedMonth
+                .split(' ')
+                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(' ');
+              settlementMonth = capMonth.includes('202') ? capMonth : `${capMonth} 2026`;
+              isArrearSettledLater = true;
+            }
+          }
+
+          // 4. Jika total sisa tunggakan rumah ini sekarang adalah 0 (bersih) atau previousArrears === 0,
+          // dan rumah berstatus Lunas / Bayar Lebih:
+          // Berarti tunggakan di bulan lampau (pKey < currentActiveKey) sudah dilunasi!
+          if (!settlementMonth) {
+            const hasZeroArrears = (house.previousArrears || 0) === 0;
+            const isCurrentlyPaid = house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih';
+
+            if (hasZeroArrears && isCurrentlyPaid && pKey < currentActiveKey) {
+              if (house.duesPaidDate) {
+                const payMonthKey = getMonthKeyFromDate(house.duesPaidDate);
+                if (payMonthKey && payMonthKey > pKey) {
+                  settlementMonth = formatMonthYearFromKey(payMonthKey) || formatMonthYearFromDate(house.duesPaidDate);
+                }
+              }
+              if (!settlementMonth) {
+                settlementMonth = defaultMonthLabel;
+              }
+              isArrearSettledLater = true;
+            }
+          }
+        }
+
+        const isLunasThisPeriod = isPureKosong ? true : (isStandardLunasThisPeriod || isArrearSettledLater);
 
         if (isLunasThisPeriod && !isPureKosong) {
           totalPeriodsPaidCount++;
@@ -1642,6 +1743,24 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         totalDendaAllPeriods += dendaPaid;
         totalTunggakanAllPeriods += tunggakanPaid;
 
+        const statusBadge = isPureKosong
+          ? 'Bebas Iuran'
+          : statusInfo?.isAdvanceSubsequentMonth
+          ? 'Lunas (Dimuka)'
+          : isArrearSettledLater && settlementMonth
+          ? `Lunas Bulan ${settlementMonth}`
+          : statusInfo?.label || (isLunasThisPeriod ? 'Lunas' : 'Belum Bayar');
+
+        const badgeClass = isPureKosong
+          ? 'bg-neutral-900 text-neutral-300 border-neutral-700'
+          : statusInfo?.isAdvanceSubsequentMonth
+          ? 'bg-sky-100 text-sky-900 border-sky-300 font-bold'
+          : isArrearSettledLater
+          ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
+          : isLunasThisPeriod
+          ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
+          : 'bg-rose-100 text-rose-900 border-rose-300 font-bold';
+
         return {
           periodLabel,
           pKey,
@@ -1651,19 +1770,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           tunggakanPaid,
           periodTotal,
           isLunasThisPeriod,
+          isArrearSettledLater,
+          settlementMonth,
           isAdvanceSubsequent: Boolean(statusInfo?.isAdvanceSubsequentMonth),
-          statusBadge: isPureKosong
-            ? 'Bebas Iuran'
-            : statusInfo?.isAdvanceSubsequentMonth
-            ? 'Lunas (Dimuka)'
-            : statusInfo?.label || (isLunasThisPeriod ? 'Lunas' : 'Belum Bayar'),
-          badgeClass: isPureKosong
-            ? 'bg-neutral-900 text-neutral-300 border-neutral-700'
-            : statusInfo?.isAdvanceSubsequentMonth
-            ? 'bg-sky-100 text-sky-900 border-sky-300 font-bold'
-            : isLunasThisPeriod
-            ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
-            : 'bg-rose-100 text-rose-900 border-rose-300 font-bold',
+          statusBadge,
+          badgeClass,
           paidDate:
             statusInfo?.paidDate ||
             tunggakanTxs[0]?.date ||
@@ -2487,19 +2598,21 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     setHouseDuesPaidMonthsInput(currentMonths);
 
     // Inisialisasi daftar bulan kedepannya jika KK ini membayar lebih dari 1 bulan
+    // PENTING: Pengurus memilih sendiri lewat list bulan (tidak otomatis memilih bulan)
     const noteParts = (house.duesMonthNote || '').split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
     let initialUpcoming: string[] = [];
-    if (initialStatus === 'Bayar Lebih' || (house.duesPaidMonths && house.duesPaidMonths > 1) || noteParts.length > 1) {
-      if (noteParts.length > 1) {
-        initialUpcoming = noteParts.slice(1);
-      } else {
-        const baseM = (noteParts[0] || currentPeriodStr).trim();
-        initialUpcoming = getSubsequentMonthLabels(baseM, Math.max(2, currentMonths)).slice(1);
-      }
+    if (noteParts.length > 1) {
+      initialUpcoming = noteParts.slice(1);
     }
     setHouseDuesUpcomingMonths(initialUpcoming);
 
-    setHouseDuesTotalReceivedInput(defaultTotalReceived);
+    const actualMonthsCount = initialUpcoming.length > 0 ? 1 + initialUpcoming.length : currentMonths;
+    const initialTotalReceived =
+      initialStatus === 'Bayar Lebih'
+        ? nominal * actualMonthsCount
+        : defaultTotalReceived;
+
+    setHouseDuesTotalReceivedInput(initialTotalReceived);
     setHouseDuesPartialInput(house.duesPaidAmount || 0);
     setHouseDuesPrevArrearsInput(isVacant ? 0 : (house.previousArrears || 0));
     setHouseDuesPrevNoteInput(house.previousArrearsNote || '');
@@ -2537,21 +2650,21 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     const amountNum = Math.max(0, Number(houseDuesAmountInput) || 0);
     const isNowPaid = houseDuesStatusInput === 'Lunas' || houseDuesStatusInput === 'Bayar Lebih';
     const isAdvancePay = houseDuesStatusInput === 'Bayar Lebih';
-    const monthsCount = isAdvancePay ? Math.max(2, Number(houseDuesPaidMonthsInput) || 2) : isNowPaid ? 1 : 0;
+    const baseMonthCandidate = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
+    // Gunakan murni daftar bulan yang dipilih oleh pengurus lewat list bulan (tanpa auto-generate paksa)
+    const finalUpcomingMonths = [...houseDuesUpcomingMonths];
+    const monthsCount = isAdvancePay ? Math.max(1, 1 + finalUpcomingMonths.length) : isNowPaid ? 1 : 0;
     const partialNum = !isNowPaid ? Math.max(0, Math.min(amountNum, Number(houseDuesPartialInput) || 0)) : 0;
 
     const totalReceived = isAdvancePay
-      ? Math.max(amountNum, Number(houseDuesTotalReceivedInput) || amountNum * monthsCount)
+      ? Math.max(amountNum * monthsCount, Number(houseDuesTotalReceivedInput) || amountNum * monthsCount)
       : isNowPaid
       ? amountNum
       : partialNum;
 
     const prepaidBalance = isAdvancePay ? Math.max(0, totalReceived - amountNum) : 0;
-    const baseMonthCandidate = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
-    const autoCoveredList = getSubsequentMonthLabels(baseMonthCandidate, monthsCount);
-    const monthLabel = isAdvancePay
-      ? (houseDuesMonthInput.includes(',') ? houseDuesMonthInput : autoCoveredList.join(', '))
-      : (houseDuesMonthInput.trim() || defaultMonthLabel);
+    const coveredMonthsList = isAdvancePay ? [baseMonthCandidate, ...finalUpcomingMonths] : [houseDuesMonthInput.trim() || defaultMonthLabel];
+    const monthLabel = coveredMonthsList.join(', ');
     const targetMonthKey = parseIndonesianMonthYearToKey(baseMonthCandidate) || parseIndonesianMonthYearToKey(monthLabel);
     let paidDateVal = houseDuesPaidDateInput || '';
     if (!paidDateVal) {
@@ -4911,6 +5024,19 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               </span>
             </div>
 
+            {/* Info Hint Otomatisasi Pelunasan Tunggakan */}
+            <div className="px-3 py-2 rounded-xl bg-purple-50/80 border border-purple-200 text-purple-900 text-[11px] flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 font-medium">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>
+                  <strong>Otomatisasi Pelunasan Tunggakan:</strong> Iuran yang tertunggak di bulan sebelumnya otomatis diisi bulan pelunasannya (contoh: <span className="font-bold text-emerald-800 bg-emerald-100 px-1 py-0.2 rounded border border-emerald-300">✓ Lunas Bulan xxx</span>).
+                </span>
+              </span>
+              <span className="text-[10px] text-purple-700 font-semibold bg-white px-2 py-0.5 rounded-md border border-purple-200 shrink-0 shadow-2xs">
+                Otomatis Aktif
+              </span>
+            </div>
+
             <div className="overflow-x-auto rounded-2xl border border-slate-300/90 shadow-sm bg-white">
               <table className="w-full text-left text-xs border-collapse border border-slate-300 whitespace-nowrap">
                 <thead>
@@ -5045,6 +5171,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                 <span className="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-800 text-[10px] font-bold border border-sky-300">
                                   ✓ Dimuka
                                 </span>
+                              ) : pDet.isArrearSettledLater && pDet.settlementMonth ? (
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-[10px] font-extrabold border border-emerald-300 shadow-2xs whitespace-nowrap">
+                                    ✓ Lunas Bulan {pDet.settlementMonth}
+                                  </span>
+                                  <span className="text-[9px] text-emerald-700 font-semibold whitespace-nowrap">
+                                    (Pelunasan Tunggakan)
+                                  </span>
+                                </div>
                               ) : pDet.iuranPaid > 0 ? (
                                 <div className="flex flex-col items-center">
                                   <span className="font-bold text-emerald-800">
@@ -5232,7 +5367,17 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         <tr key={p.periodLabel} className="hover:bg-slate-50 transition-colors">
                           <td className="py-2.5 px-3 font-bold text-slate-800">{p.periodLabel}</td>
                           <td className="py-2.5 px-3 text-right font-mono text-emerald-800 font-bold">
-                            {p.iuranPaid > 0 ? `+${formatRupiah(p.iuranPaid)}` : p.isAdvanceSubsequent ? '✓ Dimuka' : 'Rp 0'}
+                            {p.isArrearSettledLater && p.settlementMonth ? (
+                              <span className="text-emerald-700 font-bold">
+                                ✓ Lunas Bulan {p.settlementMonth}
+                              </span>
+                            ) : p.iuranPaid > 0 ? (
+                              `+${formatRupiah(p.iuranPaid)}`
+                            ) : p.isAdvanceSubsequent ? (
+                              '✓ Dimuka'
+                            ) : (
+                              'Rp 0'
+                            )}
                           </td>
                           <td className="py-2.5 px-3 text-right font-mono text-cyan-800">
                             {p.dendaPaid > 0 ? `+${formatRupiah(p.dendaPaid)}` : 'Rp 0'}
@@ -6007,17 +6152,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             const nextStatus = e.target.value as any;
                             setHouseDuesStatusInput(nextStatus);
                             if (nextStatus === 'Bayar Lebih') {
-                              const nextMonths = Math.max(2, houseDuesPaidMonthsInput || 2);
-                              setHouseDuesPaidMonthsInput(nextMonths);
-                              setHouseDuesTotalReceivedInput(houseDuesAmountInput * nextMonths);
-                              const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
-                              const generatedMonths = getSubsequentMonthLabels(baseMonth, nextMonths);
-                              setHouseDuesMonthInput(generatedMonths.join(', '));
+                              const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || (selectedKKPeriod && selectedKKPeriod !== 'semua' ? selectedKKPeriod : defaultMonthLabel)).trim();
+                              // Tidak otomatis memilih bulan kedepannya. Pengurus memilih sendiri lewat checklist list bulan di bawah.
+                              const currentUpcoming = houseDuesUpcomingMonths || [];
+                              const totalMonths = Math.max(1, 1 + currentUpcoming.length);
+                              setHouseDuesPaidMonthsInput(totalMonths);
+                              setHouseDuesTotalReceivedInput(houseDuesAmountInput * totalMonths);
+                              setHouseDuesMonthInput(currentUpcoming.length > 0 ? [baseMonth, ...currentUpcoming].join(', ') : baseMonth);
                             } else if (nextStatus === 'Lunas') {
                               setHouseDuesPaidMonthsInput(1);
+                              setHouseDuesUpcomingMonths([]);
                               setHouseDuesTotalReceivedInput(houseDuesAmountInput);
                               const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
                               setHouseDuesMonthInput(baseMonth);
+                            } else {
+                              setHouseDuesPaidMonthsInput(0);
+                              setHouseDuesUpcomingMonths([]);
+                              setHouseDuesTotalReceivedInput(0);
                             }
                           }}
                           className="w-full px-3 py-2 text-xs font-bold bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-emerald-500 focus:outline-none"
@@ -6053,83 +6204,246 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           className="w-full px-3 py-2 text-xs bg-white border border-emerald-300 rounded-lg font-bold text-emerald-950 focus:ring-1 focus:ring-emerald-500 focus:outline-none"
                         />
 
-                        {houseDuesStatusInput === 'Bayar Lebih' && (
-                          <div className="space-y-2 pt-1">
-                            <label className="block text-[10.5px] font-bold text-indigo-900">
-                              Pilihan Cepat Bulan Bayar Lebih:
-                            </label>
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-[10.5px]">
-                              {[
-                                { cnt: 2, label: '2 Bulan' },
-                                { cnt: 3, label: '3 Bulan' },
-                                { cnt: 4, label: '4 Bulan' },
-                                { cnt: 6, label: '6 Bulan' },
-                                { cnt: 12, label: '12 Bulan' },
-                              ].map((preset) => (
-                                <button
-                                  key={preset.cnt}
-                                  type="button"
-                                  onClick={() => {
-                                    const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
-                                    const generatedMonths = getSubsequentMonthLabels(baseMonth, preset.cnt);
-                                    setHouseDuesMonthInput(generatedMonths.join(', '));
-                                    setHouseDuesPaidMonthsInput(preset.cnt);
-                                    setHouseDuesTotalReceivedInput(houseDuesAmountInput * preset.cnt);
-                                  }}
-                                  className="py-1 px-1 rounded-lg font-bold border transition-all cursor-pointer text-center bg-white text-indigo-900 border-indigo-200 hover:bg-indigo-100/70 shadow-2xs"
-                                >
-                                  {preset.label}
-                                </button>
-                              ))}
-                            </div>
+                        {houseDuesStatusInput === 'Bayar Lebih' && (() => {
+                          const baseM = (
+                            houseDuesMonthInput.split(/[,;/+]+/)[0] ||
+                            (selectedKKPeriod && selectedKKPeriod !== 'semua'
+                              ? selectedKKPeriod
+                              : defaultMonthLabel)
+                          ).trim();
+                          // Sediakan daftar 24 bulan kedepan agar pengurus bebas memilih bulan yang diinginkan lewat list bulan
+                          const candidateUpcoming = getSubsequentMonthLabels(baseM, 25).slice(1);
 
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                              <div>
-                                <label className="block text-[11px] font-semibold text-indigo-900 mb-0.5">
-                                  Total Bulan
-                                </label>
-                                <input
-                                  type="number"
-                                  min={2}
-                                  max={24}
-                                  value={houseDuesPaidMonthsInput}
-                                  onChange={(e) => {
-                                    const val = Math.max(2, Number(e.target.value) || 2);
-                                    setHouseDuesPaidMonthsInput(val);
-                                    setHouseDuesTotalReceivedInput(houseDuesAmountInput * val);
-                                    const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
-                                    const generatedMonths = getSubsequentMonthLabels(baseMonth, val);
-                                    setHouseDuesMonthInput(generatedMonths.join(', '));
-                                  }}
-                                  className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950"
-                                />
+                          // Handler toggle bulan individual lewat list bulan (TIDAK OTOMATIS)
+                          const toggleMonthInList = (mLabel: string) => {
+                            let nextList: string[];
+                            if (houseDuesUpcomingMonths.includes(mLabel)) {
+                              nextList = houseDuesUpcomingMonths.filter((m) => m !== mLabel);
+                            } else {
+                              const combined = [...houseDuesUpcomingMonths, mLabel];
+                              // Pertahankan urutan kronologis kalender sesuai urutan di candidateUpcoming
+                              nextList = candidateUpcoming.filter((m) => combined.includes(m));
+                            }
+                            setHouseDuesUpcomingMonths(nextList);
+                            const nextCount = 1 + nextList.length;
+                            setHouseDuesPaidMonthsInput(nextCount);
+                            setHouseDuesTotalReceivedInput(houseDuesAmountInput * nextCount);
+                            setHouseDuesMonthInput(nextList.length > 0 ? [baseM, ...nextList].join(', ') : baseM);
+                          };
+
+                          // Handler preset pilihan cepat (opsional)
+                          const applyPresetCount = (cnt: number) => {
+                            const needed = cnt - 1;
+                            const selected = candidateUpcoming.slice(0, needed);
+                            setHouseDuesUpcomingMonths(selected);
+                            setHouseDuesPaidMonthsInput(cnt);
+                            setHouseDuesTotalReceivedInput(houseDuesAmountInput * cnt);
+                            setHouseDuesMonthInput([baseM, ...selected].join(', '));
+                          };
+
+                          const resetSelection = () => {
+                            setHouseDuesUpcomingMonths([]);
+                            setHouseDuesPaidMonthsInput(1);
+                            setHouseDuesTotalReceivedInput(houseDuesAmountInput);
+                            setHouseDuesMonthInput(baseM);
+                          };
+
+                          return (
+                            <div className="space-y-3 pt-2">
+                              {/* Box Penjelasan Wajib Pilih & Otomatis Tagihan Rp 0 */}
+                              <div className="p-3 bg-gradient-to-br from-indigo-50 via-teal-50 to-sky-50 border-2 border-indigo-300 rounded-2xl text-xs space-y-2 text-indigo-950 shadow-xs">
+                                <div className="flex items-center gap-2 font-black text-indigo-900 text-xs sm:text-sm">
+                                  <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+                                  <span>Pilih Bulan yang Dibayar Setelahnya Lewat List Bulan:</span>
+                                </div>
+                                <p className="text-[11.5px] text-indigo-900 leading-relaxed">
+                                  Pengurus <strong>memilih sendiri bulan yang dibayar setelahnya</strong> pada daftar list bulan di bawah ini (tidak otomatis dipilih). Setiap bulan yang dicentang otomatis <strong>Lunas di Muka dan tagihannya Rp 0</strong>!
+                                </p>
+                                {houseDuesUpcomingMonths.length > 0 ? (
+                                  <div className="pt-1.5 flex items-center gap-1.5 flex-wrap text-[11px] font-bold">
+                                    <span className="text-indigo-950 font-black">
+                                      Bulan Terpilih ({1 + houseDuesUpcomingMonths.length} Bulan):
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs font-bold">
+                                      {baseM} (Bulan Berjalan)
+                                    </span>
+                                    {houseDuesUpcomingMonths.map((m) => (
+                                      <span
+                                        key={m}
+                                        className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-900 border border-indigo-300 shadow-2xs font-bold flex items-center gap-1"
+                                      >
+                                        <Check className="w-3 h-3 text-indigo-700 stroke-[3]" />
+                                        <span>{m} (Tagihan Rp 0)</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="p-2 bg-amber-50 rounded-xl border border-amber-300 text-amber-900 text-[11px] font-semibold flex items-center gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                                    <span>
+                                      Belum ada bulan berikutnya yang dipilih. Silakan <strong>centang / klik bulan</strong> pada daftar list di bawah ini.
+                                    </span>
+                                  </div>
+                                )}
                               </div>
-                              <div>
-                                <label className="block text-[11px] font-semibold text-indigo-900 mb-0.5">
-                                  Total Diterima (Rp)
-                                </label>
-                                <input
-                                  type="number"
-                                  min={houseDuesAmountInput * 2}
-                                  step={5000}
-                                  value={houseDuesTotalReceivedInput}
-                                  onChange={(e) => {
-                                    const val = Number(e.target.value) || 0;
-                                    setHouseDuesTotalReceivedInput(val);
-                                    if (houseDuesAmountInput > 0 && val >= houseDuesAmountInput * 2) {
-                                      const autoMonths = Math.floor(val / houseDuesAmountInput);
-                                      setHouseDuesPaidMonthsInput(autoMonths);
-                                      const baseMonth = (houseDuesMonthInput.split(/[,;/+]+/)[0] || defaultMonthLabel).trim();
-                                      const generatedMonths = getSubsequentMonthLabels(baseMonth, autoMonths);
-                                      setHouseDuesMonthInput(generatedMonths.join(', '));
-                                    }
-                                  }}
-                                  className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950"
-                                />
+
+                              {/* Pilihan Cepat Tombol Preset (Opsional) */}
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-[11px] font-bold text-indigo-950">
+                                    Pilihan Cepat Jangka Waktu (Opsional):
+                                  </label>
+                                  {houseDuesUpcomingMonths.length > 0 && (
+                                    <button
+                                      type="button"
+                                      onClick={resetSelection}
+                                      className="text-[10px] font-bold text-rose-700 hover:text-rose-900 underline cursor-pointer"
+                                    >
+                                      Reset / Hapus Semua Pilihan
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 text-xs">
+                                  {[
+                                    { cnt: 2, label: '2 Bulan (+1 Bln)' },
+                                    { cnt: 3, label: '3 Bulan (+2 Bln)' },
+                                    { cnt: 4, label: '4 Bulan (+3 Bln)' },
+                                    { cnt: 6, label: '6 Bulan (+5 Bln)' },
+                                    { cnt: 12, label: '12 Bulan (1 Thn)' },
+                                  ].map((preset) => {
+                                    const isSelectedPreset =
+                                      1 + houseDuesUpcomingMonths.length === preset.cnt;
+                                    return (
+                                      <button
+                                        key={preset.cnt}
+                                        type="button"
+                                        onClick={() => applyPresetCount(preset.cnt)}
+                                        className={`py-1.5 px-2 rounded-xl text-[11px] font-bold border transition-all cursor-pointer text-center ${
+                                          isSelectedPreset
+                                            ? 'bg-indigo-700 text-white border-indigo-700 shadow-xs ring-2 ring-indigo-300'
+                                            : 'bg-white text-indigo-950 border-indigo-200 hover:bg-indigo-50 shadow-2xs'
+                                        }`}
+                                      >
+                                        {preset.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Info Total Bulan & Total Diterima */}
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <label className="block text-[11px] font-bold text-indigo-950 mb-0.5">
+                                    Total Bulan Iuran
+                                  </label>
+                                  <div className="w-full px-2.5 py-1.5 text-xs bg-indigo-50/80 border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950 flex items-center justify-between">
+                                    <span>{1 + houseDuesUpcomingMonths.length} Bulan</span>
+                                    <span className="text-[10px] text-indigo-700 font-sans font-semibold">
+                                      ({houseDuesUpcomingMonths.length} bulan lanjutan)
+                                    </span>
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-bold text-indigo-950 mb-0.5">
+                                    Total Diterima (Rp)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min={houseDuesAmountInput}
+                                    step={5000}
+                                    value={houseDuesTotalReceivedInput}
+                                    onChange={(e) => {
+                                      const val = Number(e.target.value) || 0;
+                                      setHouseDuesTotalReceivedInput(val);
+                                    }}
+                                    className="w-full px-2.5 py-1.5 text-xs bg-white border border-indigo-200 rounded-lg font-mono font-bold text-indigo-950"
+                                  />
+                                </div>
+                              </div>
+
+                              {/* DAFTAR LIST BULAN KEDEPANNYA (CHECKLIST CARDS) */}
+                              <div className="space-y-1.5 pt-1">
+                                <span className="text-[11px] font-bold text-slate-800 flex items-center justify-between">
+                                  <span>List Bulan yang Dibayar Setelahnya:</span>
+                                  <span className="text-[10.5px] text-indigo-700 font-semibold">
+                                    *Centang / klik bulan untuk memilih
+                                  </span>
+                                </span>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-60 overflow-y-auto p-1.5 bg-slate-50/90 rounded-2xl border border-indigo-200">
+                                  {candidateUpcoming.map((mLabel) => {
+                                    const isChecked = houseDuesUpcomingMonths.includes(mLabel);
+
+                                    return (
+                                      <div
+                                        key={mLabel}
+                                        onClick={() => toggleMonthInList(mLabel)}
+                                        className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                                          isChecked
+                                            ? 'bg-gradient-to-br from-indigo-50 to-teal-50 border-indigo-500 shadow-xs ring-2 ring-indigo-300/80'
+                                            : 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30'
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between gap-1.5">
+                                          <div className="flex items-center gap-2">
+                                            <div
+                                              className={`w-4 h-4 rounded-md flex items-center justify-center transition-colors ${
+                                                isChecked
+                                                  ? 'bg-indigo-600 text-white'
+                                                  : 'border border-slate-300 bg-white'
+                                              }`}
+                                            >
+                                              {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                                            </div>
+                                            <span
+                                              className={`text-xs font-bold ${
+                                                isChecked ? 'text-indigo-950' : 'text-slate-800'
+                                              }`}
+                                            >
+                                              {mLabel}
+                                            </span>
+                                          </div>
+
+                                          <span
+                                            className={`px-1.5 py-0.5 rounded text-[9.5px] font-black tracking-tight ${
+                                              isChecked
+                                                ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs'
+                                                : 'bg-slate-100 text-slate-500'
+                                            }`}
+                                          >
+                                            {isChecked ? 'Tagihan Rp 0' : 'Belum Dipilih'}
+                                          </span>
+                                        </div>
+
+                                        <div className="mt-1 pt-1 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                                          <span
+                                            className={
+                                              isChecked
+                                                ? 'text-indigo-700 font-semibold'
+                                                : 'text-slate-400'
+                                            }
+                                          >
+                                            {isChecked
+                                              ? `Lunas di Muka (Bulan Lanjutan)`
+                                              : `Tagihan Normal (${formatRupiah(houseDuesAmountInput)})`}
+                                          </span>
+                                          <span
+                                            className={`font-mono font-bold ${
+                                              isChecked ? 'text-emerald-700' : 'text-slate-500'
+                                            }`}
+                                          >
+                                            {isChecked ? 'Rp 0' : formatRupiah(houseDuesAmountInput)}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
 
                         <div>
                           <label className="block text-[11px] font-semibold text-slate-700 mb-1">

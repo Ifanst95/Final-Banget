@@ -199,10 +199,17 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
           (targetKey ? coveredMonths.some((m) => parseIndonesianMonthYearToKey(m) === targetKey) : false) ||
           isPeriodCoveredInDuesNote(house.duesMonthNote, inputMonth));
 
-      // Jika inputMonth merupakan bulan kedepannya yang dipilih pengurus (targetKey > baseKey), otomatis tagihan = Rp 0 (Lunas di Muka)
+      // Jika inputMonth merupakan bulan kedepannya yang dipilih pengurus (targetKey > baseKey atau ada di list lanjutan), otomatis tagihan = Rp 0 (Lunas di Muka)
+      const isExplicitUpcoming =
+        isPaidState &&
+        noteMonths.length > 1 &&
+        noteMonths
+          .slice(1)
+          .some((m) => m === inputMonth || (targetKey && parseIndonesianMonthYearToKey(m) === targetKey));
+
       const isAdvancePaidForInputMonth =
         isCoveredForInputMonth &&
-        Boolean(baseKey && targetKey && targetKey > baseKey);
+        (isExplicitUpcoming || Boolean(baseKey && targetKey && targetKey > baseKey));
 
       const isDuesPaid = isCoveredForInputMonth || (inputMonth === houseBasePeriod && isPaidState);
 
@@ -2232,14 +2239,14 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                           {/* Daftar Interaktif Bulan Kedepannya (Checklist Card) */}
                           <div className="space-y-1.5 pt-1">
                             <span className="text-[11px] font-bold text-slate-800 flex items-center justify-between">
-                              <span>Daftar Bulan Kedepannya yang Wajib Dipilih Pengurus:</span>
+                              <span>List Bulan yang Dibayar Setelahnya:</span>
                               <span className="text-[10px] text-indigo-700 font-semibold">
-                                *Klik bulan untuk memilih sampai bulan tersebut
+                                *Centang / klik bulan untuk memilih
                               </span>
                             </span>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-1 bg-slate-50/80 rounded-2xl border border-slate-200">
-                              {upcomingCandidateMonths.map((mLabel, idx) => {
+                              {upcomingCandidateMonths.map((mLabel) => {
                                 const isChecked = paySelectedUpcomingMonths.includes(mLabel);
                                 const baseNominal = payingBillingItem.monthlyDuesNominal || defaultNominal;
 
@@ -2247,21 +2254,15 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                                   <div
                                     key={mLabel}
                                     onClick={() => {
+                                      let nextList: string[];
                                       if (isChecked) {
-                                        if (paySelectedUpcomingMonths.indexOf(mLabel) === paySelectedUpcomingMonths.length - 1) {
-                                          const nextList = paySelectedUpcomingMonths.filter((m) => m !== mLabel);
-                                          setPaySelectedUpcomingMonths(nextList);
-                                          setPayDuesMonths(1 + nextList.length);
-                                        } else {
-                                          const nextList = upcomingCandidateMonths.slice(0, idx + 1);
-                                          setPaySelectedUpcomingMonths(nextList);
-                                          setPayDuesMonths(1 + nextList.length);
-                                        }
+                                        nextList = paySelectedUpcomingMonths.filter((m) => m !== mLabel);
                                       } else {
-                                        const nextList = upcomingCandidateMonths.slice(0, idx + 1);
-                                        setPaySelectedUpcomingMonths(nextList);
-                                        setPayDuesMonths(1 + nextList.length);
+                                        const combined = [...paySelectedUpcomingMonths, mLabel];
+                                        nextList = upcomingCandidateMonths.filter((m) => combined.includes(m));
                                       }
+                                      setPaySelectedUpcomingMonths(nextList);
+                                      setPayDuesMonths(1 + nextList.length);
                                     }}
                                     className={`p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
                                       isChecked
