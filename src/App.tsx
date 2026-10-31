@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useStorage } from './hooks/useStorage';
 import { Navbar } from './components/Navbar';
 import { AdminLoginModal } from './components/AdminLoginModal';
@@ -14,6 +14,7 @@ import { ResidentDirectorySection } from './components/ResidentDirectorySection'
 import { CommitteesFooter } from './components/CommitteesFooter';
 import { INITIAL_NAV_MENUS } from './data/initialData';
 import { SiteConfig } from './types';
+import { computeOverallKKRecapList } from './utils/helpers';
 
 export default function App() {
   const {
@@ -100,15 +101,17 @@ export default function App() {
       'Papan Informasi Warga Gang Mandor Blok K2/25 - K3/24';
   }, [siteConfig.title, siteConfig.brandName]);
 
-  // Calculate total unpaid arrears count for navbar badge (empty houses excluded from routine dues)
-  const arrearsCount = residents.filter((house) => {
-    const hasDuesDebt = house.occupancy !== 'Kosong' && house.duesStatus === 'Belum Bayar';
-    const hasBaksosDebt = baksosAgendas.some(
-      (a) => a.attendance?.[house.id] === 'Tidak Hadir' && !a.finesPaid?.[house.id]
+  // Calculate total unpaid arrears count for navbar badge directly from unified recap
+  const arrearsCount = useMemo(() => {
+    const { housesWithArrearsCount } = computeOverallKKRecapList(
+      residents,
+      siteConfig,
+      transactions,
+      baksosAgendas
     );
-    const hasPrevDebt = (house.previousArrears || 0) > 0;
-    return hasDuesDebt || hasBaksosDebt || hasPrevDebt;
-  }).length;
+    return housesWithArrearsCount;
+  }, [residents, siteConfig, transactions, baksosAgendas]);
+
 
   const currentNavMenus =
     siteConfig.navigationMenus && siteConfig.navigationMenus.length > 0

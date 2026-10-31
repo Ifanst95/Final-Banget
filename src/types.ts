@@ -50,6 +50,15 @@ export interface ResidentHouse {
   previousBaksosArrears?: number; // Tunggakan denda baksos bulan lalu / periode sebelumnya (Rp)
   previousBaksosArrearsNote?: string; // Keterangan denda baksos bulan lalu
   customBaksosFineAmount?: number; // Nominal denda baksos khusus/editan per rumah (Rp)
+  occupancyHistory?: Record<string, OccupancyStatus>; // Riwayat status hunian per periode (contoh: '2026-05': 'Ditempati', '2026-09': 'Kosong')
+  periodHistory?: Record<string, {
+    occupancy?: OccupancyStatus;
+    headName?: string;
+    duesHeadNameOverride?: string;
+    duesStatus?: DuesStatus;
+    customDuesAmount?: number;
+    updatedAt?: string;
+  }>;
   members: FamilyMember[];
   updatedAt?: string;
 }

@@ -36,7 +36,13 @@ export const TREASURER_BANK = {
   phone: '+6287887332749',
 };
 import { BaksosAgenda, CashTransaction, ResidentHouse, SiteConfig } from '../types';
-import { formatRupiah, getSubsequentMonthLabels, isHouseVacant, openWhatsAppShare } from '../utils/helpers';
+import {
+  computeOverallKKRecapList,
+  formatRupiah,
+  getSubsequentMonthLabels,
+  isHouseVacant,
+  openWhatsAppShare,
+} from '../utils/helpers';
 import { exportFinancialReportToExcel } from '../utils/financialExcelExport';
 import { BalanceBreakdown } from '../hooks/useStorage';
 
@@ -95,61 +101,31 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   const [copiedBankNumber, setCopiedBankNumber] = useState(false);
   const [copiedSingleMsg, setCopiedSingleMsg] = useState(false);
 
-  // Compute arrears per household
-  const arrearsList = residents.map((house) => {
-    const houseMonthlyNominal =
-      house.customDuesAmount !== undefined
-        ? house.customDuesAmount
-        : config.duesAmountPerMonth || 50000;
+  // Rekapitulasi tunggakan bersumber langsung & terpadu dari Tabel Rekapitulasi Keseluruhan Kas Per Kepala Keluarga
+  const { recapList, totalAllArrears } = useMemo(() => {
+    return computeOverallKKRecapList(residents, config, transactions, baksosAgendas);
+  }, [residents, config, transactions, baksosAgendas]);
 
-    // 1. Tunggakan iuran rutin bulan ini (Rumah Kosong otomatis tidak dikenakan iuran rutin / bebas tunggakan)
-    const isVacant =
-      house.occupancy === 'Kosong' ||
-      house.occupancy === 'Belum Ditempati' ||
-      isHouseVacant(house);
-    const duesArrears =
-      isVacant
-        ? 0
-        : house.duesStatus === 'Belum Bayar'
-        ? Math.max(0, houseMonthlyNominal - (house.duesPaidAmount || 0))
-        : 0;
+  const arrearsList = useMemo(() => {
+    return recapList.map((row) => ({
+      house: row.house,
+      houseMonthlyNominal: row.nominalPerMonth,
+      duesArrears: row.currentMonthDuesArrears,
+      unpaidBaksosList: row.unpaidBaksosList,
+      baksosFineArrears: row.baksosFineArrears,
+      previousArrears: row.previousDuesArrears,
+      previousArrearsNote: row.previousArrearsNote,
+      totalArrears: row.remainingArrearsTotal,
+      unpaidPastPeriods: row.unpaidPastPeriods,
+      unpaidPeriods: row.unpaidPeriods,
+      periodsDetail: row.periodsDetail,
+    }));
+  }, [recapList]);
 
-    // 2. Tunggakan denda baksos (Rp 10.000 khusus untuk status 'Tidak Hadir' yang belum lunas; Kontrak otomatis Tidak Wajib)
-    const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
-    const unpaidBaksosList = baksosAgendas.filter((agenda) => {
-      const attendance =
-        agenda.attendance?.[house.id] ||
-        (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
-      const isFinePaid = agenda.finesPaid?.[house.id];
-      return attendance === 'Tidak Hadir' && !isFinePaid;
-    });
-    const calculatedBaksosFine = isVacant ? 0 : unpaidBaksosList.length * 10000;
-    const baksosFineArrears =
-      house.customBaksosFineAmount !== undefined
-        ? house.customBaksosFineAmount
-        : calculatedBaksosFine;
-
-    // 3. Tunggakan bulan / tahun sebelumnya + keterangan
-    const previousArrears = house.previousArrears || 0;
-    const previousArrearsNote = house.previousArrearsNote || '';
-
-    // Total tunggakan
-    const totalArrears = duesArrears + baksosFineArrears + previousArrears;
-
-    return {
-      house,
-      houseMonthlyNominal,
-      duesArrears,
-      unpaidBaksosList,
-      baksosFineArrears,
-      previousArrears,
-      previousArrearsNote,
-      totalArrears,
-    };
-  });
-
-  const housesWithArrears = arrearsList.filter((item) => item.totalArrears > 0);
-  const totalAllArrears = arrearsList.reduce((acc, curr) => acc + curr.totalArrears, 0);
+  const housesWithArrears = useMemo(
+    () => arrearsList.filter((item) => item.totalArrears > 0),
+    [arrearsList]
+  );
 
   const filteredDelinquentList = housesWithArrears.filter((item) => {
     const payerName = item.house.duesHeadNameOverride || item.house.headName;
@@ -164,8 +140,9 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
 
   const handleOpenEditPrev = (house: ResidentHouse) => {
     setEditingHouse(house);
-    setEditPrevAmount(house.previousArrears || 0);
-    setEditPrevNote(house.previousArrearsNote || '');
+    const foundItem = arrearsList.find((a) => a.house.id === house.id);
+    setEditPrevAmount(foundItem ? foundItem.previousArrears : (house.previousArrears || 0));
+    setEditPrevNote(foundItem ? foundItem.previousArrearsNote : (house.previousArrearsNote || ''));
   };
 
   const handleSavePrev = (e: React.FormEvent) => {

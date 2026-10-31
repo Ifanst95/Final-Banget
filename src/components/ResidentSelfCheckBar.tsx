@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Check,
   Copy,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { BaksosAgenda, CashTransaction, ResidentHouse, SiteConfig } from '../types';
 import {
+  computeOverallKKRecapList,
   formatDateDDMMYYYY,
   formatRupiah,
   isHouseVacant,
@@ -53,25 +54,23 @@ export const ResidentSelfCheckBar: React.FC<ResidentSelfCheckBarProps> = ({
     }
   };
 
+  const { recapList } = useMemo(() => {
+    return computeOverallKKRecapList(residents, config, transactions, baksosAgendas);
+  }, [residents, config, transactions, baksosAgendas]);
+
   const selectedHouse = residents.find((r) => r.blockNumber === selectedBlock);
 
   const getHouseSummary = (house: ResidentHouse) => {
-    const houseNominal =
-      house.customDuesAmount !== undefined
-        ? house.customDuesAmount
-        : config.duesAmountPerMonth || 50000;
-    const duesDebt =
-      house.occupancy === 'Kosong'
-        ? 0
-        : house.duesStatus === 'Belum Bayar'
-        ? Math.max(0, houseNominal - (house.duesPaidAmount || 0))
-        : 0;
+    const recapItem = recapList.find((r) => r.house.id === house.id);
+    const duesDebt = recapItem ? recapItem.currentMonthDuesArrears : 0;
     const unpaidBaksos = baksosAgendas.filter(
       (a) => a.attendance?.[house.id] === 'Tidak Hadir' && !a.finesPaid?.[house.id]
     );
-    const baksosDebt = unpaidBaksos.length * 10000;
-    const prevDebt = house.previousArrears || 0;
-    const totalDebt = duesDebt + baksosDebt + prevDebt;
+    const baksosDebt = recapItem ? recapItem.baksosFineArrears : unpaidBaksos.length * 10000;
+    const prevDebt = recapItem ? recapItem.previousDuesArrears : (house.previousArrears || 0);
+    const prevNote = recapItem?.previousArrearsNote || house.previousArrearsNote || '';
+    const pastUnpaidPeriods = recapItem?.unpaidPastPeriods || [];
+    const totalDebt = recapItem ? recapItem.remainingArrearsTotal : (duesDebt + baksosDebt + prevDebt);
     const attendedCount = baksosAgendas.filter(
       (a) => a.attendance?.[house.id] === 'Hadir'
     ).length;
@@ -81,8 +80,11 @@ export const ResidentSelfCheckBar: React.FC<ResidentSelfCheckBarProps> = ({
       unpaidBaksos,
       baksosDebt,
       prevDebt,
+      prevNote,
+      pastUnpaidPeriods,
       totalDebt,
       attendedCount,
+      recapItem,
     };
   };
 
@@ -291,6 +293,12 @@ export const ResidentSelfCheckBar: React.FC<ResidentSelfCheckBarProps> = ({
                       >
                         {formatRupiah(summary.totalDebt)}
                       </span>
+                      {summary.prevDebt > 0 && (
+                        <span className="block text-[10px] text-amber-900 font-semibold mt-0.5 tabular-nums">
+                          Termasuk tunggakan lalu: {formatRupiah(summary.prevDebt)}
+                          {summary.prevNote ? ` (${summary.prevNote})` : ''}
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => onNavigateTab(isClean ? 'kas' : 'tunggakan')}

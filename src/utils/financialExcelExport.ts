@@ -7,6 +7,7 @@ import {
 } from '../types';
 import { BalanceBreakdown } from '../hooks/useStorage';
 import {
+  computeOverallKKRecapList,
   formatDateDDMMYYYY,
   formatMonthYearFromDate,
   formatMonthYearFromKey,
@@ -42,6 +43,7 @@ export function exportFinancialReportToExcel({
   const todayStr = new Date().toISOString().slice(0, 10);
   const currentPeriod = config.duesCurrentMonth || 'Oktober 2026';
   const defaultNominal = config.duesAmountPerMonth || 50000;
+  const { recapList: overallKKRecapList } = computeOverallKKRecapList(residents, config, transactions, baksosAgendas);
 
   const getHouseDuesNominal = (house: ResidentHouse) =>
     house.customDuesAmount !== undefined ? house.customDuesAmount : defaultNominal;
@@ -634,16 +636,8 @@ export function exportFinancialReportToExcel({
 
       const grandTotalAll = totalIuranAll + totalDendaAll + totalTunggakanAll;
 
-      // Tunggakan tersisa
-      const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
-      const unpaidBaksos = baksosAgendas.filter((agenda) => {
-        const att = agenda.attendance?.[house.id] || (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
-        return att === 'Tidak Hadir' && !agenda.finesPaid?.[house.id];
-      });
-      const baksosFineArrears = isPureKosong ? 0 : (house.customBaksosFineAmount !== undefined ? house.customBaksosFineAmount : unpaidBaksos.length * 10000);
-      const duesArrears = isPureKosong ? 0 : (house.duesStatus === 'Belum Bayar' ? Math.max(0, nominal - (house.duesPaidAmount || 0)) : 0);
-      const prevArrears = isPureKosong ? 0 : (house.previousArrears || 0);
-      const remainingTotal = duesArrears + baksosFineArrears + prevArrears;
+      const recapItem = overallKKRecapList.find((r) => r.house.id === house.id);
+      const remainingTotal = recapItem ? recapItem.remainingArrearsTotal : 0;
 
       let statusOverall = 'LUNAS SEMUA PERIODE';
       if (isPureKosong) {
@@ -693,25 +687,17 @@ export function exportFinancialReportToExcel({
   // 4. SHEET: RINCIAN TUNGGAKAN & DENDA WARGA
   if (exportScope === 'all' || exportScope === 'tunggakan_only') {
     const arrearsRows = residents.map((house, idx) => {
-      const nominal = getHouseDuesNominal(house);
-      const duesArrears =
-        house.occupancy === 'Kosong'
-          ? 0
-          : house.duesStatus === 'Belum Bayar'
-          ? Math.max(0, nominal - (house.duesPaidAmount || 0))
-          : 0;
-
-      const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
+      const recapItem = overallKKRecapList.find((r) => r.house.id === house.id);
+      const duesArrears = recapItem ? recapItem.currentMonthDuesArrears : 0;
       const unpaidBaksos = baksosAgendas.filter((agenda) => {
-        const att =
-          agenda.attendance?.[house.id] ||
-          (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
+        const att = agenda.attendance?.[house.id];
         const paid = agenda.finesPaid?.[house.id];
         return att === 'Tidak Hadir' && !paid;
       });
-      const baksosFineArrears = unpaidBaksos.length * 10000;
-      const previousArrears = house.previousArrears || 0;
-      const totalArrears = duesArrears + baksosFineArrears + previousArrears;
+      const baksosFineArrears = recapItem ? recapItem.baksosFineArrears : 0;
+      const previousArrears = recapItem ? recapItem.previousDuesArrears : 0;
+      const previousArrearsNote = recapItem?.previousArrearsNote || house.previousArrearsNote || '-';
+      const totalArrears = recapItem ? recapItem.remainingArrearsTotal : 0;
 
       return {
         No: idx + 1,
@@ -723,7 +709,7 @@ export function exportFinancialReportToExcel({
         'Jumlah Absen Baksos Belum Lunas': unpaidBaksos.length,
         'Tunggakan Denda Baksos (Rp)': baksosFineArrears,
         'Tunggakan Bulan/Tahun Lalu (Rp)': previousArrears,
-        'Keterangan Tunggakan Lalu': house.previousArrearsNote || '-',
+        'Keterangan Tunggakan Lalu': previousArrearsNote,
         'TOTAL TUNGGAKAN (Rp)': totalArrears,
         'Status Tagihan': totalArrears > 0 ? 'TERTUNGGAK' : 'LUNAS / BERSIH',
       };

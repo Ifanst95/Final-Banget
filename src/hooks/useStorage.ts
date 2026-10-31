@@ -19,7 +19,7 @@ import {
   INITIAL_SITE_CONFIG,
   INITIAL_TRANSACTIONS,
 } from '../data/initialData';
-import { formatMonthYearFromDate, formatRupiah, getMonthKeyFromDate, parseIndonesianMonthYearToKey } from '../utils/helpers';
+import { formatMonthYearFromDate, formatRupiah, getHouseOccupancyForPeriod, getMonthKeyFromDate, parseIndonesianMonthYearToKey } from '../utils/helpers';
 import { parseAndNormalizeBackupJson } from '../utils/backupRestoreHelper';
 import {
   getIsFirestoreQuotaExceeded,
@@ -848,13 +848,14 @@ export function useStorage() {
           if (!isMounted || !isAutoSyncEnabled) return;
           if (hasPendingPushRef.current || isPushingMutationRef.current) return;
           try {
-            const incoming = JSON.parse(event.data) as PortalDatabasePayload;
-            if (!incoming || !incoming.siteConfig) return;
+            const raw = JSON.parse(event.data);
+            const incoming = (raw?.payload || raw) as PortalDatabasePayload;
+            if (!incoming) return;
             // Ignore echo from our own client
             if (incoming.clientId && incoming.clientId === clientIdRef.current) {
               return;
             }
-            const incomingRev = Number(incoming.revision) || 0;
+            const incomingRev = Number(incoming.revision || raw?.revision) || 0;
             const incomingIsSeed =
               incoming.isDefaultSeed === true ||
               incomingRev === 0 ||
@@ -868,9 +869,16 @@ export function useStorage() {
               incomingRev > (dbStateRef.current.revision || 0) ||
               (dbStateRef.current.isDefaultSeed && !incomingIsSeed)
             ) {
-              applySnapshotToStateAndStorage(incoming);
+              if (incoming.siteConfig && Array.isArray(incoming.residents)) {
+                applySnapshotToStateAndStorage(incoming);
+              } else {
+                fetchLatestFromServer(false);
+              }
             }
-          } catch {}
+          } catch {
+            // Resilient fallback: pull fresh snapshot from server if event parsing had an issue
+            fetchLatestFromServer(false);
+          }
         };
 
         eventSource.onerror = () => {
@@ -1215,11 +1223,33 @@ export function useStorage() {
   };
 
   const updateResident = (updated: ResidentHouse) => {
-    const stamped = { ...updated, updatedAt: new Date().toISOString() };
-    commitLocalMutation((cur) => ({
-      residents: cur.residents.map((h) => (h.id === stamped.id ? stamped : h)),
-      baksosAgendas: computeSyncedBaksosAgendas(cur.baksosAgendas, stamped),
-    }));
+    commitLocalMutation((cur) => {
+      const oldHouse = cur.residents.find((h) => h.id === updated.id);
+      let stamped = { ...updated, updatedAt: new Date().toISOString() };
+
+      if (oldHouse && oldHouse.occupancy !== updated.occupancy) {
+        const currentActiveMonth = cur.siteConfig.duesCurrentMonth || 'September 2026';
+        const currentKey = parseIndonesianMonthYearToKey(currentActiveMonth) || '2026-09';
+        const periods = cur.siteConfig.duesAvailablePeriods || [];
+        const occHistory = { ...(oldHouse.occupancyHistory || {}), ...(updated.occupancyHistory || {}) };
+
+        periods.forEach((p) => {
+          const pKey = parseIndonesianMonthYearToKey(p);
+          if (pKey && pKey < currentKey && !occHistory[pKey]) {
+            occHistory[pKey] = getHouseOccupancyForPeriod(oldHouse, p, cur.transactions);
+          }
+        });
+        if (currentKey) {
+          occHistory[currentKey] = updated.occupancy;
+        }
+        stamped.occupancyHistory = occHistory;
+      }
+
+      return {
+        residents: cur.residents.map((h) => (h.id === stamped.id ? stamped : h)),
+        baksosAgendas: computeSyncedBaksosAgendas(cur.baksosAgendas, stamped),
+      };
+    });
   };
 
   const deleteResident = (houseId: string) => {
