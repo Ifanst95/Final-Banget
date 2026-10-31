@@ -15,6 +15,7 @@ import {
   getSubsequentMonthLabels,
   isHouseVacant,
   isHouseVacantInPeriod,
+  getHouseDuesNominalForPeriod,
   parseIndonesianMonthYearToKey,
 } from './helpers';
 
@@ -45,8 +46,8 @@ export function exportFinancialReportToExcel({
   const defaultNominal = config.duesAmountPerMonth || 50000;
   const { recapList: overallKKRecapList } = computeOverallKKRecapList(residents, config, transactions, baksosAgendas);
 
-  const getHouseDuesNominal = (house: ResidentHouse) =>
-    house.customDuesAmount !== undefined ? house.customDuesAmount : defaultNominal;
+  const getHouseDuesNominal = (house: ResidentHouse, periodLabel?: string) =>
+    getHouseDuesNominalForPeriod(house, periodLabel || currentPeriod, config, transactions);
 
   const occupiedResidents = residents.filter((h) => h.occupancy !== 'Kosong');
   const totalInflow = transactions
@@ -456,12 +457,27 @@ export function exportFinancialReportToExcel({
         let isPeriodLunas = false;
         let isAdv = false;
 
-        if (isPureKosong) {
+        const isPeriodVacant = isHouseVacantInPeriod(house, pLabel, transactions);
+        const periodNominal = isPeriodVacant ? 0 : getHouseDuesNominal(house, pLabel);
+        const histEntry = house.periodHistory?.[pKey] || (pKey ? house.periodHistory?.[pLabel] : undefined);
+
+        if (isPeriodVacant || isPureKosong) {
           iuranPeriod = sumTxs;
           isPeriodLunas = true;
         } else if (sumTxs > 0) {
           iuranPeriod = sumTxs;
           isPeriodLunas = true;
+        } else if (histEntry) {
+          if (histEntry.occupancy === 'Kosong') {
+            iuranPeriod = histEntry.paidAmount || 0;
+            isPeriodLunas = true;
+          } else if (histEntry.duesStatus === 'Lunas' || histEntry.duesStatus === 'Bayar Lebih') {
+            iuranPeriod = histEntry.paidAmount !== undefined ? histEntry.paidAmount : (histEntry.customDuesAmount ?? periodNominal);
+            isPeriodLunas = true;
+          } else {
+            iuranPeriod = histEntry.paidAmount || 0;
+            isPeriodLunas = false;
+          }
         } else {
           // Check advance or base match
           const houseBase = house.duesMonthNote || currentPeriod;
@@ -475,11 +491,11 @@ export function exportFinancialReportToExcel({
             iuranPeriod = 0;
             isPeriodLunas = true;
           } else if (((baseKey && pKey === baseKey) || pLabel === houseBase) && isPaid) {
-            iuranPeriod = paidMonths > 1 ? nominal * paidMonths : nominal;
+            iuranPeriod = paidMonths > 1 ? periodNominal * paidMonths : periodNominal;
             isPeriodLunas = true;
           } else if (pLabel === currentPeriod) {
             if (isPaid) {
-              iuranPeriod = house.duesStatus === 'Bayar Lebih' ? nominal * Math.max(2, house.duesPaidMonths || 2) : nominal;
+              iuranPeriod = house.duesStatus === 'Bayar Lebih' ? periodNominal * Math.max(2, house.duesPaidMonths || 2) : periodNominal;
               isPeriodLunas = true;
             } else {
               iuranPeriod = house.duesPaidAmount || 0;
@@ -556,7 +572,6 @@ export function exportFinancialReportToExcel({
         }
 
         // Nama KK untuk periode ini
-        const isPeriodVacant = isHouseVacantInPeriod(house, pLabel, transactions);
         let periodHeadName = (isPureKosong || isPeriodVacant) ? 'Rumah Kosong' : payerName;
         const periodMonthName = (pLabel.split(' ')[0] || '').toLowerCase();
         const matchingPeriodTx = transactions.find((t) => {

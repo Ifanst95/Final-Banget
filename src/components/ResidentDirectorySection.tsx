@@ -186,6 +186,7 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
       wifiStatus: formWifiStatus,
       wifiProvider: formWifiStatus === 'Pasang' ? formWifiProvider : '-',
       duesStatus: editingHouse ? editingHouse.duesStatus : formDuesStatus,
+      duesHeadNameOverride: editingHouse?.duesHeadNameOverride,
       customDuesAmount: editingHouse?.customDuesAmount,
       duesPaidAmount: editingHouse?.duesPaidAmount,
       duesPaidMonths: editingHouse?.duesPaidMonths,
@@ -194,6 +195,11 @@ export const ResidentDirectorySection: React.FC<ResidentDirectorySectionProps> =
       duesMonthNote: editingHouse?.duesMonthNote,
       previousArrears: editingHouse ? editingHouse.previousArrears : Number(formPrevArrears) || 0,
       previousArrearsNote: editingHouse?.previousArrearsNote,
+      previousBaksosArrears: editingHouse?.previousBaksosArrears,
+      previousBaksosArrearsNote: editingHouse?.previousBaksosArrearsNote,
+      customBaksosFineAmount: editingHouse?.customBaksosFineAmount,
+      occupancyHistory: editingHouse?.occupancyHistory,
+      periodHistory: editingHouse?.periodHistory,
       members: formMembers,
     };
 

@@ -19,7 +19,7 @@ import {
   INITIAL_SITE_CONFIG,
   INITIAL_TRANSACTIONS,
 } from '../data/initialData';
-import { formatMonthYearFromDate, formatRupiah, getHouseOccupancyForPeriod, getMonthKeyFromDate, parseIndonesianMonthYearToKey } from '../utils/helpers';
+import { formatMonthYearFromDate, formatRupiah, getHouseOccupancyForPeriod, getHouseHeadNameForPeriod, getHouseDuesNominalForPeriod, getMonthKeyFromDate, parseIndonesianMonthYearToKey } from '../utils/helpers';
 import { parseAndNormalizeBackupJson } from '../utils/backupRestoreHelper';
 import {
   getIsFirestoreQuotaExceeded,
@@ -1100,9 +1100,34 @@ export function useStorage() {
 
   // CRUD for Site Config
   const updateSiteConfig = (newConfig: Partial<SiteConfig>) => {
-    commitLocalMutation((cur) => ({
-      siteConfig: { ...cur.siteConfig, ...newConfig },
-    }));
+    commitLocalMutation((cur) => {
+      const existingPeriodDues = { ...(cur.siteConfig.periodDuesAmounts || {}) };
+      // Jika duesAmountPerMonth berubah, kunci tarif iuran seluruh periode sebelumnya
+      // agar perubahan tarif bulan berjalan tidak merubah tarif bulan sebelum-sebelumnya!
+      if (
+        newConfig.duesAmountPerMonth !== undefined &&
+        newConfig.duesAmountPerMonth !== cur.siteConfig.duesAmountPerMonth
+      ) {
+        const periods = cur.siteConfig.duesAvailablePeriods || [];
+        periods.forEach((p) => {
+          const pKey = parseIndonesianMonthYearToKey(p) || p;
+          if (existingPeriodDues[pKey] === undefined) {
+            existingPeriodDues[pKey] = cur.siteConfig.duesAmountPerMonth;
+          }
+          if (existingPeriodDues[p] === undefined) {
+            existingPeriodDues[p] = cur.siteConfig.duesAmountPerMonth;
+          }
+        });
+      }
+
+      return {
+        siteConfig: {
+          ...cur.siteConfig,
+          ...newConfig,
+          periodDuesAmounts: existingPeriodDues,
+        },
+      };
+    });
   };
 
   // Pengurus bisa membuat periode baru (iuran kas per kk & buku kas)
@@ -1115,21 +1140,56 @@ export function useStorage() {
   ) => {
     const trimmed = newPeriodLabel.trim();
     if (!trimmed) return;
+    const newPeriodKey = parseIndonesianMonthYearToKey(trimmed) || trimmed;
+
     commitLocalMutation((cur) => {
       const existing = cur.siteConfig.duesAvailablePeriods || [
         cur.siteConfig.duesCurrentMonth || 'Oktober 2026',
       ];
       const updatedPeriods = Array.from(new Set([trimmed, ...existing]));
+      const existingPeriodDues = { ...(cur.siteConfig.periodDuesAmounts || {}) };
+      if (existingPeriodDues[newPeriodKey] === undefined) {
+        existingPeriodDues[newPeriodKey] = cur.siteConfig.duesAmountPerMonth;
+      }
+      if (existingPeriodDues[trimmed] === undefined) {
+        existingPeriodDues[trimmed] = cur.siteConfig.duesAmountPerMonth;
+      }
+
       const updatedConfig = {
         ...cur.siteConfig,
         duesAvailablePeriods: updatedPeriods,
+        periodDuesAmounts: existingPeriodDues,
         ...(options?.setActiveCurrentMonth ? { duesCurrentMonth: trimmed } : {}),
       };
 
       let updatedResidents = cur.residents;
       if (options?.resetNonAdvanceDues) {
+        const prevMonth = cur.siteConfig.duesCurrentMonth || 'September 2026';
+        const prevMonthKey = parseIndonesianMonthYearToKey(prevMonth) || prevMonth;
+
         updatedResidents = cur.residents.map((r) => {
-          if (r.occupancy === 'Kosong') return r;
+          // Snapshot previous month into periodHistory before rollover so previous month data is preserved!
+          const newPeriodHist = { ...(r.periodHistory || {}) };
+          if (prevMonthKey && !newPeriodHist[prevMonthKey]) {
+            newPeriodHist[prevMonthKey] = {
+              occupancy: r.occupancy,
+              headName: r.headName,
+              duesHeadNameOverride: r.duesHeadNameOverride || r.headName,
+              duesStatus: r.duesStatus,
+              customDuesAmount: r.customDuesAmount ?? cur.siteConfig.duesAmountPerMonth,
+              paidAmount: r.duesStatus === 'Lunas' || r.duesStatus === 'Bayar Lebih' ? (r.customDuesAmount ?? cur.siteConfig.duesAmountPerMonth) : (r.duesPaidAmount || 0),
+              paidDate: r.duesPaidDate || '',
+              updatedAt: new Date().toISOString(),
+            };
+          }
+
+          if (r.occupancy === 'Kosong') {
+            return {
+              ...r,
+              periodHistory: newPeriodHist,
+            };
+          }
+
           const paidMonths = r.duesPaidMonths || 0;
           if (r.duesStatus === 'Bayar Lebih' && paidMonths > 1) {
             const nextPaidMonths = paidMonths - 1;
@@ -1141,6 +1201,7 @@ export function useStorage() {
               duesPaidMonths: nextPaidMonths,
               duesPrepaidBalance: newPrepaid,
               duesMonthNote: trimmed,
+              periodHistory: newPeriodHist,
             };
           }
           return {
@@ -1151,6 +1212,7 @@ export function useStorage() {
             duesPrepaidBalance: 0,
             duesPaidDate: '',
             duesMonthNote: trimmed,
+            periodHistory: newPeriodHist,
           };
         });
       }
@@ -1227,22 +1289,38 @@ export function useStorage() {
       const oldHouse = cur.residents.find((h) => h.id === updated.id);
       let stamped = { ...updated, updatedAt: new Date().toISOString() };
 
-      if (oldHouse && oldHouse.occupancy !== updated.occupancy) {
+      if (oldHouse) {
         const currentActiveMonth = cur.siteConfig.duesCurrentMonth || 'September 2026';
         const currentKey = parseIndonesianMonthYearToKey(currentActiveMonth) || '2026-09';
         const periods = cur.siteConfig.duesAvailablePeriods || [];
         const occHistory = { ...(oldHouse.occupancyHistory || {}), ...(updated.occupancyHistory || {}) };
+        const perHistory = { ...(oldHouse.periodHistory || {}), ...(updated.periodHistory || {}) };
 
+        // Freeze all previous periods so that updating resident in Data Warga never changes historical months!
         periods.forEach((p) => {
           const pKey = parseIndonesianMonthYearToKey(p);
-          if (pKey && pKey < currentKey && !occHistory[pKey]) {
-            occHistory[pKey] = getHouseOccupancyForPeriod(oldHouse, p, cur.transactions);
+          if (pKey && pKey < currentKey) {
+            if (!occHistory[pKey]) {
+              occHistory[pKey] = getHouseOccupancyForPeriod(oldHouse, p, cur.transactions);
+            }
+            if (!perHistory[pKey]) {
+              const prevNominal = getHouseDuesNominalForPeriod(oldHouse, p, cur.siteConfig, cur.transactions);
+              const prevHeadName = getHouseHeadNameForPeriod(oldHouse, p, cur.transactions);
+              perHistory[pKey] = {
+                occupancy: getHouseOccupancyForPeriod(oldHouse, p, cur.transactions),
+                headName: prevHeadName,
+                duesHeadNameOverride: oldHouse.duesHeadNameOverride || prevHeadName,
+                customDuesAmount: prevNominal,
+                updatedAt: oldHouse.updatedAt || new Date().toISOString(),
+              };
+            }
           }
         });
         if (currentKey) {
           occHistory[currentKey] = updated.occupancy;
         }
         stamped.occupancyHistory = occHistory;
+        stamped.periodHistory = perHistory;
       }
 
       return {

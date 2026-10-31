@@ -57,6 +57,8 @@ export interface ResidentHouse {
     duesHeadNameOverride?: string;
     duesStatus?: DuesStatus;
     customDuesAmount?: number;
+    paidAmount?: number;
+    paidDate?: string;
     updatedAt?: string;
   }>;
   members: FamilyMember[];
@@ -166,6 +168,7 @@ export interface SiteConfig {
   duesAmountPerMonth: number;
   duesCurrentMonth?: string;
   duesAvailablePeriods?: string[];
+  periodDuesAmounts?: Record<string, number>;
 }
 
 export interface PortalDatabasePayload {
