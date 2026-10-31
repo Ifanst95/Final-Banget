@@ -269,7 +269,12 @@ export function getHouseHeadNameForPeriod(
     return 'Rumah Kosong';
   }
   if (occ === 'Belum Ditempati') {
-    return house.duesHeadNameOverride || 'Belum Ditempati';
+    return 'Belum Ditempati';
+  }
+  // Penting: jika house.duesHeadNameOverride bernilai 'Rumah Kosong' tapi occ pada periode ini BUKAN Kosong,
+  // JANGAN gunakan duesHeadNameOverride 'Rumah Kosong' karena itu milik bulan lain! Gunakan house.headName!
+  if (house.duesHeadNameOverride && /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim())) {
+    return house.headName || '';
   }
   return house.duesHeadNameOverride || house.headName || '';
 }
@@ -1321,14 +1326,11 @@ export function computeOverallKKRecapList(
   const recapList: OverallKKRecapItem[] = residents.map((house, idx) => {
     const occStr = (house.occupancy as string) || '';
     const isUnoccupied = occStr === 'Belum Ditempati' || occStr === 'Belum Diisi';
+    const occNow = getHouseOccupancyForPeriod(house, currentActiveMonth, transactions) || house.occupancy;
     const isPureKosong =
       !isUnoccupied &&
-      (house.occupancy === 'Kosong' ||
-        isHouseVacant(house) ||
-        Boolean(
-          house.duesHeadNameOverride &&
-            /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim())
-        ));
+      (occNow === 'Kosong' ||
+        (house.occupancy === 'Kosong' && isHouseVacant(house)));
     const isRumahKosongHitam = isPureKosong;
 
     const defaultNominal =
@@ -1359,34 +1361,46 @@ export function computeOverallKKRecapList(
 
       // Extract KK name for this period
       let periodHeadName = isPeriodVacant ? 'Rumah Kosong' : getHouseHeadNameForPeriod(house, periodLabel, transactions);
-      const periodMonthName = (periodLabel.split(' ')[0] || '').toLowerCase();
-      const matchingPeriodTx = transactions.find((t) => {
-        if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
-        const txKey = getMonthKeyFromDate(t.date);
-        const descLower = t.description.toLowerCase();
-        const isMatchPeriod =
-          txKey === pKey ||
-          descLower.includes(periodLabel.toLowerCase()) ||
-          descLower.includes(periodMonthName);
-        return isMatchPeriod && /\([^)]+\)/.test(t.description);
-      });
+      const explicitHistEntry = house.periodHistory?.[pKey] || (pKey ? house.periodHistory?.[periodLabel] : undefined);
+      if (explicitHistEntry) {
+        if (explicitHistEntry.duesHeadNameOverride) {
+          periodHeadName = explicitHistEntry.duesHeadNameOverride;
+        } else if (explicitHistEntry.headName) {
+          periodHeadName = explicitHistEntry.headName;
+        }
+        if (explicitHistEntry.occupancy === 'Kosong' || isPeriodVacant) {
+          periodHeadName = 'Rumah Kosong';
+        }
+      } else {
+        const periodMonthName = (periodLabel.split(' ')[0] || '').toLowerCase();
+        const matchingPeriodTx = transactions.find((t) => {
+          if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
+          const txKey = getMonthKeyFromDate(t.date);
+          const descLower = t.description.toLowerCase();
+          const isMatchPeriod =
+            txKey === pKey ||
+            descLower.includes(periodLabel.toLowerCase()) ||
+            descLower.includes(periodMonthName);
+          return isMatchPeriod && /\([^)]+\)/.test(t.description);
+        });
 
-      if (matchingPeriodTx) {
-        const blockEscaped = house.blockNumber.replace('/', '\\/');
-        const blockNameMatch = matchingPeriodTx.description.match(
-          new RegExp(`Blok\\s+${blockEscaped}\\s*\\(([^)]+)\\)`, 'i')
-        );
-        const parenMatch = blockNameMatch || matchingPeriodTx.description.match(/\(([^)]+)\)$/);
-        if (parenMatch && parenMatch[1]) {
-          let extracted = parenMatch[1].trim();
-          if (extracted.toLowerCase().startsWith('rumah kosong - ')) {
-            extracted = extracted.slice('rumah kosong - '.length).trim();
-          }
-          const isNote =
-            /^(pelunasan|iuran|denda|tunggakan|warga|\d+\s*rumah|bulan)/i.test(extracted) ||
-            extracted.includes('202');
-          if (extracted && !isNote) {
-            periodHeadName = extracted;
+        if (matchingPeriodTx) {
+          const blockEscaped = house.blockNumber.replace('/', '\\/');
+          const blockNameMatch = matchingPeriodTx.description.match(
+            new RegExp(`Blok\\s+${blockEscaped}\\s*\\(([^)]+)\\)`, 'i')
+          );
+          const parenMatch = blockNameMatch || matchingPeriodTx.description.match(/\(([^)]+)\)$/);
+          if (parenMatch && parenMatch[1]) {
+            let extracted = parenMatch[1].trim();
+            if (extracted.toLowerCase().startsWith('rumah kosong - ')) {
+              extracted = extracted.slice('rumah kosong - '.length).trim();
+            }
+            const isNote =
+              /^(pelunasan|iuran|denda|tunggakan|warga|\d+\s*rumah|bulan)/i.test(extracted) ||
+              extracted.includes('202');
+            if (extracted && !isNote) {
+              periodHeadName = extracted;
+            }
           }
         }
       }

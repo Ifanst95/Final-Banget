@@ -93,7 +93,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   const [bankInfo, setBankInfo] = useState(
     `${TREASURER_BANK.bankName} ${TREASURER_BANK.accountNumber} a.n. ${TREASURER_BANK.accountName} (${TREASURER_BANK.role}) / Tunai ke Rumah Bendahara`
   );
-  const [deadlineNote, setDeadlineNote] = useState('Sebelum tanggal 10 bulan berjalan');
+  const [deadlineNote, setDeadlineNote] = useState('');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Modal Penagihan Tunggakan Warga Per KK (Single Resident Billing Modal)
@@ -424,7 +424,6 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       `• Atas Nama: *${TREASURER_BANK.accountName}* (${TREASURER_BANK.role})\n` +
       `• Berita Transfer: Kas Gang - Blok ${item.house.blockNumber}\n` +
       `• Konfirmasi WA: ${TREASURER_BANK.phone}\n\n` +
-      (deadlineNote ? `⏰ *Batas Waktu:* ${deadlineNote}\n\n` : '') +
       `Pembayaran juga dapat diserahkan tunai melalui bendahara gang. Mohon konfirmasi bukti transfer jika sudah membayar agar status langsung diperbarui menjadi *Lunas* di portal resmi warga.\n\n` +
       `Terima kasih atas partisipasi dan kepedulian Bpk/Ibu untuk kemajuan lingkungan Gang Mandor. 🙏✨`
     );
@@ -459,7 +458,6 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       `• Berita Transfer: Kas Gang – [Nama Blok/Nomor Rumah]\n` +
       `• Konfirmasi Bukti Transfer WA: ${TREASURER_BANK.phone}\n` +
       `Atau tunai langsung ke rumah Bendahara Gang / Pos Gang.\n\n` +
-      (deadlineNote ? `⏰ *Batas Waktu:* ${deadlineNote}\n\n` : '') +
       `Warga yang sudah transfer dimohon untuk mengirimkan bukti transfer ke Bendahara Gang agar status dapat langsung diperbarui menjadi *Lunas* di Portal Resmi Warga.\n\n` +
       `Atas perhatian, kebersamaan, dan kerja sama seluruh warga, kami haturkan terima kasih. 🙏✨\n` +
       `_Pengurus RT/RW Gang Mandor Blok K2/25 - K3/24_`;
@@ -1885,7 +1883,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                     Gunakan Rekening Resmi Bendahara (BCA {TREASURER_BANK.accountNumber})
                   </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="grid grid-cols-1 gap-3 text-xs">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">
                       Rekening Bank / QRIS / Pos Kas Bendahara:
@@ -1895,18 +1893,6 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       value={bankInfo}
                       onChange={(e) => setBankInfo(e.target.value)}
                       placeholder={`${TREASURER_BANK.bankName} ${TREASURER_BANK.accountNumber} a.n. ${TREASURER_BANK.accountName}`}
-                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-600 font-semibold mb-1">
-                      Keterangan Batas Waktu / Deadline:
-                    </label>
-                    <input
-                      type="text"
-                      value={deadlineNote}
-                      onChange={(e) => setDeadlineNote(e.target.value)}
-                      placeholder="Sebelum tanggal 10 bulan berjalan"
                       className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
                     />
                   </div>

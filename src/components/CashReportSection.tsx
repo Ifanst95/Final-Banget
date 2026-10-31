@@ -1564,12 +1564,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         : house.occupancy;
 
       const isPureKosong =
-        effectiveOccupancy === 'Kosong' ||
-        (selectedKKPeriod === 'semua' && isHouseVacant(house)) ||
-        Boolean(
-          house.duesHeadNameOverride &&
-            /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim())
-        );
+        selectedKKPeriod !== 'semua'
+          ? effectiveOccupancy === 'Kosong'
+          : effectiveOccupancy === 'Kosong' || isHouseVacant(house);
 
       const isUnoccupied = effectiveOccupancy === 'Belum Ditempati';
       const isRumahKosongHitam = isPureKosong;
@@ -1622,11 +1619,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
       // Nama kepala keluarga
       const payerName = isPureKosong
-        ? (house.duesHeadNameOverride && house.duesHeadNameOverride !== 'Rumah Kosong'
-            ? house.duesHeadNameOverride
-            : 'Rumah Kosong')
+        ? (selectedKKPeriod !== 'semua'
+            ? getHouseHeadNameForPeriod(house, selectedKKPeriod, transactions) || 'Rumah Kosong'
+            : (house.duesHeadNameOverride && house.duesHeadNameOverride !== 'Rumah Kosong'
+                ? house.duesHeadNameOverride
+                : 'Rumah Kosong'))
         : isUnoccupied
-        ? (house.duesHeadNameOverride || 'Belum Ditempati')
+        ? (selectedKKPeriod !== 'semua'
+            ? getHouseHeadNameForPeriod(house, selectedKKPeriod, transactions) || 'Belum Ditempati'
+            : (house.duesHeadNameOverride || 'Belum Ditempati'))
         : (selectedKKPeriod !== 'semua'
             ? getHouseHeadNameForPeriod(house, selectedKKPeriod, transactions)
             : (house.duesHeadNameOverride || house.headName || ''));
@@ -1675,7 +1676,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const isMenunggak = !isRumahKosongHitam && !isBayarLebih && !isAdvanceSubsequent && !isSudahBayar;
 
       const rowCellClass = isRumahKosongHitam
-        ? 'bg-black text-white border-neutral-800 font-medium'
+        ? '!bg-black !text-white border-neutral-800 font-medium'
         : isBayarLebih
         ? 'bg-sky-50 text-sky-950 border-sky-300 font-medium'
         : isAdvanceSubsequent
@@ -1757,14 +1758,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const overallKKRecapList = useMemo(() => {
     return residents.map((house, idx) => {
       const isUnoccupied = house.occupancy === 'Belum Ditempati';
+      const occNow = getHouseOccupancyForPeriod(house, defaultMonthLabel, transactions) || house.occupancy;
       const isPureKosong =
         !isUnoccupied &&
-        (house.occupancy === 'Kosong' ||
-          isHouseVacant(house) ||
-          Boolean(
-            house.duesHeadNameOverride &&
-              /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim())
-          ));
+        (occNow === 'Kosong' ||
+          (house.occupancy === 'Kosong' && isHouseVacant(house)));
       const isRumahKosongHitam = isPureKosong;
 
       const defaultNominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
@@ -1822,34 +1820,46 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
         // Nama Kepala Keluarga untuk periode bulan ini:
         let periodHeadName = isPeriodVacant ? 'Rumah Kosong' : getHouseHeadNameForPeriod(house, periodLabel, transactions);
-        const periodMonthName = (periodLabel.split(' ')[0] || '').toLowerCase();
-        const matchingPeriodTx = transactions.find((t) => {
-          if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
-          const txKey = getMonthKeyFromDate(t.date);
-          const descLower = t.description.toLowerCase();
-          const isMatchPeriod =
-            txKey === pKey ||
-            descLower.includes(periodLabel.toLowerCase()) ||
-            descLower.includes(periodMonthName);
-          return isMatchPeriod && /\([^)]+\)/.test(t.description);
-        });
+        const explicitHistEntry = house.periodHistory?.[pKey] || (pKey ? house.periodHistory?.[periodLabel] : undefined);
+        if (explicitHistEntry) {
+          if (explicitHistEntry.duesHeadNameOverride) {
+            periodHeadName = explicitHistEntry.duesHeadNameOverride;
+          } else if (explicitHistEntry.headName) {
+            periodHeadName = explicitHistEntry.headName;
+          }
+          if (explicitHistEntry.occupancy === 'Kosong' || isPeriodVacant) {
+            periodHeadName = 'Rumah Kosong';
+          }
+        } else {
+          const periodMonthName = (periodLabel.split(' ')[0] || '').toLowerCase();
+          const matchingPeriodTx = transactions.find((t) => {
+            if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
+            const txKey = getMonthKeyFromDate(t.date);
+            const descLower = t.description.toLowerCase();
+            const isMatchPeriod =
+              txKey === pKey ||
+              descLower.includes(periodLabel.toLowerCase()) ||
+              descLower.includes(periodMonthName);
+            return isMatchPeriod && /\([^)]+\)/.test(t.description);
+          });
 
-        if (matchingPeriodTx) {
-          const blockEscaped = house.blockNumber.replace('/', '\\/');
-          const blockNameMatch = matchingPeriodTx.description.match(
-            new RegExp(`Blok\\s+${blockEscaped}\\s*\\(([^)]+)\\)`, 'i')
-          );
-          const parenMatch = blockNameMatch || matchingPeriodTx.description.match(/\(([^)]+)\)$/);
-          if (parenMatch && parenMatch[1]) {
-            let extracted = parenMatch[1].trim();
-            if (extracted.toLowerCase().startsWith('rumah kosong - ')) {
-              extracted = extracted.slice('rumah kosong - '.length).trim();
-            }
-            const isNote =
-              /^(pelunasan|iuran|denda|tunggakan|warga|\d+\s*rumah|bulan)/i.test(extracted) ||
-              extracted.includes('202');
-            if (extracted && !isNote) {
-              periodHeadName = extracted;
+          if (matchingPeriodTx) {
+            const blockEscaped = house.blockNumber.replace('/', '\\/');
+            const blockNameMatch = matchingPeriodTx.description.match(
+              new RegExp(`Blok\\s+${blockEscaped}\\s*\\(([^)]+)\\)`, 'i')
+            );
+            const parenMatch = blockNameMatch || matchingPeriodTx.description.match(/\(([^)]+)\)$/);
+            if (parenMatch && parenMatch[1]) {
+              let extracted = parenMatch[1].trim();
+              if (extracted.toLowerCase().startsWith('rumah kosong - ')) {
+                extracted = extracted.slice('rumah kosong - '.length).trim();
+              }
+              const isNote =
+                /^(pelunasan|iuran|denda|tunggakan|warga|\d+\s*rumah|bulan)/i.test(extracted) ||
+                extracted.includes('202');
+              if (extracted && !isNote) {
+                periodHeadName = extracted;
+              }
             }
           }
         }
@@ -3000,6 +3010,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         if (!newOccupancyHistory[pKey]) {
           newOccupancyHistory[pKey] = getHouseOccupancyForPeriod(editingHouseDues, p, transactions);
         }
+        if (!newOccupancyHistory[p]) {
+          newOccupancyHistory[p] = newOccupancyHistory[pKey];
+        }
         if (!newPeriodHistory[pKey]) {
           const prevStatusInfo = getHouseStatusForPeriod(editingHouseDues, p);
           const prevOccupancy = getHouseOccupancyForPeriod(editingHouseDues, p, transactions);
@@ -3015,6 +3028,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             paidDate: prevStatusInfo.paidDate || '',
             updatedAt: editingHouseDues.updatedAt || new Date().toISOString(),
           };
+          newPeriodHistory[p] = newPeriodHistory[pKey];
         }
       }
     });
@@ -3022,6 +3036,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     // Catat data baru untuk periode yang diedit ini
     if (editPeriodKey) {
       newOccupancyHistory[editPeriodKey] = houseDuesOccupancyInput;
+      newOccupancyHistory[activeEditPeriod] = houseDuesOccupancyInput;
       newPeriodHistory[editPeriodKey] = {
         occupancy: houseDuesOccupancyInput,
         headName: finalHeadName,
@@ -3032,6 +3047,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         paidDate: paidDateVal,
         updatedAt: new Date().toISOString(),
       };
+      newPeriodHistory[activeEditPeriod] = newPeriodHistory[editPeriodKey];
     }
 
     // Jika mengedit bulan berjalan aktif atau periode terbaru, update juga bulan-bulan selanjutnya
@@ -3040,6 +3056,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         const pKey = parseIndonesianMonthYearToKey(p);
         if (pKey && editPeriodKey && pKey > editPeriodKey) {
           newOccupancyHistory[pKey] = houseDuesOccupancyInput;
+          newOccupancyHistory[p] = houseDuesOccupancyInput;
         }
       });
     }
@@ -3058,6 +3075,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       ? editingHouseDues.duesStatus
       : houseDuesStatusInput;
 
+    const preservedHeadName = isPastPeriodEdit
+      ? editingHouseDues.headName
+      : isVacant
+      ? (editingHouseDues.headName || finalHeadName)
+      : finalHeadName;
+
     // PENTING: Jika preserveExistingDues aktif, pertahankan status dan riwayat iuran KK (>1 bulan) secara utuh!
     const updatedResident: ResidentHouse = preserveExistingDues
       ? {
@@ -3065,7 +3088,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           occupancy: effectiveMainOccupancy,
           occupancyHistory: newOccupancyHistory,
           periodHistory: newPeriodHistory,
-          headName: isPastPeriodEdit ? editingHouseDues.headName : finalHeadName,
+          headName: preservedHeadName,
           duesHeadNameOverride: isPastPeriodEdit ? editingHouseDues.duesHeadNameOverride : finalHeadName,
           previousArrears: newPrevArrears,
           previousArrearsNote: isVacant ? '' : houseDuesPrevNoteInput.trim(),
@@ -3075,7 +3098,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           occupancy: effectiveMainOccupancy,
           occupancyHistory: newOccupancyHistory,
           periodHistory: newPeriodHistory,
-          headName: isPastPeriodEdit ? editingHouseDues.headName : finalHeadName,
+          headName: preservedHeadName,
           duesHeadNameOverride: isPastPeriodEdit ? editingHouseDues.duesHeadNameOverride : finalHeadName,
           customDuesAmount: effectiveMainCustomDuesAmount,
           duesStatus: effectiveMainDuesStatus,
@@ -4798,7 +4821,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             key={house.id}
                             className={`transition-colors border-b ${
                               isRumahKosongHitam
-                                ? 'bg-black text-white border-neutral-800 hover:bg-neutral-900'
+                                ? '!bg-black !text-white border-neutral-800 hover:!bg-neutral-900'
                                 : isBayarLebih
                                 ? 'bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100/60'
                                 : isAdvanceSubsequent
@@ -5588,9 +5611,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                           {/* Kolom Rincian Setiap Periode */}
                           {periodsDetail.map((pDet) => {
-                            // Sel & kolom periode kosong HANYA untuk yang status rumahnya adalah Rumah Kosong
-                            // BUKAN yang belum ditempati dan BUKAN yang nominalnya 0 karena belum bayar iuran
-                            const isCellKosong = (isRumahKosongHitam || isPureKosong || pDet.isPeriodVacant) && !isUnoccupied;
+                            // Sel & kolom periode kosong HANYA untuk yang status rumahnya adalah Rumah Kosong pada periode ini
+                            const isCellKosong = pDet.isPeriodVacant;
 
                             return (
                               <td
@@ -5598,7 +5620,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                 className={`py-2.5 px-2.5 text-center font-mono text-xs align-middle transition-colors ${
                                   isCellKosong
                                     ? 'bg-neutral-950 text-neutral-200 border border-neutral-800 shadow-inner'
-                                    : 'border border-slate-300'
+                                    : pDet.isAdvanceSubsequent
+                                    ? 'bg-sky-50 text-sky-950 border border-sky-200'
+                                    : pDet.isLunasThisPeriod
+                                    ? 'bg-emerald-50 text-emerald-950 border border-emerald-200'
+                                    : pDet.periodTotal > 0
+                                    ? 'bg-emerald-50 text-emerald-950 border border-emerald-200'
+                                    : isUnoccupied
+                                    ? 'bg-neutral-100 text-neutral-600 border border-slate-200'
+                                    : 'bg-rose-50 text-rose-950 border border-rose-200'
                                 }`}
                               >
                                 {/* Nama Kepala Keluarga di Periode Bulan Ini */}
@@ -5606,9 +5636,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   className={`text-[11px] font-sans font-bold leading-tight mb-1 truncate max-w-[130px] mx-auto ${
                                     isCellKosong
                                       ? 'text-neutral-300'
-                                      : overallStatus === 'Bayar Lebih'
-                                      ? 'text-sky-950'
-                                      : overallStatus === 'Lunas Semua'
+                                      : pDet.isAdvanceSubsequent
+                                      ? 'text-sky-950 font-black'
+                                      : pDet.isLunasThisPeriod
                                       ? 'text-emerald-950'
                                       : 'text-slate-800'
                                   }`}
