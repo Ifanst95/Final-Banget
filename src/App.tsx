@@ -11,7 +11,6 @@ import { CashReportSection } from './components/CashReportSection';
 import { BaksosSection } from './components/BaksosSection';
 import { ArrearsSection } from './components/ArrearsSection';
 import { ResidentDirectorySection } from './components/ResidentDirectorySection';
-import { FinancialBillingSection } from './components/FinancialBillingSection';
 import { CommitteesFooter } from './components/CommitteesFooter';
 import { INITIAL_NAV_MENUS } from './data/initialData';
 import { SiteConfig } from './types';
@@ -87,9 +86,9 @@ export default function App() {
     } catch {}
   }, []);
 
-  // Sembunyikan dan amankan menu penarikan keuangan dan rekap keseluruhan dari akses view warga (hanya untuk Pengurus/Admin)
+  // Sembunyikan dan amankan menu rekap keseluruhan dari akses view warga (hanya untuk Pengurus/Admin)
   useEffect(() => {
-    if (!isAdmin && (activeTab === 'penarikan' || activeTab === 'rekap_total_kk')) {
+    if (!isAdmin && activeTab === 'rekap_total_kk') {
       setActiveTab('pengumuman');
     }
   }, [isAdmin, activeTab]);
@@ -251,27 +250,6 @@ export default function App() {
               onAddTransaction={addTransaction}
               onMarkFinePaid={markBaksosFinePaid}
               onOpenConfigModal={() => setIsConfigModalOpen(true)}
-            />
-          )}
-
-          {activeTab === 'penarikan' && isAdmin && (
-            <FinancialBillingSection
-              config={siteConfig}
-              residents={residents}
-              baksosAgendas={baksosAgendas}
-              transactions={transactions}
-              isAdmin={isAdmin}
-              onUpdateResident={updateResident}
-              onDeleteResident={deleteResident}
-              onAddTransaction={addTransaction}
-              onDeleteTransaction={deleteTransaction}
-              onMarkFinePaid={markBaksosFinePaid}
-              onUnmarkFinePaid={unmarkBaksosFinePaid}
-              onBatchImportDues={batchImportDues}
-              onCreatePeriod={createPeriod}
-              onRolloverBillingMonth={rolloverBillingMonth}
-              onOpenLogin={() => setIsLoginModalOpen(true)}
-              onNavigateTab={setActiveTab}
             />
           )}
 

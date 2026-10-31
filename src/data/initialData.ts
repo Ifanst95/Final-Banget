@@ -92,16 +92,6 @@ export const INITIAL_NAV_MENUS: MenuItemConfig[] = [
     colorScheme: 'rose',
     subMenus: [],
   },
-  {
-    id: 'penarikan',
-    label: 'Penarikan Keuangan',
-    shortLabel: 'Penarikan',
-    title: 'Data Penarikan Keuangan & Iuran Rutin Warga',
-    description: 'Pencatatan penarikan iuran rutin warga, kelunasan per KK, dan pembukuan kas gang.',
-    icon: 'Banknote',
-    colorScheme: 'indigo',
-    subMenus: [],
-  },
 ];
 
 export const INITIAL_SITE_CONFIG: SiteConfig = {

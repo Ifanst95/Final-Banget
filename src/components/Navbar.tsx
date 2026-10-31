@@ -198,9 +198,9 @@ export const Navbar: React.FC<NavbarProps> = ({
     reorderedMenus.splice(targetIdx, 0, wargaMenu);
   }
 
-  // Sembunyikan menu penarikan keuangan dari akses view warga (hanya tampil untuk Pengurus/Admin)
+  // Hapus menu penarikan keuangan dari daftar menu navigasi
   const activeMenus = reorderedMenus.filter((m) => {
-    if (!isAdmin && (m.id === 'penarikan' || m.id?.toLowerCase().includes('penarikan'))) {
+    if (m.id === 'penarikan' || m.id?.toLowerCase().includes('penarikan') || m.label?.toLowerCase().includes('penarikan')) {
       return false;
     }
     return true;

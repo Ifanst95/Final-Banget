@@ -73,6 +73,66 @@ export function isHouseUnfilled(house?: { occupancy?: string; headName?: string;
   );
 }
 
+/**
+ * Memeriksa apakah suatu rumah merupakan "Rumah Kosong" pada periode bulan tertentu.
+ * Aturan tegas:
+ * 1. Hanya rumah dengan status Rumah Kosong (occupancy === 'Kosong' atau isHouseVacant(house) === true atau override 'Rumah Kosong').
+ * 2. BUKAN rumah dengan status "Belum Ditempati" / "Belum Diisi".
+ * 3. BUKAN rumah berpenghuni yang nominalnya 0 karena belum bayar iuran (tunggakan berjalan).
+ * 4. Atau transaksi resmi di Buku Kas pada periode ini eksplisit menyatakan "(Rumah Kosong)".
+ */
+export function isHouseVacantInPeriod(
+  house: ResidentHouse | null | undefined,
+  periodLabel: string,
+  transactions: CashTransaction[] = []
+): boolean {
+  if (!house) return false;
+
+  const occ = (house.occupancy || '').trim().toLowerCase();
+
+  // 1. Rumah berstatus "Belum Ditempati" atau "Belum Diisi" BUKAN Rumah Kosong
+  if (occ === 'belum ditempati' || occ === 'belum diisi') {
+    return false;
+  }
+
+  // 2. Hanya jika status rumahnya adalah Rumah Kosong
+  const isVacantStatus =
+    occ === 'kosong' ||
+    isHouseVacant(house) ||
+    Boolean(
+      house.duesHeadNameOverride &&
+        /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim())
+    );
+
+  if (isVacantStatus) {
+    return true;
+  }
+
+  const pKey = parseIndonesianMonthYearToKey(periodLabel);
+  if (!pKey) return false;
+
+  const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+  const periodMonthNameLower = (periodLabel.split(' ')[0] || '').toLowerCase();
+
+  // 3. Cek transaksi eksplisit pada periode ini di Buku Kas yang menyatakan "(Rumah Kosong)"
+  const currentPeriodTx = transactions.find((t) => {
+    if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
+    const tKey = getMonthKeyFromDate(t.date);
+    const desc = t.description.toLowerCase();
+    return tKey === pKey || desc.includes(periodMonthNameLower) || desc.includes(periodLabel.toLowerCase());
+  });
+
+  if (currentPeriodTx) {
+    const descLower = currentPeriodTx.description.toLowerCase();
+    if (descLower.includes('rumah kosong') || descLower.includes('(kosong)')) {
+      return true;
+    }
+  }
+
+  // Bukan Rumah Kosong (bukan Belum Ditempati dan bukan yang 0 karena belum bayar iuran)
+  return false;
+}
+
 export function exportResidentsToExcel(residents: ResidentHouse[]): void {
   const rows: Record<string, string | number>[] = [];
 

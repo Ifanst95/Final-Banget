@@ -72,6 +72,14 @@ function sanitizeNavigationMenus(menus?: MenuItemConfig[]): MenuItemConfig[] {
   const seenLabels = new Set<string>();
   const sanitized = menus.filter((m) => {
     if (!m || !m.id) return false;
+    // Hapus menu penarikan keuangan
+    if (
+      m.id === 'penarikan' ||
+      m.id?.toLowerCase().includes('penarikan') ||
+      m.label?.toLowerCase().includes('penarikan')
+    ) {
+      return false;
+    }
     if (seenIds.has(m.id)) return false;
     const norm = (m.label || '').toLowerCase().trim();
     if (norm && seenLabels.has(norm)) return false;
@@ -102,21 +110,6 @@ function sanitizeNavigationMenus(menus?: MenuItemConfig[]): MenuItemConfig[] {
     sanitized.splice(pengumumanIdx + 1, 0, wargaMenu);
   } else {
     sanitized.unshift(wargaMenu);
-  }
-
-  // Pastikan menu penarikan selalu dikembalikan
-  if (!sanitized.some((m) => m.id === 'penarikan')) {
-    const penarikanMenu = INITIAL_NAV_MENUS.find((m) => m.id === 'penarikan') || {
-      id: 'penarikan',
-      label: 'Penarikan Keuangan',
-      shortLabel: 'Penarikan',
-      title: 'Data Penarikan Keuangan & Iuran Rutin Warga',
-      description: 'Pencatatan penarikan iuran rutin warga, kelunasan per KK, dan pembukuan kas gang.',
-      icon: 'Banknote',
-      colorScheme: 'indigo',
-      subMenus: [],
-    };
-    sanitized.push(penarikanMenu);
   }
 
   // Pastikan menu kas memiliki 3 submenu lengkap (1. Buku Kas, 2. Rekap Iuran Per KK, 3. Rekap Keseluruhan Kas Per KK)

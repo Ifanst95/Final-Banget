@@ -13,6 +13,7 @@ import {
   getMonthKeyFromDate,
   getSubsequentMonthLabels,
   isHouseVacant,
+  isHouseVacantInPeriod,
   parseIndonesianMonthYearToKey,
 } from './helpers';
 
@@ -411,11 +412,12 @@ export function exportFinancialReportToExcel({
       .sort((a, b) => (parseIndonesianMonthYearToKey(a) || '').localeCompare(parseIndonesianMonthYearToKey(b) || ''));
 
     const overallRows = residents.map((house, idx) => {
-      const isPureKosong =
-        house.occupancy === 'Kosong' ||
-        isHouseVacant(house) ||
-        Boolean(house.duesHeadNameOverride && /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim()));
       const isUnoccupied = house.occupancy === 'Belum Ditempati';
+      const isPureKosong =
+        !isUnoccupied &&
+        (house.occupancy === 'Kosong' ||
+          isHouseVacant(house) ||
+          Boolean(house.duesHeadNameOverride && /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim())));
       const nominal = isPureKosong ? 0 : getHouseDuesNominal(house);
       const payerName = isPureKosong
         ? (house.duesHeadNameOverride && house.duesHeadNameOverride !== 'Rumah Kosong'
@@ -551,9 +553,46 @@ export function exportFinancialReportToExcel({
           }
         }
 
+        // Nama KK untuk periode ini
+        const isPeriodVacant = isHouseVacantInPeriod(house, pLabel, transactions);
+        let periodHeadName = (isPureKosong || isPeriodVacant) ? 'Rumah Kosong' : payerName;
+        const periodMonthName = (pLabel.split(' ')[0] || '').toLowerCase();
+        const matchingPeriodTx = transactions.find((t) => {
+          if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
+          const txKey = getMonthKeyFromDate(t.date);
+          const descLower = t.description.toLowerCase();
+          const isMatchPeriod =
+            txKey === pKey ||
+            descLower.includes(pLabel.toLowerCase()) ||
+            descLower.includes(periodMonthName);
+          return isMatchPeriod && /\([^)]+\)/.test(t.description);
+        });
+        if (matchingPeriodTx) {
+          const blockEscaped = house.blockNumber.replace('/', '\\/');
+          const blockNameMatch = matchingPeriodTx.description.match(
+            new RegExp(`Blok\\s+${blockEscaped}\\s*\\(([^)]+)\\)`, 'i')
+          );
+          const parenMatch = blockNameMatch || matchingPeriodTx.description.match(/\(([^)]+)\)$/);
+          if (parenMatch && parenMatch[1]) {
+            let extracted = parenMatch[1].trim();
+            if (extracted.toLowerCase().startsWith('rumah kosong - ')) {
+              extracted = extracted.slice('rumah kosong - '.length).trim();
+            }
+            const isNote =
+              /^(pelunasan|iuran|denda|tunggakan|warga|\d+\s*rumah|bulan)/i.test(extracted) ||
+              extracted.includes('202');
+            if (extracted && !isNote) {
+              periodHeadName = extracted;
+            }
+          }
+        }
+        if (isPeriodVacant && (!periodHeadName || periodHeadName === payerName)) {
+          periodHeadName = 'Rumah Kosong';
+        }
+
         let periodStatusText = 'Belum Bayar';
-        if (isPureKosong) {
-          periodStatusText = 'Bebas Iuran (Kosong)';
+        if (isPureKosong || isPeriodVacant) {
+          periodStatusText = iuranPeriod > 0 ? `Lunas (Kosong +Rp ${iuranPeriod.toLocaleString('id-ID')})` : 'Bebas Iuran (Kosong)';
         } else if (isAdv) {
           periodStatusText = 'Lunas (Dimuka)';
         } else if (settlementMonth) {
@@ -563,9 +602,9 @@ export function exportFinancialReportToExcel({
         } else if (isPeriodLunas) {
           periodStatusText = `Lunas (+Rp ${iuranPeriod.toLocaleString('id-ID')})`;
         }
-        periodStatusMap[`Periode ${pLabel}`] = periodStatusText;
+        periodStatusMap[`Periode ${pLabel}`] = `${periodHeadName} (${periodStatusText})`;
 
-        if (isPeriodLunas && !isPureKosong) lunasPeriodsCount++;
+        if (isPeriodLunas && !isPureKosong && !isPeriodVacant) lunasPeriodsCount++;
         totalIuranAll += iuranPeriod;
 
         // Denda baksos

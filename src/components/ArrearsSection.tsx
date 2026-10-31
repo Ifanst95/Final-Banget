@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Clock,
   Copy,
+  CreditCard,
   Edit2,
   ExternalLink,
   FileSpreadsheet,
@@ -26,6 +27,14 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+
+export const TREASURER_BANK = {
+  bankName: 'BCA',
+  accountNumber: '7130889411',
+  accountName: 'Muhidin Akbar',
+  role: 'Bendahara Gang Mandor',
+  phone: '+6287887332749',
+};
 import { BaksosAgenda, CashTransaction, ResidentHouse, SiteConfig } from '../types';
 import { formatRupiah, getSubsequentMonthLabels, isHouseVacant, openWhatsAppShare } from '../utils/helpers';
 import { exportFinancialReportToExcel } from '../utils/financialExcelExport';
@@ -76,10 +85,15 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   const [sentHouseIds, setSentHouseIds] = useState<Record<string, boolean>>({});
   const [copiedBroadcast, setCopiedBroadcast] = useState(false);
   const [bankInfo, setBankInfo] = useState(
-    'BCA 1234567890 a.n. Siti Rahmawati (Bendahara Gang Mandor) / Tunai ke Pos Gang'
+    `${TREASURER_BANK.bankName} ${TREASURER_BANK.accountNumber} a.n. ${TREASURER_BANK.accountName} (${TREASURER_BANK.role}) / Tunai ke Rumah Bendahara`
   );
   const [deadlineNote, setDeadlineNote] = useState('Sebelum tanggal 10 bulan berjalan');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Modal Penagihan Tunggakan Warga Per KK (Single Resident Billing Modal)
+  const [singleBillingHouse, setSingleBillingHouse] = useState<any | null>(null);
+  const [copiedBankNumber, setCopiedBankNumber] = useState(false);
+  const [copiedSingleMsg, setCopiedSingleMsg] = useState(false);
 
   // Compute arrears per household
   const arrearsList = residents.map((house) => {
@@ -357,21 +371,26 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
     } catch {}
   };
 
+  const handleCopyText = (text: string, setCopied: (val: boolean) => void) => {
+    try {
+      navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
   const handleSendWAReminder = (item: typeof arrearsList[0]) => {
     if (!isAdmin) return;
-    const payerName = item.house.duesHeadNameOverride || item.house.headName;
-    const prevNoteStr = item.previousArrearsNote ? ` (${item.previousArrearsNote})` : '';
-    const text =
-      `Halo Bpk/Ibu *${payerName}* (Blok ${item.house.blockNumber}),\n` +
-      `Salam hangat dan rukun warga Gang Mandor.\n\n` +
-      `Kami dari pengurus menyampaikan rincian catatan tunggakan iuran & denda gang sebagai berikut:\n` +
-      `• Iuran Kas/Sampah (${item.house.duesMonthNote || config.duesCurrentMonth || 'Bulan Ini'}): ${formatRupiah(item.duesArrears)}\n` +
-      `• Denda Baksos (${item.unpaidBaksosList.length}x): ${formatRupiah(item.baksosFineArrears)}\n` +
-      `• Tunggakan Bulan/Tahun Lalu: ${formatRupiah(item.previousArrears)}${prevNoteStr}\n` +
-      `────────────────────\n` +
-      `*Total Tunggakan: ${formatRupiah(item.totalArrears)}*\n\n` +
-      `Pembayaran dapat dilakukan secara penuh maupun dicicil sebagian melalui bendahara gang. Terima kasih atas kerja sama dan kepedulian Bpk/Ibu.`;
-    openWhatsAppShare(text, item.house.phone);
+    setSingleBillingHouse(item);
   };
 
   const handleShareSummaryWA = () => {
@@ -386,7 +405,10 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       text += `• Blok ${item.house.blockNumber} (${payerName}): ${formatRupiah(item.totalArrears)}${note}\n`;
     });
 
-    text += `\n_Mohon kerja sama warga untuk tertib administrasi demi kemajuan bersama._`;
+    text +=
+      `\n────────────────────\n` +
+      `💳 *Rekening Pembayaran Bendahara:* ${TREASURER_BANK.bankName} ${TREASURER_BANK.accountNumber} a.n. ${TREASURER_BANK.accountName}\n` +
+      `_Mohon kerja sama warga untuk tertib administrasi demi kemajuan bersama._`;
     openWhatsAppShare(text);
   };
 
@@ -419,10 +441,15 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       `• Tunggakan Bulan/Tahun Lalu: ${formatRupiah(item.previousArrears)}${prevNoteStr}\n` +
       `────────────────────\n` +
       `*Total Tagihan: ${formatRupiah(item.totalArrears)}*\n\n` +
-      (bankInfo ? `💳 *Penyaluran Pembayaran:*\n${bankInfo}\n` : '') +
-      (deadlineNote ? `⏰ *Batas Waktu:* ${deadlineNote}\n\n` : '\n') +
-      `Pembayaran dapat ditransfer atau diserahkan tunai melalui bendahara gang. Mohon konfirmasi bukti transfer jika sudah membayar.\n\n` +
-      `Terima kasih atas partisipasi dan kepedulian Bpk/Ibu untuk kemajuan lingkungan Gang Mandor.`
+      `💳 *Rekening Pembayaran Kas Gang (Bendahara):*\n` +
+      `• Bank: *${TREASURER_BANK.bankName}*\n` +
+      `• No. Rekening: *${TREASURER_BANK.accountNumber}*\n` +
+      `• Atas Nama: *${TREASURER_BANK.accountName}* (${TREASURER_BANK.role})\n` +
+      `• Berita Transfer: Kas Gang - Blok ${item.house.blockNumber}\n` +
+      `• Konfirmasi WA: ${TREASURER_BANK.phone}\n\n` +
+      (deadlineNote ? `⏰ *Batas Waktu:* ${deadlineNote}\n\n` : '') +
+      `Pembayaran juga dapat diserahkan tunai melalui bendahara gang. Mohon konfirmasi bukti transfer jika sudah membayar agar status langsung diperbarui menjadi *Lunas* di portal resmi warga.\n\n` +
+      `Terima kasih atas partisipasi dan kepedulian Bpk/Ibu untuk kemajuan lingkungan Gang Mandor. 🙏✨`
     );
   };
 
@@ -448,7 +475,13 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
 
     text +=
       `\n────────────────────\n` +
-      (bankInfo ? `💳 *Penyaluran Pembayaran:*\n${bankInfo}\n\n` : '\n') +
+      `💳 *Rekening Penyaluran Pembayaran (Bendahara Gang):*\n` +
+      `• Bank: *${TREASURER_BANK.bankName}*\n` +
+      `• No. Rekening: *${TREASURER_BANK.accountNumber}*\n` +
+      `• Atas Nama: *${TREASURER_BANK.accountName}* (${TREASURER_BANK.role})\n` +
+      `• Berita Transfer: Kas Gang – [Nama Blok/Nomor Rumah]\n` +
+      `• Konfirmasi Bukti Transfer WA: ${TREASURER_BANK.phone}\n` +
+      `Atau tunai langsung ke rumah Bendahara Gang / Pos Gang.\n\n` +
       (deadlineNote ? `⏰ *Batas Waktu:* ${deadlineNote}\n\n` : '') +
       `Warga yang sudah transfer dimohon untuk mengirimkan bukti transfer ke Bendahara Gang agar status dapat langsung diperbarui menjadi *Lunas* di Portal Resmi Warga.\n\n` +
       `Atas perhatian, kebersamaan, dan kerja sama seluruh warga, kami haturkan terima kasih. 🙏✨\n` +
@@ -1501,6 +1534,49 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                               </div>
                             </div>
 
+                            {/* Kartu Rekening Bendahara Resmi */}
+                            <div className="rounded-2xl p-3.5 sm:p-4 text-white shadow-md border border-blue-400/40 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wide">
+                                    Rekening Bendahara
+                                  </span>
+                                  <span className="text-xs font-bold text-sky-200">Bank {TREASURER_BANK.bankName}</span>
+                                </div>
+                                <div className="flex items-center gap-2.5">
+                                  <span className="font-mono text-lg sm:text-xl font-black text-amber-300 tracking-wider">
+                                    {TREASURER_BANK.accountNumber}
+                                  </span>
+                                  <span className="text-xs text-slate-200 font-semibold">a.n. {TREASURER_BANK.accountName}</span>
+                                </div>
+                                <span className="text-[10px] text-sky-200 block">
+                                  Berita: Kas Gang - Blok {currentTarget.house.blockNumber} · Konfirmasi WA: {TREASURER_BANK.phone}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyText(TREASURER_BANK.accountNumber, setCopiedBankNumber)}
+                                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 shadow-xs ${
+                                  copiedBankNumber
+                                    ? 'bg-emerald-500 text-white'
+                                    : 'bg-white hover:bg-sky-50 text-slate-900'
+                                }`}
+                                title="Salin Nomor Rekening Bendahara"
+                              >
+                                {copiedBankNumber ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-white" />
+                                    <span>Tersalin!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5 text-blue-700" />
+                                    <span>Salin No. Rek</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+
                             {/* Message Preview Box */}
                             <div>
                               <div className="flex items-center justify-between text-xs font-bold text-slate-700 mb-1">
@@ -1676,6 +1752,49 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       </div>
                     </div>
 
+                    {/* Rekening Bendahara Card */}
+                    <div className="rounded-2xl p-4 text-white shadow-md border border-blue-400/40 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wide">
+                            Rekening Pembayaran
+                          </span>
+                          <span className="text-xs font-bold text-sky-200">Bank {TREASURER_BANK.bankName}</span>
+                        </div>
+                        <div className="flex items-center gap-2.5">
+                          <span className="font-mono text-xl font-black text-amber-300 tracking-wider">
+                            {TREASURER_BANK.accountNumber}
+                          </span>
+                          <span className="text-xs text-slate-200 font-semibold">a.n. {TREASURER_BANK.accountName}</span>
+                        </div>
+                        <span className="text-[10px] text-sky-200 block">
+                          Konfirmasi WhatsApp Bendahara: {TREASURER_BANK.phone}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyText(TREASURER_BANK.accountNumber, setCopiedBankNumber)}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 flex items-center gap-1.5 shadow-xs ${
+                          copiedBankNumber
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-white hover:bg-sky-50 text-slate-900'
+                        }`}
+                        title="Salin Nomor Rekening Bendahara"
+                      >
+                        {copiedBankNumber ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-white" />
+                            <span>Tersalin!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5 text-blue-700" />
+                            <span>Salin No. Rek</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
                     <div>
                       <label className="block text-xs font-bold text-slate-700 mb-1">
                         Isi Pesan Broadcast Grup (Otomatis Di-generate):
@@ -1772,10 +1891,23 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
 
               {/* Rekening Transfer & Pengaturan Pembayaran */}
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
-                <h4 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-                  <Building2 className="w-4 h-4 text-emerald-600" />
-                  <span>Pengaturan Info Pembayaran Tagihan:</span>
-                </h4>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-emerald-600" />
+                    <span>Pengaturan Info Rekening Pembayaran Tagihan:</span>
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBankInfo(
+                        `${TREASURER_BANK.bankName} ${TREASURER_BANK.accountNumber} a.n. ${TREASURER_BANK.accountName} (${TREASURER_BANK.role}) / Tunai ke Rumah Bendahara`
+                      )
+                    }
+                    className="text-[11px] text-blue-700 hover:underline font-bold cursor-pointer"
+                  >
+                    Gunakan Rekening Resmi Bendahara (BCA {TREASURER_BANK.accountNumber})
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
                     <label className="block text-slate-600 font-semibold mb-1">
@@ -1785,7 +1917,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       type="text"
                       value={bankInfo}
                       onChange={(e) => setBankInfo(e.target.value)}
-                      placeholder="BCA 1234567890 a.n. Siti Rahmawati"
+                      placeholder={`${TREASURER_BANK.bankName} ${TREASURER_BANK.accountNumber} a.n. ${TREASURER_BANK.accountName}`}
                       className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
                     />
                   </div>
@@ -1824,6 +1956,231 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
           </div>
         </div>
       )}
+
+      {/* ========================================================================
+          MODAL POP-UP PENAGIHAN TUNGGAKAN WARGA PER KK (DENGAN REKENING BENDAHARA)
+          ======================================================================== */}
+      {singleBillingHouse && (() => {
+        const payerName =
+          singleBillingHouse.house.duesHeadNameOverride || singleBillingHouse.house.headName;
+        const msg = generateSingleBillingMessage(singleBillingHouse);
+
+        return (
+          <div
+            className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200"
+            onClick={() => setSingleBillingHouse(null)}
+          >
+            <div
+              className="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] flex flex-col shadow-2xl border-2 border-emerald-400 overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header Modal */}
+              <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white p-4 sm:p-5 flex items-start justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-white/20 text-white shadow-inner shrink-0">
+                    <CreditCard className="w-6 h-6 text-amber-300" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-base sm:text-lg">
+                        Penagihan Tunggakan Warga
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider">
+                        Blok {singleBillingHouse.house.blockNumber}
+                      </span>
+                    </div>
+                    <p className="text-xs text-emerald-100 mt-0.5">
+                      {payerName} · {singleBillingHouse.house.ownership} ·{' '}
+                      {singleBillingHouse.house.phone || 'Tanpa No. WA'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSingleBillingHouse(null)}
+                  className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white cursor-pointer transition-colors"
+                  title="Tutup"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Body Modal */}
+              <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1">
+                {/* Rincian Tagihan */}
+                <div className="p-4 rounded-2xl bg-rose-50/80 border border-rose-200 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>Rincian Tunggakan yang Perlu Diselesaikan:</span>
+                    <span className="text-rose-700 font-mono text-sm font-black">
+                      {formatRupiah(singleBillingHouse.totalArrears)}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-xs pt-1 border-t border-rose-200/60 font-mono">
+                    <div className="p-2 rounded-xl bg-white border border-rose-100 text-center">
+                      <span className="text-[10px] text-slate-500 block font-sans">Iuran Kas:</span>
+                      <strong className="text-rose-700">
+                        {formatRupiah(singleBillingHouse.duesArrears)}
+                      </strong>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white border border-rose-100 text-center">
+                      <span className="text-[10px] text-slate-500 block font-sans">Denda Baksos:</span>
+                      <strong className="text-amber-700">
+                        {formatRupiah(singleBillingHouse.baksosFineArrears)}
+                      </strong>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white border border-rose-100 text-center">
+                      <span className="text-[10px] text-slate-500 block font-sans">Tunggakan Lalu:</span>
+                      <strong className="text-purple-700">
+                        {formatRupiah(singleBillingHouse.previousArrears)}
+                      </strong>
+                    </div>
+                  </div>
+                  {singleBillingHouse.previousArrearsNote && (
+                    <p className="text-[11px] text-slate-600 italic">
+                      *Ket. Lalu: {singleBillingHouse.previousArrearsNote}
+                    </p>
+                  )}
+                </div>
+
+                {/* KARTU REKENING BENDAHARA RESMI */}
+                <div className="relative rounded-2xl p-4 sm:p-5 text-white shadow-lg overflow-hidden border border-blue-400/40 bg-gradient-to-br from-blue-900 via-indigo-900 to-slate-900">
+                  <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 rounded-full bg-blue-500/10 blur-xl pointer-events-none" />
+                  <div className="flex items-start justify-between gap-3 relative z-10">
+                    <div className="space-y-1">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider">
+                        <Sparkles className="w-3 h-3" />
+                        <span>Rekening Resmi Bendahara Gang</span>
+                      </span>
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-xs font-bold text-sky-300">Bank Transfer:</span>
+                        <span className="px-2 py-0.5 rounded-md bg-blue-600 text-white font-mono font-black text-xs">
+                          {TREASURER_BANK.bankName}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(TREASURER_BANK.accountNumber, setCopiedBankNumber)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 shadow-md ${
+                        copiedBankNumber
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-white hover:bg-sky-50 text-slate-900'
+                      }`}
+                      title="Salin Nomor Rekening Bendahara"
+                    >
+                      {copiedBankNumber ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-white" />
+                          <span>Tersalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5 text-blue-700" />
+                          <span>Salin No. Rek</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Nomor Rekening Monospace Besar */}
+                  <div className="mt-3 py-2 px-3 rounded-xl bg-black/30 border border-white/10 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] text-sky-200 uppercase tracking-widest block font-medium">
+                        Nomor Rekening
+                      </span>
+                      <span className="font-mono text-xl sm:text-2xl font-black tracking-wider text-amber-300 select-all">
+                        {TREASURER_BANK.accountNumber}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-sky-200 uppercase tracking-widest block font-medium">
+                        Atas Nama
+                      </span>
+                      <span className="font-bold text-sm text-white">
+                        {TREASURER_BANK.accountName}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Catatan Berita Transfer & Konfirmasi WA */}
+                  <div className="mt-3 pt-2.5 border-t border-white/15 grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-sky-100">
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                      <span>
+                        Berita: <strong className="text-white">Kas Gang - Blok {singleBillingHouse.house.blockNumber}</strong>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 sm:justify-end">
+                      <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>
+                        Konfirmasi WA: <strong className="text-white">{TREASURER_BANK.phone}</strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview Format Pesan WA */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                    <span>Preview Pesan Tagihan WhatsApp:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyText(msg, setCopiedSingleMsg)}
+                      className="text-[11px] text-emerald-700 hover:underline flex items-center gap-1 cursor-pointer font-bold"
+                    >
+                      {copiedSingleMsg ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      <span>{copiedSingleMsg ? 'Pesan Tersalin!' : 'Salin Pesan'}</span>
+                    </button>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs font-mono text-slate-700 whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed">
+                    {msg}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer Modal Actions */}
+              <div className="p-4 bg-slate-100/90 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => handleCopyText(TREASURER_BANK.accountNumber, setCopiedBankNumber)}
+                  className="px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold text-xs cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                >
+                  {copiedBankNumber ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                  <span>{copiedBankNumber ? 'No. Rek Tersalin!' : 'Salin No. Rek Bendahara'}</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSingleBillingHouse(null)}
+                    className="px-3 py-2 rounded-xl text-xs text-slate-600 hover:bg-slate-200 cursor-pointer font-semibold"
+                  >
+                    Tutup
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openWhatsAppShare(msg, singleBillingHouse.house.phone);
+                      setSentHouseIds((old) => ({ ...old, [singleBillingHouse.house.id]: true }));
+                      setSingleBillingHouse(null);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold text-xs cursor-pointer shadow-md flex items-center gap-1.5"
+                  >
+                    <MessageCircle className="w-4 h-4 text-white" />
+                    <span>Buka & Kirim ke WhatsApp</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

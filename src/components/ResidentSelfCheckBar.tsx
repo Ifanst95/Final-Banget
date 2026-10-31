@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import {
+  Check,
+  Copy,
   CreditCard,
   Search,
   Sparkles,
@@ -32,6 +34,24 @@ export const ResidentSelfCheckBar: React.FC<ResidentSelfCheckBarProps> = ({
   onNavigateTab,
 }) => {
   const [selectedBlock, setSelectedBlock] = useState<string>('');
+  const [copiedBank, setCopiedBank] = useState(false);
+
+  const handleCopyRekening = () => {
+    try {
+      navigator.clipboard.writeText('7130889411');
+      setCopiedBank(true);
+      setTimeout(() => setCopiedBank(false), 2500);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = '7130889411';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedBank(true);
+      setTimeout(() => setCopiedBank(false), 2500);
+    }
+  };
 
   const selectedHouse = residents.find((r) => r.blockNumber === selectedBlock);
 
@@ -280,6 +300,50 @@ export const ResidentSelfCheckBar: React.FC<ResidentSelfCheckBarProps> = ({
                       </button>
                     </div>
                   </div>
+
+                  {summary.totalDebt > 0 && (
+                    <div className="col-span-1 sm:col-span-3 mt-1 p-3.5 rounded-2xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md border border-blue-400/30">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 rounded-xl bg-blue-500/20 text-sky-300 shrink-0">
+                          <CreditCard className="w-5 h-5 text-amber-300" />
+                        </div>
+                        <div className="text-xs">
+                          <span className="text-sky-300 font-semibold block sm:inline">
+                            Rekening Penyaluran Kas Gang (Bendahara):{' '}
+                          </span>
+                          <span className="font-mono font-black text-amber-300 text-sm tracking-wider">
+                            BCA 7130889411
+                          </span>
+                          <span className="text-sky-100 font-medium"> a.n. Muhidin Akbar</span>
+                          <span className="block text-[11px] text-sky-200 mt-0.5">
+                            Berita Transfer: Kas Gang - Blok {selectedHouse.blockNumber} · WA: +62 878-8733-2749
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCopyRekening}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 self-start sm:self-auto shrink-0 shadow-xs ${
+                          copiedBank
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-white hover:bg-sky-50 text-slate-900'
+                        }`}
+                        title="Salin Nomor Rekening Bendahara"
+                      >
+                        {copiedBank ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-white" />
+                            <span>Tersalin!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5 text-blue-700" />
+                            <span>Salin No. Rek</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );

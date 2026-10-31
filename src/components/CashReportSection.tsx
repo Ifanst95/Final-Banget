@@ -60,6 +60,7 @@ import {
   getSubsequentMonthLabels,
   isBaksosFinePaidForHouse,
   isHouseVacant,
+  isHouseVacantInPeriod,
   isPeriodCoveredInDuesNote,
   isTransactionForHouse,
   openWhatsAppShare,
@@ -1071,13 +1072,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   // Status computation for any given house in any given period
   const getHouseStatusForPeriod = useCallback((house: ResidentHouse, periodLabel: string) => {
     const isPureKosong = house.occupancy === 'Kosong' || isHouseVacant(house);
+    const isPeriodVacant = isHouseVacantInPeriod(house, periodLabel, transactions);
     const nominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
     const targetKey = parseIndonesianMonthYearToKey(periodLabel) || '';
     const currentKey = parseIndonesianMonthYearToKey(defaultMonthLabel) || '2026-09';
     const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
 
-    // 1. Prioritas Utama untuk Rumah Kosong: Bebas Iuran (Rp 0), kecuali ada transaksi nyata di Buku Kas
-    if (isPureKosong) {
+    // 1. Prioritas Utama untuk Rumah Kosong (baik permanen maupun pada periode lampau): Bebas Iuran (Rp 0), kecuali ada transaksi nyata di Buku Kas
+    if (isPureKosong || isPeriodVacant) {
       const voluntaryTxs = transactions.filter((t) => {
         if (t.type !== 'masuk' || !isPureIuranTx(t) || !blockRegex.test(t.description)) return false;
         const descMatch = t.description.match(/\(([^)]+202\d)\)/)?.[1];
@@ -1686,14 +1688,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   // =========================================================================
   const overallKKRecapList = useMemo(() => {
     return residents.map((house, idx) => {
-      const isPureKosong =
-        house.occupancy === 'Kosong' ||
-        isHouseVacant(house) ||
-        Boolean(
-          house.duesHeadNameOverride &&
-            /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim())
-        );
       const isUnoccupied = house.occupancy === 'Belum Ditempati';
+      const isPureKosong =
+        !isUnoccupied &&
+        (house.occupancy === 'Kosong' ||
+          isHouseVacant(house) ||
+          Boolean(
+            house.duesHeadNameOverride &&
+              /rumah kosong|^kosong$/i.test(house.duesHeadNameOverride.trim())
+          ));
       const isRumahKosongHitam = isPureKosong;
 
       const defaultNominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
@@ -1745,7 +1748,50 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
         const periodTotal = iuranPaid + dendaPaid + tunggakanPaid;
 
-        const isStandardLunasThisPeriod = isPureKosong
+        // Cek apakah rumah pada periode ini adalah Rumah Kosong (baik permanen maupun pada periode lampau)
+        const isPeriodVacant = isHouseVacantInPeriod(house, periodLabel, transactions);
+
+        // Nama Kepala Keluarga untuk periode bulan ini:
+        // Jika pada periode ini rumah kosong, nama kepala keluarga otomatis 'Rumah Kosong'.
+        // Prioritaskan nama warga/KK spesifik dari transaksi di Buku Kas pada periode ini jika ada,
+        // atau default ke nama penanggung jawab / kepala keluarga KK ini.
+        let periodHeadName = (isPureKosong || isPeriodVacant) ? 'Rumah Kosong' : payerName;
+        const periodMonthName = (periodLabel.split(' ')[0] || '').toLowerCase();
+        const matchingPeriodTx = transactions.find((t) => {
+          if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
+          const txKey = getMonthKeyFromDate(t.date);
+          const descLower = t.description.toLowerCase();
+          const isMatchPeriod =
+            txKey === pKey ||
+            descLower.includes(periodLabel.toLowerCase()) ||
+            descLower.includes(periodMonthName);
+          return isMatchPeriod && /\([^)]+\)/.test(t.description);
+        });
+
+        if (matchingPeriodTx) {
+          const blockEscaped = house.blockNumber.replace('/', '\\/');
+          const blockNameMatch = matchingPeriodTx.description.match(
+            new RegExp(`Blok\\s+${blockEscaped}\\s*\\(([^)]+)\\)`, 'i')
+          );
+          const parenMatch = blockNameMatch || matchingPeriodTx.description.match(/\(([^)]+)\)$/);
+          if (parenMatch && parenMatch[1]) {
+            let extracted = parenMatch[1].trim();
+            if (extracted.toLowerCase().startsWith('rumah kosong - ')) {
+              extracted = extracted.slice('rumah kosong - '.length).trim();
+            }
+            const isNote =
+              /^(pelunasan|iuran|denda|tunggakan|warga|\d+\s*rumah|bulan)/i.test(extracted) ||
+              extracted.includes('202');
+            if (extracted && !isNote) {
+              periodHeadName = extracted;
+            }
+          }
+        }
+        if (isPeriodVacant && (!periodHeadName || periodHeadName === payerName)) {
+          periodHeadName = 'Rumah Kosong';
+        }
+
+        const isStandardLunasThisPeriod = (isPureKosong || isPeriodVacant)
           ? true
           : Boolean(
               statusInfo?.isAdvanceSubsequentMonth ||
@@ -1760,9 +1806,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         let isArrearSettledLater = false;
         let settlementMonth: string | null = null;
 
-        if (!isPureKosong && !isStandardLunasThisPeriod && !isUnoccupied) {
+        if (!isPureKosong && !isPeriodVacant && !isStandardLunasThisPeriod && !isUnoccupied) {
           const currentActiveKey = parseIndonesianMonthYearToKey(defaultMonthLabel) || '2026-10';
-          const periodMonthName = (periodLabel.split(' ')[0] || '').toLowerCase();
+          const periodMonthNameLower = (periodLabel.split(' ')[0] || '').toLowerCase();
 
           // 1. Cek transaksi kas masuk untuk KK ini di bulan setelah pKey yang spesifik menyebut nama/periode bulan ini
           const explicitTx = transactions.find((t) => {
@@ -1771,7 +1817,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             if (!txKey || txKey <= pKey) return false;
             const desc = t.description.toLowerCase();
             return (
-              desc.includes(periodMonthName) ||
+              desc.includes(periodMonthNameLower) ||
               desc.includes(periodLabel.toLowerCase()) ||
               desc.includes(pKey)
             );
@@ -1838,11 +1884,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           }
         }
 
-        const isLunasThisPeriod = isPureKosong ? true : (isStandardLunasThisPeriod || isArrearSettledLater);
+        const isLunasThisPeriod = (isPureKosong || isPeriodVacant) ? true : (isStandardLunasThisPeriod || isArrearSettledLater);
 
-        if (isLunasThisPeriod && !isPureKosong) {
+        if (isLunasThisPeriod && !isPureKosong && !isPeriodVacant) {
           totalPeriodsPaidCount++;
-        } else if (!isPureKosong && !isUnoccupied) {
+        } else if (!isPureKosong && !isPeriodVacant && !isUnoccupied) {
           unpaidPeriodsCount++;
         }
 
@@ -1850,15 +1896,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         totalDendaAllPeriods += dendaPaid;
         totalTunggakanAllPeriods += tunggakanPaid;
 
-        const statusBadge = isPureKosong
-          ? 'Bebas Iuran'
+        const statusBadge = (isPureKosong || isPeriodVacant)
+          ? (iuranPaid > 0 ? 'Lunas (Kosong)' : 'Bebas Iuran')
           : statusInfo?.isAdvanceSubsequentMonth
           ? 'Lunas (Dimuka)'
           : isArrearSettledLater && settlementMonth
           ? `Lunas Bulan ${settlementMonth}`
           : statusInfo?.label || (isLunasThisPeriod ? 'Lunas' : 'Belum Bayar');
 
-        const badgeClass = isPureKosong
+        const badgeClass = (isPureKosong || isPeriodVacant)
           ? 'bg-neutral-900 text-neutral-300 border-neutral-700'
           : statusInfo?.isAdvanceSubsequentMonth
           ? 'bg-sky-100 text-sky-900 border-sky-300 font-bold'
@@ -1872,6 +1918,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           periodLabel,
           pKey,
           statusInfo,
+          periodHeadName,
+          isPeriodVacant,
           iuranPaid,
           dendaPaid,
           tunggakanPaid,
@@ -1937,12 +1985,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       }
 
       const rowCellClass = isRumahKosongHitam
-        ? 'bg-black text-white border-neutral-800'
+        ? 'bg-neutral-950 text-neutral-200 border-neutral-800 hover:bg-neutral-900/95'
         : overallStatus === 'Bayar Lebih'
-        ? 'bg-sky-50 text-sky-950 border-sky-300'
+        ? 'bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100/60'
         : overallStatus === 'Lunas Semua'
-        ? 'bg-emerald-50 text-emerald-950 border-emerald-300'
-        : 'bg-rose-50 text-rose-950 border-rose-300';
+        ? 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100/60'
+        : 'bg-rose-50 text-rose-950 border-rose-300 hover:bg-rose-100/60';
 
       return {
         house,
@@ -5092,65 +5140,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </div>
           </div>
 
-          {/* 5 KARTU STATISTIK GABUNGAN SEMUA PERIODE */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-purple-50 via-indigo-50/60 to-pink-50/40 border border-purple-200 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-[11px] font-bold">
-                <span>Grand Total Kas Masuk</span>
-                <Coins className="w-4 h-4 text-purple-600" />
-              </div>
-              <div className="font-mono text-sm sm:text-base font-black text-purple-900">
-                +{formatRupiah(overallTotals.sumGrandTotal)}
-              </div>
-              <p className="text-[10px] text-slate-500 font-medium">Dari seluruh KK &amp; periode</p>
-            </div>
 
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50/60 to-emerald-50/40 border border-emerald-200 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-[11px] font-bold">
-                <span>Total Iuran Bulanan</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div className="font-mono text-sm sm:text-base font-black text-emerald-900">
-                +{formatRupiah(overallTotals.sumIuran)}
-              </div>
-              <p className="text-[10px] text-slate-500 font-medium">Akumulasi iuran rutin warga</p>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-cyan-50 via-sky-50/60 to-blue-50/40 border border-cyan-200 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-[11px] font-bold">
-                <span>Total Denda Baksos</span>
-                <Users className="w-4 h-4 text-cyan-600" />
-              </div>
-              <div className="font-mono text-sm sm:text-base font-black text-cyan-900">
-                +{formatRupiah(overallTotals.sumDenda)}
-              </div>
-              <p className="text-[10px] text-slate-500 font-medium">Denda ketidakhadiran lunas</p>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50/60 to-yellow-50/40 border border-amber-200 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-[11px] font-bold">
-                <span>Total Bayar Tunggakan</span>
-                <TrendingUp className="w-4 h-4 text-amber-600" />
-              </div>
-              <div className="font-mono text-sm sm:text-base font-black text-amber-900">
-                +{formatRupiah(overallTotals.sumTunggakan)}
-              </div>
-              <p className="text-[10px] text-slate-500 font-medium">Tunggakan lampau diselesaikan</p>
-            </div>
-
-            <div className="col-span-2 sm:col-span-1 p-3.5 rounded-2xl bg-gradient-to-br from-indigo-50 via-purple-50/60 to-slate-50 border border-indigo-200 shadow-2xs space-y-1">
-              <div className="flex items-center justify-between text-slate-500 text-[11px] font-bold">
-                <span>Tingkat Kepatuhan</span>
-                <BarChart3 className="w-4 h-4 text-indigo-600" />
-              </div>
-              <div className="font-mono text-sm sm:text-base font-black text-indigo-900">
-                {overallStats.pctLunas}% Tertib
-              </div>
-              <p className="text-[10px] text-slate-500 font-medium">
-                {overallStats.lunasCount} dari {overallStats.totalOccupied} KK lunas semua
-              </p>
-            </div>
-          </div>
 
           {/* BARIS KONTROL, FILTER, MODE TAMPILAN & PENCARIAN */}
           <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-purple-50/30 to-slate-50 border border-slate-200/90 shadow-2xs space-y-3">
@@ -5264,15 +5254,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               </span>
             </div>
 
-            {/* Info Hint Otomatisasi Pelunasan Tunggakan */}
-            <div className="px-3 py-2 rounded-xl bg-purple-50/80 border border-purple-200 text-purple-900 text-[11px] flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1.5 font-medium">
+            {/* Info Hint Otomatisasi Pelunasan Tunggakan & Pewarnaan Rumah Kosong */}
+            <div className="px-3 py-2 rounded-xl bg-purple-50/80 border border-purple-200 text-purple-900 text-[11px] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 font-medium flex-wrap">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>
-                  <strong>Otomatisasi Pelunasan Tunggakan:</strong> Iuran yang tertunggak di bulan sebelumnya otomatis diisi bulan pelunasannya (contoh: <span className="font-bold text-emerald-800 bg-emerald-100 px-1 py-0.2 rounded border border-emerald-300">✓ Lunas Bulan xxx</span>).
+                  <strong>Otomatisasi Pelunasan Tunggakan &amp; Status Rumah Kosong:</strong> Iuran yang tertunggak di bulan sebelumnya otomatis diisi bulan pelunasannya (contoh: <span className="font-bold text-emerald-800 bg-emerald-100 px-1 py-0.2 rounded border border-emerald-300">✓ Lunas Bulan xxx</span>), serta kolom dan cell yang status rumahnya <strong>Rumah Kosong</strong> diwarnai otomatis hitam gelap (<span className="font-bold text-neutral-200 bg-neutral-900 px-1.5 py-0.2 rounded border border-neutral-700">Rumah Kosong / Bebas</span>). Status <em>Belum Ditempati</em> dan warga yang nominalnya 0 karena belum bayar iuran tetap berpenampilan standar.
                 </span>
               </span>
-              <span className="text-[10px] text-purple-700 font-semibold bg-white px-2 py-0.5 rounded-md border border-purple-200 shrink-0 shadow-2xs">
+              <span className="text-[10px] text-purple-700 font-semibold bg-white px-2 py-0.5 rounded-md border border-purple-200 shrink-0 shadow-2xs self-start sm:self-auto">
                 Otomatis Aktif
               </span>
             </div>
@@ -5283,7 +5273,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <tr className="bg-gradient-to-r from-slate-900 via-purple-950 to-indigo-950 text-white font-extrabold border-b border-slate-300">
                     <th className="py-3 px-2 text-center w-12 border border-slate-300/70 text-white">No</th>
                     <th className="py-3 px-3 text-center border border-slate-300/70 text-white">No Blok</th>
-                    <th className="py-3 px-4 min-w-[180px] border border-slate-300/70 text-white">Nama Kepala Keluarga</th>
 
                     {/* Render Kolom untuk Setiap Periode */}
                     {sortedPeriods.map((periodName) => (
@@ -5291,7 +5280,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         key={periodName}
                         className="py-3 px-3 text-center border border-slate-300/70 text-purple-200 font-bold bg-purple-900/40"
                       >
-                        {periodName}
+                        <div className="text-xs">{periodName}</div>
+                        <div className="text-[10px] font-normal text-purple-300/80 tracking-normal font-sans">(KK &amp; Kas)</div>
                       </th>
                     ))}
 
@@ -5308,7 +5298,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   {filteredOverallKKList.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={5 + sortedPeriods.length}
+                        colSpan={4 + sortedPeriods.length}
                         className="py-8 text-center text-slate-400 italic border border-slate-300"
                       >
                         Tidak ada data KK yang cocok dengan filter ini.
@@ -5320,6 +5310,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         house,
                         idx,
                         isPureKosong,
+                        isUnoccupied,
                         isRumahKosongHitam,
                         payerName,
                         periodsDetail,
@@ -5343,44 +5334,27 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           {/* 1. No */}
                           <td
                             className={`py-2.5 px-2 text-center font-mono border ${
-                              isRumahKosongHitam ? 'text-slate-300' : 'text-slate-600'
+                              isRumahKosongHitam ? 'text-neutral-400 bg-neutral-950 border-neutral-800' : 'text-slate-600 border-slate-300'
                             }`}
                           >
                             {idx + 1}
                           </td>
 
                           {/* 2. No Blok */}
-                          <td className="py-2.5 px-3 text-center border border-slate-300">
-                            <span
-                              className={`font-mono text-xs font-bold px-2 py-0.5 rounded-lg border shadow-2xs ${
-                                isRumahKosongHitam
-                                  ? 'bg-neutral-900 text-white border-neutral-700'
-                                  : overallStatus === 'Bayar Lebih'
-                                  ? 'bg-sky-200/90 text-sky-950 border-sky-400'
-                                  : overallStatus === 'Lunas Semua'
-                                  ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400'
-                                  : 'bg-rose-200/90 text-rose-950 border-rose-400'
-                              }`}
-                            >
-                              Blok {house.blockNumber}
-                            </span>
-                          </td>
-
-                          {/* 3. Nama Kepala Keluarga */}
-                          <td className="py-2.5 px-4 border border-slate-300">
-                            <div className="flex items-center justify-between gap-1.5">
+                          <td className={`py-2.5 px-3 text-center border ${isRumahKosongHitam ? 'bg-neutral-950 border-neutral-800' : 'border-slate-300'}`}>
+                            <div className="flex items-center justify-center gap-1.5">
                               <span
-                                className={`font-bold ${
+                                className={`font-mono text-xs font-bold px-2 py-0.5 rounded-lg border shadow-2xs ${
                                   isRumahKosongHitam
-                                    ? 'text-white'
+                                    ? 'bg-neutral-900 text-white border-neutral-700'
                                     : overallStatus === 'Bayar Lebih'
-                                    ? 'text-sky-950'
+                                    ? 'bg-sky-200/90 text-sky-950 border-sky-400'
                                     : overallStatus === 'Lunas Semua'
-                                    ? 'text-emerald-950'
-                                    : 'text-rose-950'
+                                    ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400'
+                                    : 'bg-rose-200/90 text-rose-950 border-rose-400'
                                 }`}
                               >
-                                {payerName}
+                                Blok {house.blockNumber}
                               </span>
                               {isAdmin && (
                                 <button
@@ -5400,67 +5374,131 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           </td>
 
                           {/* Kolom Rincian Setiap Periode */}
-                          {periodsDetail.map((pDet) => (
-                            <td
-                               key={pDet.periodLabel}
-                              className="py-2.5 px-2.5 text-center border border-slate-300 font-mono text-xs"
-                            >
-                              {isPureKosong ? (
-                                <span className="text-[10px] text-neutral-400 italic">Bebas</span>
-                              ) : pDet.isAdvanceSubsequent ? (
-                                <div className="flex flex-col items-center">
-                                  <span className="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-950 text-[10px] font-extrabold border border-sky-300 whitespace-nowrap shadow-2xs">
-                                    ✓ Dimuka
-                                  </span>
-                                  <span className="text-[8px] text-sky-700 font-semibold mt-0.5">
-                                    (Bebas Tagihan)
-                                  </span>
-                                </div>
-                              ) : pDet.statusInfo?.status === 'Bayar Lebih' ? (
-                                <div className="flex flex-col items-center">
-                                  <span className="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-950 text-[10px] font-extrabold border border-sky-400 whitespace-nowrap shadow-2xs">
-                                    Bayar Lebih ({pDet.statusInfo.paidMonthsCount || 2} Bln)
-                                  </span>
-                                  <span className="font-bold text-sky-900 text-[11px] mt-0.5">
-                                    +{formatRupiah(pDet.iuranPaid)}
-                                  </span>
-                                </div>
-                              ) : pDet.isArrearSettledLater && pDet.settlementMonth ? (
-                                <div className="flex flex-col items-center gap-0.5">
-                                  <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-[10px] font-extrabold border border-emerald-300 shadow-2xs whitespace-nowrap">
-                                    ✓ Lunas Bulan {pDet.settlementMonth}
-                                  </span>
-                                  <span className="text-[9px] text-emerald-700 font-semibold whitespace-nowrap">
-                                    (Pelunasan Tunggakan)
-                                  </span>
-                                </div>
-                              ) : pDet.iuranPaid > 0 ? (
-                                <div className="flex flex-col items-center">
-                                  <span className="font-bold text-emerald-800">
-                                    +{formatRupiah(pDet.iuranPaid)}
-                                  </span>
-                                  {pDet.dendaPaid > 0 && (
-                                    <span className="text-[9px] text-cyan-700 font-medium">
-                                      +Denda {formatRupiah(pDet.dendaPaid)}
+                          {periodsDetail.map((pDet) => {
+                            // Sel & kolom periode kosong HANYA untuk yang status rumahnya adalah Rumah Kosong
+                            // BUKAN yang belum ditempati dan BUKAN yang nominalnya 0 karena belum bayar iuran
+                            const isCellKosong = (isRumahKosongHitam || isPureKosong || pDet.isPeriodVacant) && !isUnoccupied;
+
+                            return (
+                              <td
+                                key={pDet.periodLabel}
+                                className={`py-2.5 px-2.5 text-center font-mono text-xs align-middle transition-colors ${
+                                  isCellKosong
+                                    ? 'bg-neutral-950 text-neutral-200 border border-neutral-800 shadow-inner'
+                                    : 'border border-slate-300'
+                                }`}
+                              >
+                                {/* Nama Kepala Keluarga di Periode Bulan Ini */}
+                                <div
+                                  className={`text-[11px] font-sans font-bold leading-tight mb-1 truncate max-w-[130px] mx-auto ${
+                                    isCellKosong
+                                      ? 'text-neutral-300'
+                                      : overallStatus === 'Bayar Lebih'
+                                      ? 'text-sky-950'
+                                      : overallStatus === 'Lunas Semua'
+                                      ? 'text-emerald-950'
+                                      : 'text-slate-800'
+                                  }`}
+                                  title={`Kepala Keluarga (${pDet.periodLabel}): ${isCellKosong ? 'Rumah Kosong' : pDet.periodHeadName}`}
+                                >
+                                  {isCellKosong ? (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-neutral-900 text-neutral-300 border border-neutral-700 text-[10px] font-bold shadow-2xs">
+                                      Rumah Kosong
                                     </span>
-                                  )}
-                                  {pDet.tunggakanPaid > 0 && (
-                                    <span className="text-[9px] text-amber-700 font-medium">
-                                      +Tung {formatRupiah(pDet.tunggakanPaid)}
-                                    </span>
+                                  ) : (
+                                    pDet.periodHeadName
                                   )}
                                 </div>
-                              ) : (
-                                <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[10px] font-bold border border-rose-300">
-                                  Belum
-                                </span>
-                              )}
-                            </td>
-                          ))}
+
+                                {isCellKosong ? (
+                                  pDet.iuranPaid > 0 ? (
+                                    <div className="flex flex-col items-center">
+                                      <span className="font-bold text-emerald-400">
+                                        +{formatRupiah(pDet.iuranPaid)}
+                                      </span>
+                                      <span className="text-[9px] text-neutral-400 font-medium">
+                                        (Rumah Kosong)
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      <span className="px-2 py-0.5 rounded-md bg-neutral-900 text-neutral-300 text-[10px] font-bold border border-neutral-700 shadow-2xs">
+                                        Bebas
+                                      </span>
+                                      <span className="text-[8px] text-neutral-400 font-medium tracking-tight">
+                                        (Rumah Kosong)
+                                      </span>
+                                    </div>
+                                  )
+                                ) : pDet.isAdvanceSubsequent ? (
+                                  <div className="flex flex-col items-center">
+                                    <span className="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-950 text-[10px] font-extrabold border border-sky-300 whitespace-nowrap shadow-2xs">
+                                      ✓ Dimuka
+                                    </span>
+                                    <span className="text-[8px] text-sky-700 font-semibold mt-0.5">
+                                      (Bebas Tagihan)
+                                    </span>
+                                  </div>
+                                ) : pDet.statusInfo?.status === 'Bayar Lebih' ? (
+                                  <div className="flex flex-col items-center">
+                                    <span className="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-950 text-[10px] font-extrabold border border-sky-400 whitespace-nowrap shadow-2xs">
+                                      Bayar Lebih ({pDet.statusInfo.paidMonthsCount || 2} Bln)
+                                    </span>
+                                    <span className="font-bold text-sky-900 text-[11px] mt-0.5">
+                                      +{formatRupiah(pDet.iuranPaid)}
+                                    </span>
+                                  </div>
+                                ) : pDet.isArrearSettledLater && pDet.settlementMonth ? (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-[10px] font-extrabold border border-emerald-300 shadow-2xs whitespace-nowrap">
+                                      ✓ Lunas Bulan {pDet.settlementMonth}
+                                    </span>
+                                    <span className="text-[9px] text-emerald-700 font-semibold whitespace-nowrap">
+                                      (Pelunasan Tunggakan)
+                                    </span>
+                                  </div>
+                                ) : pDet.iuranPaid > 0 ? (
+                                  <div className="flex flex-col items-center">
+                                    <span className="font-bold text-emerald-800">
+                                      +{formatRupiah(pDet.iuranPaid)}
+                                    </span>
+                                    {pDet.dendaPaid > 0 && (
+                                      <span className="text-[9px] text-cyan-700 font-medium">
+                                        +Denda {formatRupiah(pDet.dendaPaid)}
+                                      </span>
+                                    )}
+                                    {pDet.tunggakanPaid > 0 && (
+                                      <span className="text-[9px] text-amber-700 font-medium">
+                                        +Tung {formatRupiah(pDet.tunggakanPaid)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : isUnoccupied ? (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-semibold border border-slate-300">
+                                    Belum Ditempati
+                                  </span>
+                                ) : (
+                                  <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[10px] font-bold border border-rose-300">
+                                    Belum
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          })}
 
                           {/* Sisa Tunggakan Berjalan */}
-                          <td className="py-2.5 px-3 text-right font-mono tabular-nums border border-slate-300 font-bold">
-                            {remainingArrearsTotal > 0 ? (
+                          <td
+                            className={`py-2.5 px-3 text-right font-mono tabular-nums border font-bold ${
+                              isRumahKosongHitam
+                                ? 'bg-neutral-950 text-neutral-300 border-neutral-800'
+                                : 'border-slate-300'
+                            }`}
+                          >
+                            {isRumahKosongHitam ? (
+                              <span className="text-neutral-400 font-semibold text-[11px]">
+                                Rp 0 (Bebas Kosong)
+                              </span>
+                            ) : remainingArrearsTotal > 0 ? (
                               <span className="text-rose-700">
                                 {formatRupiah(remainingArrearsTotal)}
                               </span>
@@ -5472,7 +5510,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           </td>
 
                           {/* 11. Aksi & Detail */}
-                          <td className="py-2.5 px-3 text-center border border-slate-300">
+                          <td
+                            className={`py-2.5 px-3 text-center border ${
+                              isRumahKosongHitam
+                                ? 'bg-neutral-950 border-neutral-800'
+                                : 'border-slate-300'
+                            }`}
+                          >
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 type="button"
@@ -5517,7 +5561,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 {filteredOverallKKList.length > 0 && (
                   <tfoot>
                     <tr className="bg-gradient-to-r from-slate-900 via-purple-950 to-indigo-950 text-white font-extrabold border-t-2 border-slate-300">
-                      <td colSpan={3 + sortedPeriods.length} className="py-3 px-4 text-right text-xs uppercase tracking-wider text-amber-200 border border-slate-300/70">
+                      <td colSpan={2 + sortedPeriods.length} className="py-3 px-4 text-right text-xs uppercase tracking-wider text-amber-200 border border-slate-300/70">
                         TOTAL AKUMULASI SISA TUNGGAKAN ({filteredOverallKKList.length} KK):
                       </td>
                       <td className="py-3 px-3 text-right font-mono text-xs tabular-nums text-rose-300 border border-slate-300/70">
@@ -5605,7 +5649,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-900 text-white font-bold text-[11px]">
-                      <th className="py-2.5 px-3">Periode</th>
+                      <th className="py-2.5 px-3">Periode &amp; KK</th>
                       <th className="py-2.5 px-3 text-right">Iuran (Rp)</th>
                       <th className="py-2.5 px-3 text-right">Denda Baksos (Rp)</th>
                       <th className="py-2.5 px-3 text-right">Tunggakan (Rp)</th>
@@ -5619,9 +5663,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       if (!matchRow) return null;
                       return matchRow.periodsDetail.map((p) => (
                         <tr key={p.periodLabel} className="hover:bg-slate-50 transition-colors">
-                          <td className="py-2.5 px-3 font-bold text-slate-800">{p.periodLabel}</td>
+                          <td className="py-2.5 px-3">
+                            <div className="font-bold text-slate-800">{p.periodLabel}</div>
+                            <div className="text-[10.5px] font-semibold text-purple-700">KK: {p.periodHeadName}</div>
+                          </td>
                           <td className="py-2.5 px-3 text-right font-mono text-emerald-800 font-bold">
-                            {p.isArrearSettledLater && p.settlementMonth ? (
+                            {(p.isPeriodVacant || matchRow.isPureKosong) && p.iuranPaid === 0 ? (
+                              <span className="text-neutral-400 font-normal italic">Bebas</span>
+                            ) : p.isArrearSettledLater && p.settlementMonth ? (
                               <span className="text-emerald-700 font-bold">
                                 ✓ Lunas Bulan {p.settlementMonth}
                               </span>
