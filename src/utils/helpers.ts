@@ -228,14 +228,34 @@ export function getHouseHeadNameForPeriod(
   const pKey = parseIndonesianMonthYearToKey(periodLabelOrKey) || periodLabelOrKey;
   const pLabel = formatMonthYearFromKey(pKey) || periodLabelOrKey;
 
-  // Cek jika ada riwayat nama di periodHistory
+  // 1. Prioritas Utama: Riwayat Eksplisit di periodHistory untuk bulan ini
   if (house.periodHistory) {
-    const entry = house.periodHistory[pKey] || house.periodHistory[pLabel];
-    if (entry?.duesHeadNameOverride) return entry.duesHeadNameOverride;
-    if (entry?.headName) return entry.headName;
+    const entry =
+      house.periodHistory[pKey] ||
+      house.periodHistory[pLabel] ||
+      house.periodHistory[periodLabelOrKey] ||
+      (pKey
+        ? Object.entries(house.periodHistory).find(
+            ([k]) =>
+              k.toLowerCase() === pKey.toLowerCase() ||
+              k.toLowerCase() === pLabel.toLowerCase() ||
+              parseIndonesianMonthYearToKey(k) === pKey
+          )?.[1]
+        : undefined);
+
+    if (entry) {
+      if (entry.occupancy === 'Kosong' && (!entry.duesHeadNameOverride || entry.duesHeadNameOverride === 'Rumah Kosong')) {
+        return 'Rumah Kosong';
+      }
+      if (entry.occupancy === 'Belum Ditempati' && (!entry.duesHeadNameOverride || entry.duesHeadNameOverride === 'Belum Ditempati')) {
+        return 'Belum Ditempati';
+      }
+      if (entry.duesHeadNameOverride) return entry.duesHeadNameOverride;
+      if (entry.headName) return entry.headName;
+    }
   }
 
-  // Cek nama dari transaksi pada periode tersebut jika ada
+  // 2. Cek nama dari transaksi pada periode tersebut jika ada
   const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
   const periodMonthNameLower = (pLabel.split(' ')[0] || '').toLowerCase();
   const matchingTx = transactions.find((t) => {
@@ -1339,13 +1359,14 @@ export function computeOverallKKRecapList(
         : config.duesAmountPerMonth || 25000;
     const nominalPerMonth = isPureKosong ? 0 : defaultNominal;
 
+    const currentMonthHeadName = getHouseHeadNameForPeriod(house, currentActiveMonth, transactions);
     const payerName = isPureKosong
-      ? house.duesHeadNameOverride && house.duesHeadNameOverride !== 'Rumah Kosong'
-        ? house.duesHeadNameOverride
+      ? currentMonthHeadName && currentMonthHeadName !== 'Rumah Kosong'
+        ? currentMonthHeadName
         : 'Rumah Kosong'
       : isUnoccupied
-      ? house.duesHeadNameOverride || 'Belum Ditempati'
-      : house.duesHeadNameOverride || house.headName || '';
+      ? currentMonthHeadName || 'Belum Ditempati'
+      : currentMonthHeadName || house.duesHeadNameOverride || house.headName || '';
 
     const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
 
@@ -1359,54 +1380,10 @@ export function computeOverallKKRecapList(
       const pKey = parseIndonesianMonthYearToKey(periodLabel) || '';
       const isPeriodVacant = isHouseVacantInPeriod(house, periodLabel, transactions);
 
-      // Extract KK name for this period
-      let periodHeadName = isPeriodVacant ? 'Rumah Kosong' : getHouseHeadNameForPeriod(house, periodLabel, transactions);
-      const explicitHistEntry = house.periodHistory?.[pKey] || (pKey ? house.periodHistory?.[periodLabel] : undefined);
-      if (explicitHistEntry) {
-        if (explicitHistEntry.duesHeadNameOverride) {
-          periodHeadName = explicitHistEntry.duesHeadNameOverride;
-        } else if (explicitHistEntry.headName) {
-          periodHeadName = explicitHistEntry.headName;
-        }
-        if (explicitHistEntry.occupancy === 'Kosong' || isPeriodVacant) {
-          periodHeadName = 'Rumah Kosong';
-        }
-      } else {
-        const periodMonthName = (periodLabel.split(' ')[0] || '').toLowerCase();
-        const matchingPeriodTx = transactions.find((t) => {
-          if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
-          const txKey = getMonthKeyFromDate(t.date);
-          const descLower = t.description.toLowerCase();
-          const isMatchPeriod =
-            txKey === pKey ||
-            descLower.includes(periodLabel.toLowerCase()) ||
-            descLower.includes(periodMonthName);
-          return isMatchPeriod && /\([^)]+\)/.test(t.description);
-        });
-
-        if (matchingPeriodTx) {
-          const blockEscaped = house.blockNumber.replace('/', '\\/');
-          const blockNameMatch = matchingPeriodTx.description.match(
-            new RegExp(`Blok\\s+${blockEscaped}\\s*\\(([^)]+)\\)`, 'i')
-          );
-          const parenMatch = blockNameMatch || matchingPeriodTx.description.match(/\(([^)]+)\)$/);
-          if (parenMatch && parenMatch[1]) {
-            let extracted = parenMatch[1].trim();
-            if (extracted.toLowerCase().startsWith('rumah kosong - ')) {
-              extracted = extracted.slice('rumah kosong - '.length).trim();
-            }
-            const isNote =
-              /^(pelunasan|iuran|denda|tunggakan|warga|\d+\s*rumah|bulan)/i.test(extracted) ||
-              extracted.includes('202');
-            if (extracted && !isNote) {
-              periodHeadName = extracted;
-            }
-          }
-        }
-      }
-      if (isPeriodVacant && (!periodHeadName || periodHeadName === payerName)) {
-        periodHeadName = 'Rumah Kosong';
-      }
+      // Extract KK name for this period directly from the input in Tabel Rekap Pembayaran Iuran Per KK
+      const periodHeadName = isPeriodVacant
+        ? 'Rumah Kosong'
+        : getHouseHeadNameForPeriod(house, periodLabel, transactions) || (isUnoccupied ? 'Belum Ditempati' : house.headName || '-');
 
       // 1. Matching iuran txs in this month
       const periodNominal = isPeriodVacant ? 0 : getHouseDuesNominalForPeriod(house, periodLabel, config, transactions);
