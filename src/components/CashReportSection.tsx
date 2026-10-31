@@ -232,24 +232,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     period: string;
   } | null>(null);
 
-  // Unified Sub-tab selection: 'mutasi' (1. Buku Kas), 'per_kk' (2. Rekap Iuran Per KK), 'rekap_total_kk' (3. Rekap Keseluruhan Kas Per KK - Khusus Pengurus)
+  // Unified Sub-tab selection: 'mutasi' (1. Buku Kas), 'per_kk' (2. Rekap Iuran Per KK), 'rekap_total_kk' (3. Rekap Keseluruhan Kas Per KK)
   const [currentSubTab, setCurrentSubTab] = useState<'mutasi' | 'per_kk' | 'rekap_total_kk'>(
-    isAdmin && mode === 'rekap_total_kk' ? 'rekap_total_kk' : mode === 'per_kk' ? 'per_kk' : 'mutasi'
+    mode === 'rekap_total_kk' ? 'rekap_total_kk' : mode === 'per_kk' ? 'per_kk' : 'mutasi'
   );
 
   React.useEffect(() => {
-    if (!isAdmin && currentSubTab === 'rekap_total_kk') {
-      setCurrentSubTab('mutasi');
-      return;
-    }
     if (mode === 'rekap_total_kk') {
-      setCurrentSubTab(isAdmin ? 'rekap_total_kk' : 'mutasi');
+      setCurrentSubTab('rekap_total_kk');
     } else if (mode === 'per_kk') {
       setCurrentSubTab('per_kk');
     } else if (mode === 'mutasi') {
       setCurrentSubTab('mutasi');
     }
-  }, [mode, isAdmin, currentSubTab]);
+  }, [mode]);
 
   // State untuk Poin 3: Rekap Keseluruhan Kas Per KK (Gabungan Semua Periode)
   const [filterOverallStatus, setFilterOverallStatus] = useState<
@@ -304,7 +300,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [houseDuesOccupancyInput, setHouseDuesOccupancyInput] = useState<ResidentHouse['occupancy']>('Ditempati');
   const [houseDuesHeadNameInput, setHouseDuesHeadNameInput] = useState<string>('');
   const [houseDuesAmountInput, setHouseDuesAmountInput] = useState<number>(50000);
-  const [houseDuesStatusInput, setHouseDuesStatusInput] = useState<'Lunas' | 'Bayar Lebih' | 'Belum Bayar'>('Lunas');
+  const [houseDuesStatusInput, setHouseDuesStatusInput] = useState<DuesStatus>('Lunas');
   const [houseDuesPaidMonthsInput, setHouseDuesPaidMonthsInput] = useState<number>(1);
   const [houseDuesUpcomingMonths, setHouseDuesUpcomingMonths] = useState<string[]>([]);
   const [houseDuesTotalReceivedInput, setHouseDuesTotalReceivedInput] = useState<number>(50000);
@@ -1036,9 +1032,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         const key = parseIndonesianMonthYearToKey(p);
         if (!key) return false;
 
-        // 1. Ketentuan: Sembunyikan bulan masa depan KECUALI jika sudah memiliki data transaksi kas atau agenda baksos riil
+        // 1. Ketentuan: Sembunyikan bulan masa depan KECUALI jika sudah memiliki data transaksi kas, agenda baksos riil, atau terdaftar di periode pengurus
         const hasRealData = txMonths.includes(p) || baksosMonths.includes(p);
-        if (key > currentActiveKey && !hasRealData) return false;
+        const isRegisteredPeriod = (config.duesAvailablePeriods || []).includes(p);
+        if (key > currentActiveKey && !hasRealData && !isRegisteredPeriod) return false;
 
         // 2. Ketentuan khusus tahun 2026: Jangan memunculkan rekap iuran per KK bulan April di tahun 2026 karena merupakan inputan baseline awal
         if (key === '2026-04') return false;
@@ -1059,7 +1056,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     const active = config.duesCurrentMonth || defaultMonthLabel || 'Oktober 2026';
     const activeKey = parseIndonesianMonthYearToKey(active) || '2026-10';
     const selKey = selectedKKPeriod ? parseIndonesianMonthYearToKey(selectedKKPeriod) : null;
-    const isFuturePeriod = selKey ? selKey > activeKey : false;
+    const isRegistered = (config.duesAvailablePeriods || []).includes(selectedKKPeriod);
+    const isFuturePeriod = selKey ? selKey > activeKey && !isRegistered : false;
     const isApril2026 =
       selectedKKPeriod &&
       (selKey === '2026-04' ||
@@ -1071,7 +1069,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     } else if (!selectedKKPeriod || !sortedPeriods.includes(selectedKKPeriod)) {
       setSelectedKKPeriod(active);
     }
-  }, [sortedPeriods, config.duesCurrentMonth, defaultMonthLabel, selectedKKPeriod]);
+  }, [sortedPeriods, config.duesCurrentMonth, config.duesAvailablePeriods, defaultMonthLabel, selectedKKPeriod]);
 
   // Status computation for any given house in any given period
   // Status computation for any given house in any given period
@@ -1149,7 +1147,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     const periodSnapshot = house.periodHistory?.[targetKey] || (targetKey ? house.periodHistory?.[periodLabel] : undefined);
     if (periodSnapshot) {
       const snapNominal = periodSnapshot.customDuesAmount ?? nominal;
-      if (periodSnapshot.occupancy === 'Kosong' || isPeriodVacant) {
+      if (periodSnapshot.occupancy === 'Kosong' || periodSnapshot.duesStatus === 'Kosong' || isPeriodVacant) {
         if (periodSnapshot.duesStatus === 'Lunas' && (periodSnapshot.paidAmount || 0) > 0) {
           return {
             status: 'Lunas' as const,
@@ -1305,6 +1303,17 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
     // 6. Bulan berjalan aktif jika periodLabel cocok
     if (periodLabel === defaultMonthLabel || targetKey === currentKey) {
+      if (house.occupancy === 'Kosong' || house.duesStatus === 'Kosong' || isPeriodVacant) {
+        return {
+          status: 'Kosong' as const,
+          amount: 0,
+          isAdvanceSubsequentMonth: false,
+          label: 'Bebas Iuran',
+          badgeClass: 'bg-black text-white border border-neutral-700 font-semibold',
+          paidDate: undefined,
+          note: 'Rumah Kosong (Tidak Wajib)',
+        };
+      }
       if (house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih') {
         const isAdvance = house.duesStatus === 'Bayar Lebih';
         const advMonths = Math.max(2, house.duesPaidMonths || 2);
@@ -3426,8 +3435,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     if (onCreatePeriod) {
       onCreatePeriod(periodLabel, {
         setActiveCurrentMonth: setAsActiveMonthInput,
-        resetNonAdvanceDues: resetNonAdvanceDuesInput,
+        resetNonAdvanceDues: true,
       });
+    }
+    // Langsung arahkan tampilan tabel Rekap Iuran Per KK ke periode baru yang baru saja dibuat
+    setSelectedKKPeriod(periodLabel);
+    const newPeriodKey = parseIndonesianMonthYearToKey(periodLabel);
+    if (newPeriodKey) {
+      setSelectedTxMonth(newPeriodKey);
     }
     try {
       confetti({ particleCount: 45, spread: 60, origin: { y: 0.6 } });
@@ -3824,32 +3839,30 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </span>
           </button>
 
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => {
-                setCurrentSubTab('rekap_total_kk');
-                if (onSwitchMode) onSwitchMode('rekap_total_kk');
-              }}
-              className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentSubTab('rekap_total_kk');
+              if (onSwitchMode) onSwitchMode('rekap_total_kk');
+            }}
+            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+              currentSubTab === 'rekap_total_kk'
+                ? 'bg-gradient-to-r from-purple-700 via-indigo-700 to-pink-600 text-white shadow-md shadow-purple-700/25 ring-2 ring-purple-300/80 scale-[1.01]'
+                : 'bg-white hover:bg-purple-50/80 text-purple-950 border border-purple-200 shadow-2xs'
+            }`}
+          >
+            <Coins className="w-4 h-4 text-amber-300" />
+            <span>3. Rekap Keseluruhan Kas Per KK</span>
+            <span
+              className={`font-mono text-[11px] font-black px-2 py-0.5 rounded-lg ${
                 currentSubTab === 'rekap_total_kk'
-                  ? 'bg-gradient-to-r from-purple-700 via-indigo-700 to-pink-600 text-white shadow-md shadow-purple-700/25 ring-2 ring-purple-300/80 scale-[1.01]'
-                  : 'bg-white hover:bg-purple-50/80 text-purple-950 border border-purple-200 shadow-2xs'
+                  ? 'bg-amber-300 text-slate-950'
+                  : 'bg-purple-100 text-purple-900'
               }`}
             >
-              <Coins className="w-4 h-4 text-amber-300" />
-              <span>3. Rekap Keseluruhan Kas Per KK</span>
-              <span
-                className={`font-mono text-[11px] font-black px-2 py-0.5 rounded-lg ${
-                  currentSubTab === 'rekap_total_kk'
-                    ? 'bg-amber-300 text-slate-950'
-                    : 'bg-purple-100 text-purple-900'
-                }`}
-              >
-                Semua Periode ({sortedPeriods.length})
-              </span>
-            </button>
-          )}
+              Semua Periode ({sortedPeriods.length})
+            </span>
+          </button>
         </div>
 
         <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/90 border border-teal-200 text-xs font-bold text-teal-950 shadow-2xs">
@@ -5269,8 +5282,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         </div>
       )}
 
-      {/* VIEW 3: REKAP KESELURUHAN KAS PER KK (MENGGABUNGKAN TOTAL SEMUA PERIODE REKAP IURAN PER KK) - HANYA UNTUK PENGURUS/ADMIN */}
-      {isAdmin && currentSubTab === 'rekap_total_kk' && (
+      {/* VIEW 3: REKAP KESELURUHAN KAS PER KK (MENGGABUNGKAN TOTAL SEMUA PERIODE REKAP IURAN PER KK) */}
+      {currentSubTab === 'rekap_total_kk' && (
         <div className="bg-gradient-to-b from-white via-slate-50/50 to-purple-50/20 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden space-y-5 p-4 sm:p-6">
           {/* Header & Stats (Transparansi Penuh untuk Warga & Pengurus) */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-100">
@@ -8164,6 +8177,18 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   </span>
                 </div>
 
+                <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200 text-xs text-sky-950 space-y-1.5 shadow-2xs">
+                  <div className="font-extrabold flex items-center gap-1.5 text-sky-950">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Ketentuan Format &amp; Status Rekap Periode Baru:</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-700 pl-0.5 leading-relaxed">
+                    <li>Isian dan format tabel Rekap Pembayaran Iuran Per KK mengikuti bulan sebelumnya.</li>
+                    <li>Status iuran seluruh warga otomatis menjadi <strong className="text-rose-700">Belum Bayar</strong>.</li>
+                    <li>Khusus rumah kosong, status iurannya tetap <strong className="text-slate-900">Kosong (Bebas Iuran)</strong>.</li>
+                  </ul>
+                </div>
+
                 <div className="space-y-2 pt-1">
                   <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
                     <input
@@ -8174,18 +8199,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     />
                     <span>
                       <strong>Jadikan Periode Berjalan Saat Ini</strong> (langsung ditampilkan ke seluruh warga sebagai bulan aktif).
-                    </span>
-                  </label>
-
-                  <label className="flex items-start gap-2 text-xs text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={resetNonAdvanceDuesInput}
-                      onChange={(e) => setResetNonAdvanceDuesInput(e.target.checked)}
-                      className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                    />
-                    <span>
-                      <strong>Perbarui Status Iuran Rutin Warga</strong> (warga dengan <i>Bayar Lebih</i> otomatis terpotong 1 bulan, warga biasa kembali ke status <i>Belum Bayar</i>).
                     </span>
                   </label>
                 </div>

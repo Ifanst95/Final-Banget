@@ -1155,67 +1155,117 @@ export function useStorage() {
         existingPeriodDues[trimmed] = cur.siteConfig.duesAmountPerMonth;
       }
 
+      const shouldSetActive = options?.setActiveCurrentMonth !== false;
       const updatedConfig = {
         ...cur.siteConfig,
         duesAvailablePeriods: updatedPeriods,
         periodDuesAmounts: existingPeriodDues,
-        ...(options?.setActiveCurrentMonth ? { duesCurrentMonth: trimmed } : {}),
+        ...(shouldSetActive ? { duesCurrentMonth: trimmed } : {}),
       };
 
-      let updatedResidents = cur.residents;
-      if (options?.resetNonAdvanceDues) {
-        const prevMonth = cur.siteConfig.duesCurrentMonth || 'September 2026';
-        const prevMonthKey = parseIndonesianMonthYearToKey(prevMonth) || prevMonth;
+      const prevMonth = cur.siteConfig.duesCurrentMonth || (existing && existing[0]) || 'Oktober 2026';
+      const prevMonthKey = parseIndonesianMonthYearToKey(prevMonth) || prevMonth;
 
-        updatedResidents = cur.residents.map((r) => {
-          // Snapshot previous month into periodHistory before rollover so previous month data is preserved!
-          const newPeriodHist = { ...(r.periodHistory || {}) };
-          if (prevMonthKey && !newPeriodHist[prevMonthKey]) {
-            newPeriodHist[prevMonthKey] = {
-              occupancy: r.occupancy,
-              headName: r.headName,
-              duesHeadNameOverride: r.duesHeadNameOverride || r.headName,
-              duesStatus: r.duesStatus,
-              customDuesAmount: r.customDuesAmount ?? cur.siteConfig.duesAmountPerMonth,
-              paidAmount: r.duesStatus === 'Lunas' || r.duesStatus === 'Bayar Lebih' ? (r.customDuesAmount ?? cur.siteConfig.duesAmountPerMonth) : (r.duesPaidAmount || 0),
-              paidDate: r.duesPaidDate || '',
-              updatedAt: new Date().toISOString(),
-            };
-          }
+      const updatedResidents = cur.residents.map((r) => {
+        // 1. Snapshot previous month into periodHistory agar data & format bulan sebelumnya tetap utuh dan terjaga 100%
+        const newPeriodHist = { ...(r.periodHistory || {}) };
+        const prevHistEntry = newPeriodHist[prevMonthKey];
 
-          if (r.occupancy === 'Kosong') {
-            return {
-              ...r,
-              periodHistory: newPeriodHist,
-            };
-          }
+        const prevOccupancy = r.occupancyHistory?.[prevMonthKey] || prevHistEntry?.occupancy || r.occupancy;
+        const prevHeadName = prevHistEntry?.headName || r.headName;
+        const prevDuesHeadName = prevHistEntry?.duesHeadNameOverride || r.duesHeadNameOverride || prevHeadName;
+        const prevDuesAmount = prevHistEntry?.customDuesAmount ?? r.customDuesAmount ?? cur.siteConfig.duesAmountPerMonth;
+        const prevDuesStatus = prevHistEntry?.duesStatus || r.duesStatus;
+        const prevPaidAmount =
+          prevHistEntry?.paidAmount !== undefined
+            ? prevHistEntry.paidAmount
+            : (r.duesStatus === 'Lunas' || r.duesStatus === 'Bayar Lebih' ? prevDuesAmount : (r.duesPaidAmount || 0));
+        const prevPaidDate = prevHistEntry?.paidDate || r.duesPaidDate || '';
 
-          const paidMonths = r.duesPaidMonths || 0;
-          if (r.duesStatus === 'Bayar Lebih' && paidMonths > 1) {
-            const nextPaidMonths = paidMonths - 1;
-            const nom = r.customDuesAmount ?? cur.siteConfig.duesAmountPerMonth ?? 50000;
-            const newPrepaid = Math.max(0, (r.duesPrepaidBalance || 0) - nom);
-            return {
-              ...r,
-              duesStatus: nextPaidMonths > 1 ? 'Bayar Lebih' : 'Lunas',
-              duesPaidMonths: nextPaidMonths,
-              duesPrepaidBalance: newPrepaid,
-              duesMonthNote: trimmed,
-              periodHistory: newPeriodHist,
-            };
-          }
+        newPeriodHist[prevMonthKey] = {
+          occupancy: prevOccupancy,
+          headName: prevHeadName,
+          duesHeadNameOverride: prevDuesHeadName,
+          duesStatus: prevDuesStatus,
+          customDuesAmount: prevDuesAmount,
+          paidAmount: prevPaidAmount,
+          paidDate: prevPaidDate,
+          updatedAt: prevHistEntry?.updatedAt || new Date().toISOString(),
+        };
+
+        // 2. Format & isi untuk periode baru mengikuti bulan sebelumnya:
+        // Cek apakah rumah ini adalah rumah kosong pada bulan sebelumnya:
+        const isVacant =
+          prevOccupancy === 'Kosong' ||
+          r.occupancy === 'Kosong' ||
+          /rumah kosong|^kosong$/i.test(prevHeadName) ||
+          /rumah kosong|^kosong$/i.test(prevDuesHeadName);
+
+        const newOccHistory = { ...(r.occupancyHistory || {}) };
+        if (prevMonthKey) newOccHistory[prevMonthKey] = prevOccupancy;
+        newOccHistory[newPeriodKey] = isVacant ? 'Kosong' : prevOccupancy;
+
+        if (isVacant) {
+          // Rumah kosong: status iurannya tetap kosong
+          newPeriodHist[newPeriodKey] = {
+            occupancy: 'Kosong',
+            headName: prevHeadName,
+            duesHeadNameOverride: prevDuesHeadName || 'Rumah Kosong',
+            duesStatus: 'Kosong',
+            customDuesAmount: 0,
+            paidAmount: 0,
+            paidDate: '',
+            updatedAt: new Date().toISOString(),
+          };
+
           return {
             ...r,
-            duesStatus: 'Belum Bayar' as const,
+            headName: prevHeadName,
+            duesHeadNameOverride: prevDuesHeadName || 'Rumah Kosong',
+            occupancy: 'Kosong' as const,
+            customDuesAmount: 0,
+            duesStatus: 'Kosong' as const,
             duesPaidAmount: 0,
             duesPaidMonths: 0,
             duesPrepaidBalance: 0,
             duesPaidDate: '',
             duesMonthNote: trimmed,
+            occupancyHistory: newOccHistory,
             periodHistory: newPeriodHist,
+            updatedAt: new Date().toISOString(),
           };
-        });
-      }
+        }
+
+        // Rumah berpenghuni: isi dan formatnya mengikuti bulan sebelumnya,
+        // namun statusnya menjadi "Belum Bayar" semua
+        newPeriodHist[newPeriodKey] = {
+          occupancy: prevOccupancy,
+          headName: prevHeadName,
+          duesHeadNameOverride: prevDuesHeadName,
+          duesStatus: 'Belum Bayar',
+          customDuesAmount: prevDuesAmount,
+          paidAmount: 0,
+          paidDate: '',
+          updatedAt: new Date().toISOString(),
+        };
+
+        return {
+          ...r,
+          headName: prevHeadName,
+          duesHeadNameOverride: prevDuesHeadName,
+          occupancy: prevOccupancy,
+          customDuesAmount: prevDuesAmount,
+          duesStatus: 'Belum Bayar' as const,
+          duesPaidAmount: 0,
+          duesPaidMonths: 0,
+          duesPrepaidBalance: 0,
+          duesPaidDate: '',
+          duesMonthNote: trimmed,
+          occupancyHistory: newOccHistory,
+          periodHistory: newPeriodHist,
+          updatedAt: new Date().toISOString(),
+        };
+      });
 
       return {
         siteConfig: updatedConfig,
@@ -1598,9 +1648,10 @@ export function useStorage() {
 
         if (!matches && !isAllPeriods) return house;
 
+        const isVacant = house.occupancy === 'Kosong' || /rumah kosong|^kosong$/i.test(house.headName);
         return {
           ...house,
-          duesStatus: 'Belum Bayar' as const,
+          duesStatus: isVacant ? ('Kosong' as const) : ('Belum Bayar' as const),
           duesPaidAmount: 0,
           duesPaidMonths: 0,
           duesPrepaidBalance: 0,

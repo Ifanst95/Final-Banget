@@ -12,7 +12,7 @@ export type RukemStatus = 'Ikut Rukem' | 'Tidak Ikut';
 
 export type WifiStatus = 'Pasang' | 'Tidak Pasang';
 
-export type DuesStatus = 'Lunas' | 'Bayar Lebih' | 'Belum Bayar';
+export type DuesStatus = 'Lunas' | 'Bayar Lebih' | 'Belum Bayar' | 'Kosong';
 
 export type BaksosAttendanceStatus = 'Hadir' | 'Tidak Hadir' | 'Tidak Wajib' | 'Kosong';
 

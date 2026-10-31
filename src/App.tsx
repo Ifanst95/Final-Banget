@@ -87,12 +87,6 @@ export default function App() {
     } catch {}
   }, []);
 
-  // Sembunyikan dan amankan menu rekap keseluruhan dari akses view warga (hanya untuk Pengurus/Admin)
-  useEffect(() => {
-    if (!isAdmin && activeTab === 'rekap_total_kk') {
-      setActiveTab('pengumuman');
-    }
-  }, [isAdmin, activeTab]);
 
   useEffect(() => {
     document.title =
