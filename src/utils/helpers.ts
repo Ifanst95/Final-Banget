@@ -905,12 +905,13 @@ export function parseIndonesianMonthYearToKey(label: string): string | null {
 }
 
 export function getSubsequentMonthLabels(startLabel: string, count: number): string[] {
+  const safeCount = !Number.isFinite(count) || count < 1 ? 1 : Math.min(Math.floor(count), 60);
   const key = parseIndonesianMonthYearToKey(startLabel) || '2026-10';
   const [yStr, mStr] = key.split('-');
   const year = parseInt(yStr, 10) || 2026;
   const monthIdx = (parseInt(mStr, 10) || 10) - 1;
   const result: string[] = [];
-  for (let i = 0; i < Math.max(1, count); i++) {
+  for (let i = 0; i < safeCount; i++) {
     const curMonthIdx = (monthIdx + i) % 12;
     const curYear = year + Math.floor((monthIdx + i) / 12);
     result.push(`${INDONESIAN_MONTHS[curMonthIdx]} ${curYear}`);
@@ -1233,7 +1234,97 @@ export function isTunggakanTx(tx: { category?: string; description?: string; typ
   if (tx.type !== 'masuk') return false;
   const cat = tx.category || '';
   const desc = (tx.description || '').toLowerCase();
-  return cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan') || desc.includes('pelunasan');
+  return (
+    cat === 'Pembayaran Tunggakan' ||
+    desc.includes('tunggakan') ||
+    desc.includes('pelunasan') ||
+    desc.includes('tertunggak') ||
+    desc.includes('tunggak')
+  );
+}
+
+/**
+ * Mendeteksi apakah suatu periode iuran yang belum lunas telah diselesaikan
+ * melalui pembayaran tunggakan di bulan kemudian (atau transaksi pelunasan di Buku Kas).
+ * Mengembalikan nama bulan pelunasan (misal "Oktober 2026") dan tanggal bayarnya.
+ */
+export function findArrearSettlementForPeriod(
+  house: ResidentHouse,
+  targetKey: string,
+  periodLabel: string,
+  transactions: CashTransaction[] = []
+): { settlementMonth: string; paidDate?: string } | null {
+  if (!house || !targetKey) return null;
+
+  const periodMonthLower = (periodLabel.split(' ')[0] || '').toLowerCase();
+
+  // 1. Cek transaksi eksplisit di Buku Kas yang menyebut nama bulan atau key periode ini
+  const explicitTx = transactions.find((t) => {
+    if (t.type !== 'masuk' || !isTransactionForHouse(t, house)) return false;
+    const txKey = getMonthKeyFromDate(t.date);
+    if (!txKey || txKey <= targetKey) return false;
+    const desc = t.description.toLowerCase();
+    const isArrearOrDues = isTunggakanTx(t) || t.category === 'Iuran Warga';
+    if (!isArrearOrDues) return false;
+    return (
+      desc.includes(periodMonthLower) ||
+      desc.includes(periodLabel.toLowerCase()) ||
+      desc.includes(targetKey)
+    );
+  });
+
+  if (explicitTx) {
+    const sMonth =
+      formatMonthYearFromDate(explicitTx.date) ||
+      formatMonthYearFromKey(getMonthKeyFromDate(explicitTx.date));
+    if (sMonth) {
+      return { settlementMonth: sMonth, paidDate: explicitTx.date };
+    }
+  }
+
+  // 2. Cek transaksi pembayaran tunggakan umum untuk rumah ini di bulan kemudian
+  const laterTungTxs = transactions
+    .filter((t) => {
+      if (t.type !== 'masuk' || !isTransactionForHouse(t, house)) return false;
+      const txKey = getMonthKeyFromDate(t.date);
+      if (!txKey || txKey <= targetKey) return false;
+      return isTunggakanTx(t);
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (laterTungTxs.length > 0) {
+    const sMonth =
+      formatMonthYearFromDate(laterTungTxs[0].date) ||
+      formatMonthYearFromKey(getMonthKeyFromDate(laterTungTxs[0].date));
+    if (sMonth) {
+      return { settlementMonth: sMonth, paidDate: laterTungTxs[0].date };
+    }
+  }
+
+  // 3. Cek catatan pelunasan di previousArrearsNote jika ada
+  if (house.previousArrearsNote) {
+    const note = house.previousArrearsNote.toLowerCase();
+    const match = note.match(/lunas\s+(?:di\s+|pada\s+|bulan\s+)?([a-z]+(?:\s+\d{4})?)/i);
+    if (match && match[1]) {
+      const parsedMonth = match[1].trim();
+      const capMonth = parsedMonth
+        .split(' ')
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ');
+      const sMonth = capMonth.includes('202') ? capMonth : `${capMonth} 2026`;
+      return { settlementMonth: sMonth, paidDate: house.duesPaidDate };
+    }
+  }
+
+  // 4. Cek periodHistory jika sudah tercatat settlementMonth
+  if (house.periodHistory) {
+    const snap = house.periodHistory[targetKey] || house.periodHistory[periodLabel];
+    if (snap?.settlementMonth) {
+      return { settlementMonth: snap.settlementMonth, paidDate: snap.paidDate };
+    }
+  }
+
+  return null;
 }
 
 export interface HousePeriodStatusInfo {
@@ -1338,6 +1429,22 @@ export function getHouseStatusForPeriod(
     }
 
     if (periodSnapshot.duesStatus === 'Belum Bayar') {
+      // Periksa apakah tunggakan periode ini telah dilunasi di bulan kemudian
+      const settlement = findArrearSettlementForPeriod(house, targetKey, periodLabel, transactions);
+      if (settlement) {
+        return {
+          status: 'Lunas',
+          amount: 0,
+          isAdvanceSubsequentMonth: false,
+          label: `Lunas Bulan ${settlement.settlementMonth}`,
+          badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold shadow-xs',
+          paidDate: settlement.paidDate,
+          note: `Tunggakan dilunasi pada bulan ${settlement.settlementMonth}`,
+          isArrearSettledLater: true,
+          settlementMonth: settlement.settlementMonth,
+        };
+      }
+
       const paidPart = periodSnapshot.paidAmount || 0;
       return {
         status: 'Belum Bayar',
@@ -1380,8 +1487,9 @@ export function getHouseStatusForPeriod(
   const sumIuranFromTxs = matchingIuranTxs.reduce((sum, t) => sum + t.amount, 0);
 
   if (sumIuranFromTxs > 0) {
-    const isAdvance = sumIuranFromTxs > nominal;
-    const txPaidMonths = Math.max(1, Math.round(sumIuranFromTxs / nominal));
+    const effectiveNominal = nominal > 0 ? nominal : (config?.duesAmountPerMonth || 25000);
+    const isAdvance = sumIuranFromTxs > effectiveNominal;
+    const txPaidMonths = Math.max(1, Math.round(sumIuranFromTxs / effectiveNominal));
     const txCoveredMonths = isAdvance ? getSubsequentMonthLabels(periodLabel, txPaidMonths) : [periodLabel];
     return {
       status: isAdvance ? 'Bayar Lebih' : 'Lunas',
@@ -1480,7 +1588,8 @@ export function getHouseStatusForPeriod(
     const originMonth = priorAdvanceTx
       ? formatMonthYearFromDate(priorAdvanceTx.date) || formatMonthYearFromKey(getMonthKeyFromDate(priorAdvanceTx.date))
       : histAdvanceMonth || houseBasePeriod;
-    const effectivePaidMonths = paidMonths > 1 ? paidMonths : priorAdvanceTx ? Math.round(priorAdvanceTx.amount / nominal) : 2;
+    const effectivePriorNominal = nominal > 0 ? nominal : (config?.duesAmountPerMonth || 25000);
+    const effectivePaidMonths = paidMonths > 1 ? paidMonths : priorAdvanceTx ? Math.max(1, Math.round(priorAdvanceTx.amount / effectivePriorNominal)) : 2;
     const effectiveCovered = coveredMonths.length > 0 ? coveredMonths : getSubsequentMonthLabels(originMonth, effectivePaidMonths);
     return {
       status: 'Lunas',
@@ -1570,6 +1679,21 @@ export function getHouseStatusForPeriod(
         lastCoveredMonth: advCovered[advCovered.length - 1] || defaultMonthLabel,
       };
     }
+    const settlement = findArrearSettlementForPeriod(house, targetKey, periodLabel, transactions);
+    if (settlement) {
+      return {
+        status: 'Lunas',
+        amount: 0,
+        isAdvanceSubsequentMonth: false,
+        label: `Lunas Bulan ${settlement.settlementMonth}`,
+        badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold shadow-xs',
+        paidDate: settlement.paidDate,
+        note: `Tunggakan dilunasi pada bulan ${settlement.settlementMonth}`,
+        isArrearSettledLater: true,
+        settlementMonth: settlement.settlementMonth,
+      };
+    }
+
     const paidPart = house.duesPaidAmount || 0;
     return {
       status: 'Belum Bayar',
@@ -1583,63 +1707,18 @@ export function getHouseStatusForPeriod(
 
   // 7. Bulan lampau (targetKey < currentKey)
   if (targetKey < currentKey) {
-    const periodMonthLower = (periodLabel.split(' ')[0] || '').toLowerCase();
-    let settlementMonth: string | null = null;
-
-    // Cek transaksi pelunasan eksplisit di Buku Kas pada bulan kemudian
-    const explicitTx = transactions.find((t) => {
-      if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
-      const txKey = getMonthKeyFromDate(t.date);
-      if (!txKey || txKey <= targetKey) return false;
-      const desc = t.description.toLowerCase();
-      return (
-        desc.includes(periodMonthLower) ||
-        desc.includes(periodLabel.toLowerCase()) ||
-        desc.includes(targetKey)
-      );
-    });
-    if (explicitTx) {
-      settlementMonth =
-        formatMonthYearFromDate(explicitTx.date) ||
-        formatMonthYearFromKey(getMonthKeyFromDate(explicitTx.date));
-    }
-
-    if (!settlementMonth) {
-      const laterTungTxs = transactions
-        .filter((t) => {
-          if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
-          const txKey = getMonthKeyFromDate(t.date);
-          if (!txKey || txKey <= targetKey) return false;
-          return isTunggakanTx(t);
-        })
-        .sort((a, b) => a.date.localeCompare(b.date));
-      if (laterTungTxs.length > 0) {
-        settlementMonth =
-          formatMonthYearFromDate(laterTungTxs[0].date) ||
-          formatMonthYearFromKey(getMonthKeyFromDate(laterTungTxs[0].date));
-      }
-    }
-
-    if (!settlementMonth && house.previousArrearsNote) {
-      const note = house.previousArrearsNote.toLowerCase();
-      const match = note.match(/lunas\s+(?:di\s+|pada\s+|bulan\s+)?([a-z]+(?:\s+\d{4})?)/i);
-      if (match && match[1]) {
-        const parsed = match[1].trim();
-        settlementMonth = parsed.includes('202') ? parsed : `${parsed} 2026`;
-      }
-    }
-
-    if (settlementMonth) {
+    const settlement = findArrearSettlementForPeriod(house, targetKey, periodLabel, transactions);
+    if (settlement) {
       return {
         status: 'Lunas',
         amount: 0,
         isAdvanceSubsequentMonth: false,
-        label: `Lunas Bulan ${settlementMonth}`,
+        label: `Lunas Bulan ${settlement.settlementMonth}`,
         badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold shadow-xs',
-        paidDate: undefined,
-        note: `Tunggakan dilunasi pada bulan ${settlementMonth}`,
+        paidDate: settlement.paidDate,
+        note: `Tunggakan dilunasi pada bulan ${settlement.settlementMonth}`,
         isArrearSettledLater: true,
-        settlementMonth,
+        settlementMonth: settlement.settlementMonth,
       };
     }
 
@@ -1933,7 +2012,7 @@ export function computeOverallKKRecapList(
       // Tunggakan Paid for this cell
       const tunggakanTxs = transactions.filter((t) => {
         if (t.type !== 'masuk' || !isTunggakanTx(t)) return false;
-        if (!blockRegex.test(t.description)) return false;
+        if (!isTransactionForHouse(t, house)) return false;
         return getMonthKeyFromDate(t.date) === pKey;
       });
       const tunggakanPaid = isPeriodVacant ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);

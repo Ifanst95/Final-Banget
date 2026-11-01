@@ -8,6 +8,7 @@ import {
 import { BalanceBreakdown } from '../hooks/useStorage';
 import {
   computeOverallKKRecapList,
+  findArrearSettlementForPeriod,
   formatDateDDMMYYYY,
   formatMonthYearFromDate,
   formatMonthYearFromKey,
@@ -532,50 +533,9 @@ export function exportFinancialReportToExcel({
         // Deteksi pelunasan tunggakan jika tertunggak di bulan sebelumnya
         let settlementMonth: string | null = null;
         if (!isPeriodLunas && !isPureKosong) {
-          const currentActiveKey = parseIndonesianMonthYearToKey(currentPeriod) || '2026-10';
-          const periodMonthName = (pLabel.split(' ')[0] || '').toLowerCase();
-
-          const explicitTx = transactions.find((t) => {
-            if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
-            const txKey = getMonthKeyFromDate(t.date);
-            if (!txKey || txKey <= pKey) return false;
-            const desc = t.description.toLowerCase();
-            return desc.includes(periodMonthName) || desc.includes(pLabel.toLowerCase()) || desc.includes(pKey);
-          });
-          if (explicitTx) {
-            const txKey = getMonthKeyFromDate(explicitTx.date);
-            settlementMonth = formatMonthYearFromKey(txKey) || formatMonthYearFromDate(explicitTx.date);
-          }
-
-          if (!settlementMonth) {
-            const laterTungTxs = transactions
-              .filter((t) => {
-                if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
-                const txKey = getMonthKeyFromDate(t.date);
-                if (!txKey || txKey <= pKey) return false;
-                const cat = t.category || '';
-                const desc = (t.description || '').toLowerCase();
-                return cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan');
-              })
-              .sort((a, b) => a.date.localeCompare(b.date));
-
-            if (laterTungTxs.length > 0) {
-              const txKey = getMonthKeyFromDate(laterTungTxs[0].date);
-              settlementMonth = formatMonthYearFromKey(txKey) || formatMonthYearFromDate(laterTungTxs[0].date);
-            }
-          }
-
-          if (!settlementMonth && house.previousArrearsNote) {
-            const note = house.previousArrearsNote.toLowerCase();
-            const match = note.match(/lunas\s+(?:di\s+|pada\s+|bulan\s+)?([a-z]+(?:\s+\d{4})?)/i);
-            if (match && match[1]) {
-              const parsedMonth = match[1].trim();
-              const capMonth = parsedMonth.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-              settlementMonth = capMonth.includes('202') ? capMonth : `${capMonth} 2026`;
-            }
-          }
-
-          if (settlementMonth) {
+          const settlement = findArrearSettlementForPeriod(house, pKey, pLabel, transactions);
+          if (settlement) {
+            settlementMonth = settlement.settlementMonth;
             isPeriodLunas = true;
           }
         }
