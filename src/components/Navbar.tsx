@@ -421,52 +421,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             })}
           </div>
 
-          {/* Sub-menu bar khusus Laporan Kas agar Rekap Keseluruhan Kas Per KK dapat diakses langsung 1 klik */}
-          {(activeTab === 'kas' || activeTab === 'iuran_kk' || activeTab === 'rekap_total_kk') && (
-            <div className="border-t border-teal-200/60 bg-gradient-to-r from-purple-50/90 via-indigo-50/90 to-teal-50/90 px-2.5 sm:px-6 py-1.5 overflow-x-auto no-scrollbar flex items-center gap-1.5 sm:gap-2">
-              <span className="text-[11px] font-extrabold text-slate-600 hidden sm:inline-flex items-center gap-1 mr-1">
-                Laporan Kas:
-              </span>
-              <button
-                type="button"
-                onClick={() => setActiveTab('kas')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'kas'
-                    ? 'bg-teal-700 text-white shadow-xs ring-1 ring-teal-400'
-                    : 'bg-white/90 text-teal-900 hover:bg-teal-100/80 border border-teal-200 shadow-2xs'
-                }`}
-              >
-                1. Buku Kas (Keluar & Masuk)
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('iuran_kk')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                  activeTab === 'iuran_kk'
-                    ? 'bg-indigo-700 text-white shadow-xs ring-1 ring-indigo-400'
-                    : 'bg-white/90 text-indigo-950 hover:bg-indigo-100/80 border border-indigo-200 shadow-2xs'
-                }`}
-              >
-                2. Rekap Iuran Per KK
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('rekap_total_kk')}
-                className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
-                  activeTab === 'rekap_total_kk'
-                    ? 'bg-gradient-to-r from-purple-700 to-pink-600 text-white shadow-xs ring-1 ring-purple-400'
-                    : 'bg-white/90 text-purple-950 hover:bg-purple-100/80 border border-purple-200 shadow-2xs'
-                }`}
-              >
-                <span>3. Rekap Keseluruhan Kas Per KK</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded font-black ${
-                  activeTab === 'rekap_total_kk' ? 'bg-amber-300 text-slate-950' : 'bg-purple-100 text-purple-800'
-                }`}>
-                  Semua Periode
-                </span>
-              </button>
-            </div>
-          )}
+
         </div>
       </header>
     </>

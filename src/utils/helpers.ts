@@ -1891,8 +1891,10 @@ export interface OverallKKRecapPeriodDetail {
   unpaidAmount: number;
   baksosAgendaTitle?: string;
   baksosAttendance?: BaksosAttendanceStatus | null;
-  isBaksosFinePaid?: boolean;
   baksosFineUnpaid?: number;
+  tunggakanDetailNote?: string;
+  tunggakanPaidMonths?: string[];
+  baksosStatusLabel?: string;
 }
 
 export interface OverallKKRecapItem {
@@ -2048,6 +2050,54 @@ export function computeOverallKKRecapList(
       });
       const tunggakanPaid = isPeriodVacant ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
 
+      // Extract detail bulan-bulan tunggakan yang dilunasi pada periode ini
+      const settledMonthsFromNotes: string[] = [];
+      tunggakanTxs.forEach((t) => {
+        const desc = t.description || '';
+        const monthRegex = /(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)(?:\s+\d{4})?/gi;
+        const matches = desc.match(monthRegex);
+        if (matches) {
+          matches.forEach((m) => {
+            const cleanM = m.trim();
+            if (!settledMonthsFromNotes.some((x) => x.toLowerCase() === cleanM.toLowerCase())) {
+              settledMonthsFromNotes.push(cleanM);
+            }
+          });
+        }
+      });
+
+      // Cari periode-periode sebelum periode ini yang statusnya dilunasi pada periode ini (settlementMonth === periodLabel)
+      sortedPeriods.forEach((priorPeriod) => {
+        const priorKey = parseIndonesianMonthYearToKey(priorPeriod) || '';
+        if (priorKey < pKey) {
+          const priorStatus = getHouseStatusForPeriod(house, priorPeriod, config, transactions, residents, currentActiveMonth);
+          if (priorStatus.isArrearSettledLater && priorStatus.settlementMonth === periodLabel) {
+            if (!settledMonthsFromNotes.some((x) => x.toLowerCase() === priorPeriod.toLowerCase())) {
+              settledMonthsFromNotes.push(priorPeriod);
+            }
+          }
+        }
+      });
+
+      if (tunggakanPaid > 0 && settledMonthsFromNotes.length === 0 && house.previousArrearsNote) {
+        const matches = house.previousArrearsNote.match(/(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)(?:\s+\d{4})?/gi);
+        if (matches) {
+          matches.forEach((m) => {
+            const cleanM = m.trim();
+            if (!settledMonthsFromNotes.some((x) => x.toLowerCase() === cleanM.toLowerCase())) {
+              settledMonthsFromNotes.push(cleanM);
+            }
+          });
+        }
+      }
+
+      const tunggakanDetailNote =
+        settledMonthsFromNotes.length > 0
+          ? settledMonthsFromNotes.join(', ')
+          : tunggakanPaid > 0
+          ? 'Bulan Lalu'
+          : '';
+
       const periodTotal = iuranPaid + dendaPaid + tunggakanPaid;
 
       totalIuranAllPeriods += iuranPaid;
@@ -2110,6 +2160,17 @@ export function computeOverallKKRecapList(
       const baksosAtt = baksosInfo.hadHadir ? 'Hadir' : baksosInfo.hadTidakWajib ? 'Tidak Wajib' : baksosInfo.dendaUnpaid > 0 ? 'Tidak Hadir' : null;
       const finePaid = baksosInfo.dendaPaid > 0 || (baksosInfo.matchingAgendasCount > 0 && baksosInfo.dendaUnpaid === 0 && !baksosInfo.hadTidakWajib && baksosInfo.hadHadir);
 
+      let baksosStatusLabel = '';
+      if (dendaPaid > 0) {
+        baksosStatusLabel = `Denda Lunas (${formatRupiah(dendaPaid)})`;
+      } else if (baksosInfo.dendaUnpaid > 0) {
+        baksosStatusLabel = `Denda ${formatRupiah(baksosInfo.dendaUnpaid)} Belum Bayar`;
+      } else if (baksosInfo.hadHadir) {
+        baksosStatusLabel = 'Hadir (Bebas Denda)';
+      } else if (baksosInfo.hadTidakWajib) {
+        baksosStatusLabel = 'Tidak Wajib Baksos';
+      }
+
       return {
         periodLabel,
         pKey,
@@ -2119,6 +2180,8 @@ export function computeOverallKKRecapList(
         iuranPaid,
         dendaPaid,
         tunggakanPaid,
+        tunggakanDetailNote,
+        tunggakanPaidMonths: settledMonthsFromNotes,
         periodTotal,
         isLunasThisPeriod,
         isArrearSettledLater,
@@ -2133,6 +2196,7 @@ export function computeOverallKKRecapList(
         baksosAttendance: baksosAtt,
         isBaksosFinePaid: finePaid,
         baksosFineUnpaid: isPeriodVacant ? 0 : baksosInfo.dendaUnpaid,
+        baksosStatusLabel,
       };
     });
 

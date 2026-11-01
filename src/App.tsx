@@ -95,6 +95,13 @@ export default function App() {
       'Papan Informasi Warga Gang Mandor Blok K2/25 - K3/24';
   }, [siteConfig.title, siteConfig.brandName]);
 
+  // Sembunyikan tabel rekap pembayaran iuran per kk dari tampilan warga (non-admin)
+  useEffect(() => {
+    if (!isAdmin && activeTab === 'iuran_kk') {
+      setActiveTab('kas');
+    }
+  }, [isAdmin, activeTab]);
+
   // Calculate total unpaid arrears count for navbar badge directly from unified recap
   const arrearsCount = useMemo(() => {
     const { housesWithArrearsCount } = computeOverallKKRecapList(

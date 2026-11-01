@@ -235,22 +235,34 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [deletingSingleHouse, setDeletingSingleHouse] = useState<{
     house: ResidentHouse;
     period: string;
+    componentType?: 'all' | 'iuran' | 'baksos' | 'tunggakan' | 'reset_pokok_tunggakan';
   } | null>(null);
+  const [deleteTargetComponent, setDeleteTargetComponent] = useState<
+    'all' | 'iuran' | 'baksos' | 'tunggakan' | 'reset_pokok_tunggakan'
+  >('all');
 
-  // Unified Sub-tab selection: 'mutasi' (1. Buku Kas), 'per_kk' (2. Rekap Iuran Per KK), 'rekap_total_kk' (3. Rekap Keseluruhan Kas Per KK)
+  // Unified Sub-tab selection: 'mutasi' (1. Buku Kas), 'per_kk' (2. Rekap Iuran Per KK - Pengurus Saja), 'rekap_total_kk' (3. Rekap Keseluruhan Kas Per KK)
   const [currentSubTab, setCurrentSubTab] = useState<'mutasi' | 'per_kk' | 'rekap_total_kk'>(
-    mode === 'rekap_total_kk' ? 'rekap_total_kk' : mode === 'per_kk' ? 'per_kk' : 'mutasi'
+    mode === 'rekap_total_kk' ? 'rekap_total_kk' : mode === 'per_kk' && isAdmin ? 'per_kk' : 'mutasi'
   );
 
   React.useEffect(() => {
     if (mode === 'rekap_total_kk') {
       setCurrentSubTab('rekap_total_kk');
     } else if (mode === 'per_kk') {
-      setCurrentSubTab('per_kk');
+      setCurrentSubTab(isAdmin ? 'per_kk' : 'mutasi');
     } else if (mode === 'mutasi') {
       setCurrentSubTab('mutasi');
     }
-  }, [mode]);
+  }, [mode, isAdmin]);
+
+  // Sembunyikan tabel rekap pembayaran iuran per kk dari tampilan warga (fallback ke mutasi)
+  React.useEffect(() => {
+    if (!isAdmin && currentSubTab === 'per_kk') {
+      setCurrentSubTab('mutasi');
+      if (onSwitchMode) onSwitchMode('kas');
+    }
+  }, [isAdmin, currentSubTab, onSwitchMode]);
 
   // State untuk Poin 3: Rekap Keseluruhan Kas Per KK (Gabungan Semua Periode)
   const [filterOverallStatus, setFilterOverallStatus] = useState<
@@ -1316,8 +1328,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
          (selectedKKPeriod === 'semua' && isAdvancePaid) ||
          ((house.duesPaidMonths || 0) > 1 && !statusInfo));
 
+      const isNeutralKosong = !isRumahKosongHitam && (isPureKosong || isUnoccupied);
+
       const isSudahBayar =
         !isRumahKosongHitam &&
+        !isNeutralKosong &&
         !isBayarLebih &&
         !isAdvanceSubsequent &&
         (statusInfo
@@ -1326,10 +1341,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           ? isLunas || iuranPaid > 0
           : iuranPaid > 0);
 
-      const isMenunggak = !isRumahKosongHitam && !isBayarLebih && !isAdvanceSubsequent && !isSudahBayar;
+      const isMenunggak = !isRumahKosongHitam && !isNeutralKosong && !isBayarLebih && !isAdvanceSubsequent && !isSudahBayar;
 
       const rowCellClass = isRumahKosongHitam
         ? '!bg-black !text-white border-neutral-800 font-medium'
+        : isNeutralKosong
+        ? 'bg-slate-100 text-slate-700 border-slate-300 font-medium'
         : isBayarLebih
         ? 'bg-sky-50 text-sky-950 border-sky-300 font-medium'
         : isAdvanceSubsequent
@@ -1345,6 +1362,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         isPureKosong,
         isUnoccupied,
         isRumahKosongHitam,
+        isNeutralKosong,
         periodStr,
         statusInfo,
         nominal,
@@ -2163,6 +2181,174 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         periodHistory: updatedPeriodHist,
       });
       removeTransactionsForHousePeriod(house, period);
+    }
+
+    try {
+      confetti({ particleCount: 30, spread: 50, origin: { y: 0.7 } });
+    } catch {}
+
+    setDeletingSingleHouse(null);
+    setEditingHouseDues(null);
+  };
+
+  // Helper khusus untuk menghapus / membatalkan komponen spesifik (Iuran, Denda Baksos, Tunggakan, atau Saldo Pokok)
+  const handleExecuteDeleteComponent = (
+    house: ResidentHouse,
+    targetPeriod: string,
+    componentType: 'all' | 'iuran' | 'baksos' | 'tunggakan' | 'reset_pokok_tunggakan'
+  ) => {
+    if (!isAdmin) return;
+    const period = targetPeriod || selectedKKPeriod || defaultMonthLabel;
+    const periodKey = parseIndonesianMonthYearToKey(period);
+    const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+
+    if (componentType === 'all') {
+      handleResetSingleHousePayment(house, period);
+      return;
+    }
+
+    if (componentType === 'iuran') {
+      // 1. Reset iuran status di periodHistory dan di resident root jika periode aktif
+      const updatedPeriodHist = { ...(house.periodHistory || {}) };
+      if (periodKey) {
+        updatedPeriodHist[periodKey] = {
+          ...(updatedPeriodHist[periodKey] || {}),
+          duesStatus: house.occupancy === 'Kosong' ? 'Kosong' : 'Belum Bayar',
+          paidAmount: 0,
+          paidDate: '',
+          updatedAt: new Date().toISOString(),
+        };
+        delete (updatedPeriodHist[periodKey] as any).settlementMonth;
+      }
+      if (period && period !== periodKey) {
+        updatedPeriodHist[period] = {
+          ...(updatedPeriodHist[period] || {}),
+          duesStatus: house.occupancy === 'Kosong' ? 'Kosong' : 'Belum Bayar',
+          paidAmount: 0,
+          paidDate: '',
+          updatedAt: new Date().toISOString(),
+        };
+        delete (updatedPeriodHist[period] as any).settlementMonth;
+      }
+
+      // Cek duesMonthNote
+      let newMonthNote = house.duesMonthNote || '';
+      if (newMonthNote) {
+        const parts = newMonthNote.split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
+        const filtered = parts.filter((p) => {
+          const pKey = parseIndonesianMonthYearToKey(p);
+          return p.toLowerCase() !== period.toLowerCase() && (!periodKey || pKey !== periodKey);
+        });
+        newMonthNote = filtered.join(', ');
+      }
+
+      const isCurrentActive = period === defaultMonthLabel || period === house.duesMonthNote;
+
+      onUpdateResident({
+        ...house,
+        duesStatus: house.occupancy === 'Kosong' ? 'Kosong' : (isCurrentActive || !newMonthNote ? 'Belum Bayar' : house.duesStatus),
+        duesPaidAmount: isCurrentActive || !newMonthNote ? 0 : house.duesPaidAmount,
+        duesPaidMonths: isCurrentActive || !newMonthNote ? 0 : (newMonthNote ? newMonthNote.split(/[,;/+]+/).filter(Boolean).length : 0),
+        duesPrepaidBalance: isCurrentActive || !newMonthNote ? 0 : house.duesPrepaidBalance,
+        duesPaidDate: isCurrentActive || !newMonthNote ? '' : house.duesPaidDate,
+        duesMonthNote: newMonthNote,
+        periodHistory: updatedPeriodHist,
+      });
+
+      // Hapus transaksi Iuran Warga terkait di Buku Kas
+      const matchingIuranTxs = transactions.filter((tx) => {
+        if (tx.type !== 'masuk') return false;
+        if (!blockRegex.test(tx.description)) return false;
+        const cat = tx.category || '';
+        const desc = (tx.description || '').toLowerCase();
+        if (cat !== 'Iuran Warga' && !desc.includes('iuran')) return false;
+
+        const mKey = getMonthKeyFromDate(tx.date);
+        return desc.includes(period.toLowerCase()) || (periodKey && mKey === periodKey);
+      });
+
+      if (matchingIuranTxs.length > 0) {
+        if (onDeleteTransactions) {
+          onDeleteTransactions(matchingIuranTxs.map((t) => t.id));
+        } else if (onDeleteTransaction) {
+          matchingIuranTxs.forEach((tx) => onDeleteTransaction(tx.id));
+        }
+      }
+    } else if (componentType === 'baksos') {
+      // Batalkan pelunasan denda baksos di agenda
+      if (baksosAgendas) {
+        baksosAgendas.forEach((agenda) => {
+          const aKey = getMonthKeyFromDate(agenda.date);
+          if (periodKey && aKey === periodKey) {
+            if (agenda.finesPaid?.[house.id] || (house.blockNumber && agenda.finesPaid?.[house.blockNumber])) {
+              if (onUnmarkFinePaid) {
+                onUnmarkFinePaid(agenda.id, house.id);
+              } else if (onUpdateBaksosAgenda) {
+                const newFines = { ...(agenda.finesPaid || {}) };
+                delete newFines[house.id];
+                if (house.blockNumber) delete newFines[house.blockNumber];
+                onUpdateBaksosAgenda({ ...agenda, finesPaid: newFines });
+              }
+            }
+          }
+        });
+      }
+
+      // Hapus transaksi Denda Baksos di Buku Kas
+      const matchingBaksosTxs = transactions.filter((tx) => {
+        if (tx.type !== 'masuk') return false;
+        if (!blockRegex.test(tx.description)) return false;
+        const cat = tx.category || '';
+        const desc = (tx.description || '').toLowerCase();
+        if (cat !== 'Denda Baksos' && !desc.includes('denda')) return false;
+
+        const mKey = getMonthKeyFromDate(tx.date);
+        return desc.includes(period.toLowerCase()) || (periodKey && mKey === periodKey);
+      });
+
+      if (matchingBaksosTxs.length > 0) {
+        if (onDeleteTransactions) {
+          onDeleteTransactions(matchingBaksosTxs.map((t) => t.id));
+        } else if (onDeleteTransaction) {
+          matchingBaksosTxs.forEach((tx) => onDeleteTransaction(tx.id));
+        }
+      }
+    } else if (componentType === 'tunggakan') {
+      // Hapus transaksi Pembayaran Tunggakan & kembalikan saldo pokok tunggakan jika dipotong
+      const matchingTungTxs = transactions.filter((tx) => {
+        if (tx.type !== 'masuk') return false;
+        if (!blockRegex.test(tx.description)) return false;
+        const cat = tx.category || '';
+        const desc = (tx.description || '').toLowerCase();
+        if (cat !== 'Pembayaran Tunggakan' && !isTunggakanTx(tx)) return false;
+
+        const mKey = getMonthKeyFromDate(tx.date);
+        return desc.includes(period.toLowerCase()) || (periodKey && mKey === periodKey);
+      });
+
+      const totalTungPaid = matchingTungTxs.reduce((sum, t) => sum + t.amount, 0);
+
+      if (matchingTungTxs.length > 0) {
+        if (onDeleteTransactions) {
+          onDeleteTransactions(matchingTungTxs.map((t) => t.id));
+        } else if (onDeleteTransaction) {
+          matchingTungTxs.forEach((tx) => onDeleteTransaction(tx.id));
+        }
+      }
+
+      // Kembalikan saldo pokok tunggakan
+      if (totalTungPaid > 0) {
+        onUpdateResident({
+          ...house,
+          previousArrears: (house.previousArrears || 0) + totalTungPaid,
+        });
+      }
+    } else if (componentType === 'reset_pokok_tunggakan') {
+      onUpdateResident({
+        ...house,
+        previousArrears: 0,
+        previousArrearsNote: '',
+      });
     }
 
     try {
@@ -3416,30 +3602,32 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setCurrentSubTab('per_kk');
-              if (onSwitchMode) onSwitchMode('iuran_kk');
-            }}
-            className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-              currentSubTab === 'per_kk'
-                ? 'bg-gradient-to-r from-indigo-700 via-blue-600 to-teal-600 text-white shadow-md shadow-indigo-700/25 ring-2 ring-indigo-300/80 scale-[1.01]'
-                : 'bg-white hover:bg-indigo-50/80 text-indigo-950 border border-indigo-200 shadow-2xs'
-            }`}
-          >
-            <Users className="w-4 h-4 text-cyan-300" />
-            <span>2. Rekap Iuran Kas Per KK</span>
-            <span
-              className={`font-mono text-[11px] font-black px-2 py-0.5 rounded-lg ${
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentSubTab('per_kk');
+                if (onSwitchMode) onSwitchMode('iuran_kk');
+              }}
+              className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                 currentSubTab === 'per_kk'
-                  ? 'bg-amber-300 text-slate-950'
-                  : 'bg-indigo-100 text-indigo-900'
+                  ? 'bg-gradient-to-r from-indigo-700 via-blue-600 to-teal-600 text-white shadow-md shadow-indigo-700/25 ring-2 ring-indigo-300/80 scale-[1.01]'
+                  : 'bg-white hover:bg-indigo-50/80 text-indigo-950 border border-indigo-200 shadow-2xs'
               }`}
             >
-              {residents.filter((r) => r.occupancy !== 'Kosong').length} KK
-            </span>
-          </button>
+              <Users className="w-4 h-4 text-cyan-300" />
+              <span>2. Rekap Iuran Kas Per KK</span>
+              <span
+                className={`font-mono text-[11px] font-black px-2 py-0.5 rounded-lg ${
+                  currentSubTab === 'per_kk'
+                    ? 'bg-amber-300 text-slate-950'
+                    : 'bg-indigo-100 text-indigo-900'
+                }`}
+              >
+                {residents.filter((r) => r.occupancy !== 'Kosong').length} KK
+              </span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -3454,7 +3642,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             }`}
           >
             <Coins className="w-4 h-4 text-amber-300" />
-            <span>3. Rekap Keseluruhan Kas Per KK</span>
+            <span>{isAdmin ? '3. Rekap Keseluruhan Kas Per KK' : '2. Rekap Keseluruhan Kas Per KK'}</span>
             <span
               className={`font-mono text-[11px] font-black px-2 py-0.5 rounded-lg ${
                 currentSubTab === 'rekap_total_kk'
@@ -3777,16 +3965,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       {formatRupiah(simplifiedCashbookData.rekapIuranRow.runningBalance)}
                     </td>
                     <td className="py-2.5 px-2 text-center whitespace-nowrap border border-slate-300">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCurrentSubTab('per_kk');
-                          if (onSwitchMode) onSwitchMode('iuran_kk');
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold cursor-pointer transition-all border border-emerald-300 shadow-2xs"
-                      >
-                        Rekap KK
-                      </button>
+                      {isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCurrentSubTab('per_kk');
+                            if (onSwitchMode) onSwitchMode('iuran_kk');
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold cursor-pointer transition-all border border-emerald-300 shadow-2xs"
+                        >
+                          Rekap KK
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 font-mono text-center block text-[11px]">-</span>
+                      )}
                     </td>
                   </tr>
                 )}
@@ -4124,8 +4316,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         </div>
       )}
 
-      {/* VIEW 2: REKAP IURAN KAS PER KK */}
-      {currentSubTab === 'per_kk' && (
+      {/* VIEW 2: REKAP IURAN KAS PER KK (KHUSUS PENGURUS - TERSEMBUNYI DARI WARGA) */}
+      {currentSubTab === 'per_kk' && isAdmin && (
         <div className="bg-gradient-to-b from-white via-slate-50/50 to-indigo-50/20 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden space-y-5 p-4 sm:p-6">
           {/* Header & Stats (Warga: Khusus Bulan Berjalan. Pengurus: Bisa Buat & Hapus Periode + Ganti Periode) */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-100">
@@ -4372,6 +4564,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           isPureKosong,
                           isUnoccupied,
                           isRumahKosongHitam,
+                          isNeutralKosong,
                           periodStr,
                           statusInfo,
                           nominal,
@@ -4399,17 +4592,19 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             className={`transition-colors border-b ${
                               isRumahKosongHitam
                                 ? '!bg-black !text-white border-neutral-800 hover:!bg-neutral-900'
+                                : isNeutralKosong
+                                ? 'bg-slate-100/90 text-slate-700 border-slate-300 hover:bg-slate-200/70'
                                 : isBayarLebih
                                 ? 'bg-sky-50 text-sky-950 border-sky-300 hover:bg-sky-100/60'
                                 : isAdvanceSubsequent
-                                ? 'bg-emerald-50/70 text-emerald-950 border-emerald-200 hover:bg-emerald-100/40'
+                                ? 'bg-sky-50/70 text-sky-950 border-sky-200 hover:bg-sky-100/40'
                                 : isSudahBayar
                                 ? 'bg-emerald-50 text-emerald-950 border-emerald-300 hover:bg-emerald-100/60'
                                 : 'bg-rose-50 text-rose-950 border-rose-300 hover:bg-rose-100/60'
                             }`}
                           >
                             {/* 1. No */}
-                            <td className={`py-2.5 px-2 text-center font-mono border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : isBayarLebih ? 'text-sky-950 font-bold' : isAdvanceSubsequent || isSudahBayar ? 'text-emerald-950 font-bold' : 'text-slate-600'}`}>
+                            <td className={`py-2.5 px-2 text-center font-mono border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : isBayarLebih || isAdvanceSubsequent ? 'text-sky-950 font-bold' : isSudahBayar ? 'text-emerald-950 font-bold' : isNeutralKosong ? 'text-slate-600' : 'text-rose-950 font-bold'}`}>
                               {idx + 1}
                             </td>
 
@@ -4420,13 +4615,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   className={`font-mono text-xs font-bold px-2 py-0.5 rounded-lg border shadow-2xs ${
                                     isRumahKosongHitam
                                       ? 'bg-neutral-900 text-white border-neutral-700'
+                                      : isNeutralKosong
+                                      ? 'bg-slate-200 text-slate-800 border-slate-300'
                                       : isBayarLebih
                                       ? 'bg-sky-200/90 text-sky-950 border-sky-400 font-black'
                                       : isAdvanceSubsequent
-                                      ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-black'
+                                      ? 'bg-sky-100 text-sky-900 border-sky-300 font-black'
                                       : isSudahBayar
-                                      ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400'
-                                      : 'bg-rose-200/90 text-rose-950 border-rose-400'
+                                      ? 'bg-emerald-200/90 text-emerald-950 border-emerald-400 font-bold'
+                                      : 'bg-rose-200/90 text-rose-950 border-rose-400 font-bold'
                                   }`}
                                 >
                                   Blok {house.blockNumber}
@@ -4437,8 +4634,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   </span>
                                 )}
                                 {isAdvanceSubsequent && (
-                                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 whitespace-nowrap shadow-2xs">
-                                    ✓ Lunas
+                                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-sky-200 text-sky-950 border border-sky-300 whitespace-nowrap shadow-2xs">
+                                    ✓ Lunas Dimuka
                                   </span>
                                 )}
                               </div>
@@ -4453,9 +4650,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       className={`font-bold ${
                                         isRumahKosongHitam
                                           ? 'text-white'
-                                          : isBayarLebih
+                                          : isNeutralKosong
+                                          ? 'text-slate-700 italic'
+                                          : isBayarLebih || isAdvanceSubsequent
                                           ? 'text-sky-950 font-black'
-                                          : isAdvanceSubsequent || isSudahBayar
+                                          : isSudahBayar
                                           ? 'text-emerald-950 font-bold'
                                           : 'text-rose-950'
                                       }`}
@@ -4468,9 +4667,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       </span>
                                     )}
                                     {isAdvanceSubsequent && (
-                                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-900 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-300 w-fit mt-0.5 whitespace-nowrap shadow-2xs">
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-sky-900 bg-sky-100 px-1.5 py-0.5 rounded border border-sky-300 w-fit mt-0.5 whitespace-nowrap shadow-2xs">
                                         <span>✓ Lunas Bulan {basePaymentMonth}</span>
-                                        <span className="text-[9px] text-emerald-700 font-semibold">(Bayar &gt;1 Bulan)</span>
+                                        <span className="text-[9px] text-sky-700 font-semibold">(Bayar &gt;1 Bulan)</span>
                                       </span>
                                     )}
                                   </div>
@@ -4494,9 +4693,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     className={`p-1 rounded transition-colors cursor-pointer shrink-0 ${
                                       isRumahKosongHitam
                                         ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
-                                        : isBayarLebih
+                                        : isBayarLebih || isAdvanceSubsequent
                                         ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/60'
-                                        : isAdvanceSubsequent
+                                        : isSudahBayar
                                         ? 'text-emerald-700 hover:text-emerald-950 hover:bg-emerald-200/60'
                                         : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-100/60'
                                     }`}
@@ -4509,7 +4708,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             </td>
 
                             {/* 4. Periode Iuran */}
-                            <td className={`py-2.5 px-3 text-center border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : isBayarLebih ? 'text-sky-950' : isAdvanceSubsequent ? 'text-emerald-950' : 'text-slate-700'}`}>
+                            <td className={`py-2.5 px-3 text-center border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : isNeutralKosong ? 'text-slate-600' : isBayarLebih || isAdvanceSubsequent ? 'text-sky-950' : isSudahBayar ? 'text-emerald-950' : 'text-slate-700'}`}>
                               <div className="flex flex-col items-center">
                                 <span className="font-bold">{periodStr}</span>
                                 {isBayarLebih && (
@@ -4518,7 +4717,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   </span>
                                 )}
                                 {isAdvanceSubsequent && (
-                                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 mt-0.5 whitespace-nowrap shadow-2xs">
+                                  <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-sky-100 text-sky-900 border border-sky-300 mt-0.5 whitespace-nowrap shadow-2xs">
                                     ✓ Lunas Bulan {basePaymentMonth} (Bayar &gt;1 Bulan)
                                   </span>
                                 )}
@@ -4530,7 +4729,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               onClick={() => isAdmin && handleOpenEditHouseDues(house, isBayarLebih, 'iuran')}
                               className={`py-2.5 px-3 text-right font-mono tabular-nums border ${rowCellClass} ${
                                 isAdmin
-                                  ? isBayarLebih
+                                  ? isBayarLebih || isAdvanceSubsequent
                                     ? 'cursor-pointer hover:ring-2 hover:ring-sky-400/70 hover:bg-sky-100/40 transition-all'
                                     : 'cursor-pointer hover:ring-2 hover:ring-emerald-400/70 hover:bg-emerald-100/40 transition-all'
                                   : ''
@@ -4538,13 +4737,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               title={isAdmin ? 'Klik untuk edit Iuran Bulanan KK ini' : ''}
                             >
                               <div className="flex items-center justify-end gap-1.5">
-                                {isAdvanceSubsequent ? (
+                                {isNeutralKosong ? (
+                                  <span className="text-slate-500 font-medium italic text-[11px]">Bebas Iuran (Kosong)</span>
+                                ) : isAdvanceSubsequent ? (
                                   <div className="flex flex-col items-end">
-                                    <span className="font-bold text-emerald-900">Rp 0</span>
-                                    <span className="text-[10px] font-sans font-extrabold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300 mt-0.5 shadow-2xs whitespace-nowrap">
+                                    <span className="font-bold text-sky-900">Rp 0</span>
+                                    <span className="text-[10px] font-sans font-extrabold text-sky-950 bg-sky-200/90 px-2 py-0.5 rounded-md border border-sky-300 mt-0.5 shadow-2xs whitespace-nowrap">
                                       ✓ Lunas Bulan {basePaymentMonth}
                                     </span>
-                                    <span className="text-[9px] text-emerald-700 font-semibold whitespace-nowrap">
+                                    <span className="text-[9px] text-sky-800 font-semibold whitespace-nowrap">
                                       (Bayar &gt;1 Bulan)
                                     </span>
                                   </div>
@@ -4570,23 +4771,39 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   <span className="text-rose-700 font-bold">Rp 0 (Belum Bayar)</span>
                                 )}
                                 {isAdmin && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenEditHouseDues(house, isBayarLebih, 'iuran');
-                                    }}
-                                    className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
-                                      isRumahKosongHitam
-                                        ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
-                                        : isBayarLebih || isAdvanceSubsequent
-                                        ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/70'
-                                        : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-100/70'
-                                    }`}
-                                    title="Edit Iuran Bulanan KK ini"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  <div className="flex items-center gap-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenEditHouseDues(house, isBayarLebih, 'iuran');
+                                      }}
+                                      className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
+                                        isRumahKosongHitam
+                                          ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                          : isBayarLebih || isAdvanceSubsequent
+                                          ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/70'
+                                          : 'text-slate-400 hover:text-emerald-700 hover:bg-emerald-100/70'
+                                      }`}
+                                      title="Edit Iuran Bulanan KK ini"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    {(isSudahBayar || isBayarLebih || isAdvanceSubsequent || iuranPaid > 0) && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeleteTargetComponent('iuran');
+                                          setDeletingSingleHouse({ house, period: periodStr, componentType: 'iuran' });
+                                        }}
+                                        className="p-1 rounded-md text-rose-500 hover:text-rose-700 hover:bg-rose-100/80 transition-colors cursor-pointer shrink-0"
+                                        title="Hapus Pembayaran Iuran KK Ini (Rp 0 & Bersihkan dari Kas)"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </td>
@@ -4629,7 +4846,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                                     Tidak Wajib
                                   </span>
-                                ) : isRumahKosongHitam ? (
+                                ) : isRumahKosongHitam || isNeutralKosong ? (
                                   <span className="text-[10px] text-slate-400 italic">
                                     Bebas (Kosong)
                                   </span>
@@ -4637,23 +4854,39 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   <span className="text-slate-400 font-mono text-center block">-</span>
                                 )}
                                 {isAdmin && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenEditHouseDues(house, isBayarLebih, 'baksos');
-                                    }}
-                                    className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
-                                      isRumahKosongHitam
-                                        ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
-                                        : isBayarLebih || isAdvanceSubsequent
-                                        ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/70'
-                                        : 'text-slate-400 hover:text-teal-700 hover:bg-teal-100/70'
-                                    }`}
-                                    title="Edit Pembayaran Denda Baksos KK ini"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  <div className="flex items-center gap-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenEditHouseDues(house, isBayarLebih, 'baksos');
+                                      }}
+                                      className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
+                                        isRumahKosongHitam
+                                          ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                          : isBayarLebih || isAdvanceSubsequent
+                                          ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/70'
+                                          : 'text-slate-400 hover:text-teal-700 hover:bg-teal-100/70'
+                                      }`}
+                                      title="Edit Pembayaran Denda Baksos KK ini"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    {(dendaPaid > 0 || baksosInfo.dendaUnpaid > 0) && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeleteTargetComponent('baksos');
+                                          setDeletingSingleHouse({ house, period: periodStr, componentType: 'baksos' });
+                                        }}
+                                        className="p-1 rounded-md text-rose-500 hover:text-rose-700 hover:bg-rose-100/80 transition-colors cursor-pointer shrink-0"
+                                        title="Hapus / Batalkan Denda Baksos KK Ini"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </td>
@@ -4670,34 +4903,50 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             >
                               <div className="flex items-center justify-end gap-1.5">
                                 {tunggakanPaid > 0 ? (
-                                  <span className="text-rose-600 font-black">+{formatRupiah(tunggakanPaid)}</span>
+                                  <span className="text-amber-800 font-black">+{formatRupiah(tunggakanPaid)}</span>
                                 ) : (
-                                  <span className={isRumahKosongHitam ? 'text-neutral-500' : 'text-slate-400'}>-</span>
+                                  <span className={isRumahKosongHitam || isNeutralKosong ? 'text-neutral-400' : 'text-slate-400'}>-</span>
                                 )}
                                 {isAdmin && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenEditHouseDues(house, isBayarLebih, 'tunggakan');
-                                    }}
-                                    className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
-                                      isRumahKosongHitam
-                                        ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
-                                        : isBayarLebih || isAdvanceSubsequent
-                                        ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/70'
-                                        : 'text-slate-400 hover:text-rose-700 hover:bg-rose-100/70'
-                                    }`}
-                                    title="Edit Pembayaran Tunggakan KK ini"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  <div className="flex items-center gap-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenEditHouseDues(house, isBayarLebih, 'tunggakan');
+                                      }}
+                                      className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
+                                        isRumahKosongHitam
+                                          ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                          : isBayarLebih || isAdvanceSubsequent
+                                          ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/70'
+                                          : 'text-slate-400 hover:text-rose-700 hover:bg-rose-100/70'
+                                      }`}
+                                      title="Edit Pembayaran Tunggakan KK ini"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    {(tunggakanPaid > 0 || (house.previousArrears || 0) > 0) && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeleteTargetComponent('tunggakan');
+                                          setDeletingSingleHouse({ house, period: periodStr, componentType: 'tunggakan' });
+                                        }}
+                                        className="p-1 rounded-md text-rose-500 hover:text-rose-700 hover:bg-rose-100/80 transition-colors cursor-pointer shrink-0"
+                                        title="Hapus Pembayaran / Saldo Tunggakan KK Ini"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </td>
 
                             {/* 8. Tanggal Pembayaran */}
-                            <td className={`py-2.5 px-3 text-center font-mono text-[11px] border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : isBayarLebih || isAdvanceSubsequent ? 'text-sky-950' : 'text-slate-700'}`}>
+                            <td className={`py-2.5 px-3 text-center font-mono text-[11px] border ${rowCellClass} ${isRumahKosongHitam ? 'text-slate-300' : isNeutralKosong ? 'text-slate-600' : isBayarLebih || isAdvanceSubsequent ? 'text-sky-950' : 'text-slate-700'}`}>
                               {paidDate ? (
                                 <div className="flex flex-col items-center">
                                   <span className="font-bold">{formatDateDDMMYYYY(paidDate)}</span>
@@ -4729,15 +4978,24 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       {isUnoccupied ? 'Belum Ditempati (Bebas)' : 'Rumah Kosong (Bebas)'}
                                     </span>
                                   </>
-                                ) : isAdvanceSubsequent ? (
+                                ) : isNeutralKosong ? (
                                   <>
-                                    <span className="font-mono font-black text-emerald-950">
+                                    <span className="font-mono font-medium text-slate-600">
                                       {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
                                     </span>
-                                    <span className="text-[10px] font-sans font-extrabold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300 mt-0.5 shadow-2xs whitespace-nowrap">
+                                    <span className="text-[10px] font-sans font-bold text-slate-500">
+                                      {isUnoccupied ? 'Belum Ditempati (Bebas)' : 'Rumah Kosong (Bebas)'}
+                                    </span>
+                                  </>
+                                ) : isAdvanceSubsequent ? (
+                                  <>
+                                    <span className="font-mono font-black text-sky-950">
+                                      {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
+                                    </span>
+                                    <span className="text-[10px] font-sans font-extrabold text-sky-900 bg-sky-100 px-2 py-0.5 rounded-md border border-sky-300 mt-0.5 shadow-2xs whitespace-nowrap">
                                       ✓ Lunas Bulan {basePaymentMonth}
                                     </span>
-                                    <span className="text-[9px] text-emerald-700 font-semibold whitespace-nowrap">
+                                    <span className="text-[9px] text-sky-700 font-semibold whitespace-nowrap">
                                       (Bayar &gt;1 Bulan)
                                     </span>
                                   </>
@@ -4789,7 +5047,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                         ? "Edit Rincian Bayar Lebih (>1 Bulan) KK Ini"
                                         : isAdvanceSubsequent
                                         ? "Kelola Pembayaran di Muka KK Ini"
-                                        : "Edit Iuran & Catatan Pembayaran KK Ini"
+                                        : "Edit Iuran, Denda Baksos, dan Tunggakan KK Ini"
                                     }
                                   >
                                     <Edit2 className="w-3 h-3" />
@@ -4797,20 +5055,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => setDeletingSingleHouse({ house, period: periodStr })}
-                                    disabled={!isSudahBayar && !isBayarLebih && !isAdvanceSubsequent && totalSemua === 0 && house.duesStatus === 'Belum Bayar'}
-                                    className={`px-2 py-1 text-[11px] font-bold rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
-                                      isSudahBayar || isBayarLebih || isAdvanceSubsequent || totalSemua > 0 || house.duesStatus !== 'Belum Bayar'
-                                        ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 hover:border-rose-400'
-                                        : 'bg-slate-100/60 text-slate-400 border-slate-200 cursor-not-allowed opacity-40'
-                                    }`}
-                                    title={
-                                      isSudahBayar || isBayarLebih || isAdvanceSubsequent || totalSemua > 0 || house.duesStatus !== 'Belum Bayar'
-                                        ? "Hapus & Batalkan Pembayaran KK Ini (Otomatis bersihkan dari Buku Kas)"
-                                        : "Tidak ada pembayaran untuk dihapus"
-                                    }
+                                    onClick={() => {
+                                      setDeleteTargetComponent('all');
+                                      setDeletingSingleHouse({ house, period: periodStr, componentType: 'all' });
+                                    }}
+                                    className="px-2 py-1 text-[11px] font-bold rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer active:scale-95 border bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 hover:border-rose-400"
+                                    title="Pilihan Hapus Pembayaran Iuran, Denda Baksos, atau Tunggakan KK Ini"
                                   >
-                                    <Trash2 className="w-3 h-3" />
+                                    <Trash2 className="w-3 h-3 text-rose-600" />
                                     <span>Hapus</span>
                                   </button>
                                 </div>
@@ -5242,12 +5494,49 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   )
                                 ) : pDet.isAdvanceSubsequent ? (
                                   <div className="flex flex-col items-center gap-0.5">
-                                    <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-900 text-[10px] font-extrabold border border-emerald-300 shadow-2xs whitespace-nowrap">
+                                    <span className="px-2 py-0.5 rounded-md bg-sky-100 text-sky-950 text-[10px] font-extrabold border border-sky-300 shadow-2xs whitespace-nowrap">
                                       ✓ {pDet.statusBadge}
                                     </span>
-                                    <span className="text-[8.5px] text-emerald-700 font-semibold whitespace-nowrap">
+                                    <span className="text-[8.5px] text-sky-800 font-semibold whitespace-nowrap">
                                       (Bayar &gt;1 Bulan)
                                     </span>
+                                    {/* Pembayaran Tunggakan Bulan Lalu jika ada */}
+                                    {pDet.tunggakanPaid > 0 && (
+                                      <div className="w-full mt-1 px-1.5 py-0.5 rounded-md bg-amber-100/90 text-amber-950 border border-amber-300 flex flex-col items-center text-[10px] shadow-2xs">
+                                        <span className="font-mono font-black text-amber-900">
+                                          +Tung {formatRupiah(pDet.tunggakanPaid)}
+                                        </span>
+                                        <span className="text-[8.5px] font-extrabold text-amber-800 text-center leading-tight">
+                                          (Pelunasan Tunggakan{pDet.tunggakanDetailNote ? `: ${pDet.tunggakanDetailNote}` : ' Lalu'})
+                                        </span>
+                                      </div>
+                                    )}
+                                    {/* Denda Baksos */}
+                                    {pDet.dendaPaid > 0 ? (
+                                      <div className="w-full mt-1 px-1.5 py-0.5 rounded-md bg-teal-100/90 text-teal-950 border border-teal-300 flex flex-col items-center text-[10px] shadow-2xs">
+                                        <span className="font-mono font-black text-teal-800">
+                                          +Denda {formatRupiah(pDet.dendaPaid)}
+                                        </span>
+                                        <span className="text-[8.5px] font-extrabold text-teal-800">
+                                          ✓ Denda Baksos Lunas
+                                        </span>
+                                      </div>
+                                    ) : pDet.baksosFineUnpaid && pDet.baksosFineUnpaid > 0 ? (
+                                      <div className="w-full mt-1 px-1 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 flex flex-col items-center text-[8.5px] shadow-2xs font-bold">
+                                        <span>Absen Baksos</span>
+                                        <span className="text-rose-800 font-extrabold">
+                                          Denda {formatRupiah(pDet.baksosFineUnpaid)} Belum Bayar
+                                        </span>
+                                      </div>
+                                    ) : pDet.baksosAttendance === 'Hadir' ? (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 text-[8.5px] font-bold text-center">
+                                        ✓ Hadir Baksos
+                                      </span>
+                                    ) : pDet.baksosAttendance === 'Tidak Wajib' ? (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-300 text-[8.5px] font-semibold text-center">
+                                        Tidak Wajib Baksos
+                                      </span>
+                                    ) : null}
                                   </div>
                                 ) : (pDet.statusInfo?.status === 'Bayar Lebih' || pDet.statusBadge?.includes('Bayar Lebih')) ? (
                                   <div className="flex flex-col items-center">
@@ -5257,6 +5546,43 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     <span className="font-bold text-sky-900 text-[11px] mt-0.5">
                                       +{formatRupiah(pDet.iuranPaid)}
                                     </span>
+                                    {/* Pembayaran Tunggakan Bulan Lalu jika ada */}
+                                    {pDet.tunggakanPaid > 0 && (
+                                      <div className="w-full mt-1 px-1.5 py-0.5 rounded-md bg-amber-100/90 text-amber-950 border border-amber-300 flex flex-col items-center text-[10px] shadow-2xs">
+                                        <span className="font-mono font-black text-amber-900">
+                                          +Tung {formatRupiah(pDet.tunggakanPaid)}
+                                        </span>
+                                        <span className="text-[8.5px] font-extrabold text-amber-800 text-center leading-tight">
+                                          (Pelunasan Tunggakan{pDet.tunggakanDetailNote ? `: ${pDet.tunggakanDetailNote}` : ' Lalu'})
+                                        </span>
+                                      </div>
+                                    )}
+                                    {/* Denda Baksos */}
+                                    {pDet.dendaPaid > 0 ? (
+                                      <div className="w-full mt-1 px-1.5 py-0.5 rounded-md bg-teal-100/90 text-teal-950 border border-teal-300 flex flex-col items-center text-[10px] shadow-2xs">
+                                        <span className="font-mono font-black text-teal-800">
+                                          +Denda {formatRupiah(pDet.dendaPaid)}
+                                        </span>
+                                        <span className="text-[8.5px] font-extrabold text-teal-800">
+                                          ✓ Denda Baksos Lunas
+                                        </span>
+                                      </div>
+                                    ) : pDet.baksosFineUnpaid && pDet.baksosFineUnpaid > 0 ? (
+                                      <div className="w-full mt-1 px-1 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 flex flex-col items-center text-[8.5px] shadow-2xs font-bold">
+                                        <span>Absen Baksos</span>
+                                        <span className="text-rose-800 font-extrabold">
+                                          Denda {formatRupiah(pDet.baksosFineUnpaid)} Belum Bayar
+                                        </span>
+                                      </div>
+                                    ) : pDet.baksosAttendance === 'Hadir' ? (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 text-[8.5px] font-bold text-center">
+                                        ✓ Hadir Baksos
+                                      </span>
+                                    ) : pDet.baksosAttendance === 'Tidak Wajib' ? (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-300 text-[8.5px] font-semibold text-center">
+                                        Tidak Wajib Baksos
+                                      </span>
+                                    ) : null}
                                   </div>
                                 ) : pDet.isArrearSettledLater && pDet.settlementMonth ? (
                                   <div className="flex flex-col items-center gap-0.5">
@@ -5266,6 +5592,32 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     <span className="text-[9px] text-emerald-700 font-semibold whitespace-nowrap">
                                       (Pelunasan Tunggakan)
                                     </span>
+                                    {/* Denda Baksos */}
+                                    {pDet.dendaPaid > 0 ? (
+                                      <div className="w-full mt-1 px-1.5 py-0.5 rounded-md bg-teal-100/90 text-teal-950 border border-teal-300 flex flex-col items-center text-[10px] shadow-2xs">
+                                        <span className="font-mono font-black text-teal-800">
+                                          +Denda {formatRupiah(pDet.dendaPaid)}
+                                        </span>
+                                        <span className="text-[8.5px] font-extrabold text-teal-800">
+                                          ✓ Denda Baksos Lunas
+                                        </span>
+                                      </div>
+                                    ) : pDet.baksosFineUnpaid && pDet.baksosFineUnpaid > 0 ? (
+                                      <div className="w-full mt-1 px-1 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 flex flex-col items-center text-[8.5px] shadow-2xs font-bold">
+                                        <span>Absen Baksos</span>
+                                        <span className="text-rose-800 font-extrabold">
+                                          Denda {formatRupiah(pDet.baksosFineUnpaid)} Belum Bayar
+                                        </span>
+                                      </div>
+                                    ) : pDet.baksosAttendance === 'Hadir' ? (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 text-[8.5px] font-bold text-center">
+                                        ✓ Hadir Baksos
+                                      </span>
+                                    ) : pDet.baksosAttendance === 'Tidak Wajib' ? (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-300 text-[8.5px] font-semibold text-center">
+                                        Tidak Wajib Baksos
+                                      </span>
+                                    ) : null}
                                   </div>
                                 ) : (pDet.iuranPaid > 0 || pDet.tunggakanPaid > 0 || pDet.isLunasThisPeriod) ? (
                                   <div className="flex flex-col items-center gap-0.5">
@@ -5277,22 +5629,41 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                         +{formatRupiah(pDet.iuranPaid)}
                                       </span>
                                     )}
+                                    {/* Pembayaran Tunggakan Bulan Lalu dengan detail bulan yang dibayarkan */}
                                     {pDet.tunggakanPaid > 0 && (
-                                      <span className="text-[9px] text-amber-800 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-300">
-                                        +Tung {formatRupiah(pDet.tunggakanPaid)}
-                                      </span>
+                                      <div className="w-full mt-1 px-1.5 py-0.5 rounded-md bg-amber-100/90 text-amber-950 border border-amber-300 flex flex-col items-center text-[10px] shadow-2xs">
+                                        <span className="font-mono font-black text-amber-900">
+                                          +Tung {formatRupiah(pDet.tunggakanPaid)}
+                                        </span>
+                                        <span className="text-[8.5px] font-extrabold text-amber-800 text-center leading-tight">
+                                          (Pelunasan Tunggakan{pDet.tunggakanDetailNote ? `: ${pDet.tunggakanDetailNote}` : ' Lalu'})
+                                        </span>
+                                      </div>
                                     )}
-                                    {pDet.dendaPaid > 0 && (
-                                      <span className="text-[9px] text-cyan-700 font-medium">
-                                        +Denda {formatRupiah(pDet.dendaPaid)}
+                                    {/* Denda Baksos */}
+                                    {pDet.dendaPaid > 0 ? (
+                                      <div className="w-full mt-1 px-1.5 py-0.5 rounded-md bg-teal-100/90 text-teal-950 border border-teal-300 flex flex-col items-center text-[10px] shadow-2xs">
+                                        <span className="font-mono font-black text-teal-800">
+                                          +Denda {formatRupiah(pDet.dendaPaid)}
+                                        </span>
+                                        <span className="text-[8.5px] font-extrabold text-teal-800">
+                                          ✓ Denda Baksos Lunas
+                                        </span>
+                                      </div>
+                                    ) : pDet.baksosFineUnpaid && pDet.baksosFineUnpaid > 0 ? (
+                                      <div className="w-full mt-1 px-1 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 flex flex-col items-center text-[8.5px] shadow-2xs font-bold">
+                                        <span>Absen Baksos</span>
+                                        <span className="text-rose-800 font-extrabold">
+                                          Denda {formatRupiah(pDet.baksosFineUnpaid)} Belum Bayar
+                                        </span>
+                                      </div>
+                                    ) : pDet.baksosAttendance === 'Hadir' ? (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 text-[8.5px] font-bold text-center">
+                                        ✓ Hadir Baksos
                                       </span>
-                                    )}
-                                    {pDet.baksosFineUnpaid && pDet.baksosFineUnpaid > 0 ? (
-                                      <span
-                                        className="text-[8px] text-rose-700 font-bold bg-rose-50 px-1 rounded border border-rose-200 mt-0.5"
-                                        title={`Absen Baksos: Sisa Denda ${formatRupiah(pDet.baksosFineUnpaid)}`}
-                                      >
-                                        Absen Baksos ({formatRupiah(pDet.baksosFineUnpaid)})
+                                    ) : pDet.baksosAttendance === 'Tidak Wajib' ? (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-300 text-[8.5px] font-semibold text-center">
+                                        Tidak Wajib Baksos
                                       </span>
                                     ) : null}
                                   </div>
@@ -5301,12 +5672,41 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[10px] font-bold border border-rose-300 shadow-2xs">
                                       Belum Bayar
                                     </span>
-                                    {pDet.baksosFineUnpaid && pDet.baksosFineUnpaid > 0 ? (
-                                      <span
-                                        className="text-[8px] text-rose-700 font-bold bg-rose-50 px-1 rounded border border-rose-200"
-                                        title={`Absen Baksos: Denda ${formatRupiah(pDet.baksosFineUnpaid)}`}
-                                      >
-                                        +Denda Baksos {formatRupiah(pDet.baksosFineUnpaid)}
+                                    {/* Jika di periode ini ada pembayaran tunggakan bulan lalu */}
+                                    {pDet.tunggakanPaid > 0 && (
+                                      <div className="w-full mt-1 px-1.5 py-0.5 rounded-md bg-amber-100/90 text-amber-950 border border-amber-300 flex flex-col items-center text-[10px] shadow-2xs">
+                                        <span className="font-mono font-black text-amber-900">
+                                          +Tung {formatRupiah(pDet.tunggakanPaid)}
+                                        </span>
+                                        <span className="text-[8.5px] font-extrabold text-amber-800 text-center leading-tight">
+                                          (Pelunasan Tunggakan{pDet.tunggakanDetailNote ? `: ${pDet.tunggakanDetailNote}` : ' Lalu'})
+                                        </span>
+                                      </div>
+                                    )}
+                                    {/* Denda Baksos */}
+                                    {pDet.dendaPaid > 0 ? (
+                                      <div className="w-full mt-1 px-1.5 py-0.5 rounded-md bg-teal-100/90 text-teal-950 border border-teal-300 flex flex-col items-center text-[10px] shadow-2xs">
+                                        <span className="font-mono font-black text-teal-800">
+                                          +Denda {formatRupiah(pDet.dendaPaid)}
+                                        </span>
+                                        <span className="text-[8.5px] font-extrabold text-teal-800">
+                                          ✓ Denda Baksos Lunas
+                                        </span>
+                                      </div>
+                                    ) : pDet.baksosFineUnpaid && pDet.baksosFineUnpaid > 0 ? (
+                                      <div className="w-full mt-1 px-1 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 flex flex-col items-center text-[8.5px] shadow-2xs font-bold">
+                                        <span>Absen Baksos</span>
+                                        <span className="text-rose-800 font-extrabold">
+                                          +Denda Baksos {formatRupiah(pDet.baksosFineUnpaid)}
+                                        </span>
+                                      </div>
+                                    ) : pDet.baksosAttendance === 'Hadir' ? (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-900 border border-emerald-300 text-[8.5px] font-bold text-center">
+                                        ✓ Hadir Baksos
+                                      </span>
+                                    ) : pDet.baksosAttendance === 'Tidak Wajib' ? (
+                                      <span className="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-300 text-[8.5px] font-semibold text-center">
+                                        Tidak Wajib Baksos
                                       </span>
                                     ) : null}
                                   </div>
@@ -6611,6 +7011,26 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             className="w-full px-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800"
                           />
                         </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-indigo-200/80">
+                          <span className="text-[11px] font-bold text-slate-700">Aksi Pembayaran Iuran:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setHouseDuesStatusInput('Belum Bayar');
+                              setHouseDuesTotalReceivedInput(0);
+                              setHouseDuesPartialInput(0);
+                              setHouseDuesPaidMonthsInput(1);
+                              setHouseDuesUpcomingMonths([]);
+                              setHouseDuesPaidDateInput('');
+                            }}
+                            className="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg cursor-pointer transition-all flex items-center gap-1 shadow-2xs"
+                            title="Reset pembayaran iuran ini menjadi Belum Bayar (Rp 0 & bersihkan dari kas saat simpan)"
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-600" />
+                            <span>Hapus / Kosongkan Pembayaran Iuran (Rp 0)</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -6847,6 +7267,21 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         ))}
                       </div>
                     )}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-teal-200/80">
+                      <span className="text-[11px] font-bold text-slate-700">Aksi Pembayaran Denda:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHouseDuesBaksosStatusInput('Bebas');
+                          setHouseDuesBaksosAmountInput(0);
+                        }}
+                        className="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg cursor-pointer transition-all flex items-center gap-1 shadow-2xs"
+                        title="Reset status denda baksos menjadi Bebas (Rp 0 & bersihkan dari kas saat simpan)"
+                      >
+                        <Trash2 className="w-3 h-3 text-rose-600" />
+                        <span>Hapus / Batalkan Denda Baksos (Bebas)</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -7018,6 +7453,35 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         </div>
                       </div>
                     </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-rose-200/80">
+                      <span className="text-[11px] font-bold text-slate-700">Aksi Pembayaran Tunggakan:</span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHouseDuesTunggakanPaidInput(0);
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg cursor-pointer transition-all flex items-center gap-1 shadow-2xs"
+                          title="Hapus pembayaran tunggakan periode ini (Rp 0 & bersihkan dari kas saat simpan)"
+                        >
+                          <Trash2 className="w-3 h-3 text-rose-600" />
+                          <span>Hapus Pembayaran Tunggakan (Rp 0)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setHouseDuesPrevArrearsInput(0);
+                            setHouseDuesPrevNoteInput('');
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg cursor-pointer transition-all flex items-center gap-1 shadow-2xs"
+                          title="Hapus saldo pokok tunggakan profil KK menjadi Rp 0"
+                        >
+                          <Trash2 className="w-3 h-3 text-purple-600" />
+                          <span>Nolkan Saldo Pokok Tunggakan (Rp 0)</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -7097,62 +7561,245 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         const matchingTxs = findTransactionsForHousePeriod(house, periodLabel);
         const totalTxAmount = matchingTxs.reduce((sum, t) => sum + t.amount, 0);
 
+        const matchingIuranTxs = matchingTxs.filter((tx) => {
+          const cat = tx.category || '';
+          const desc = (tx.description || '').toLowerCase();
+          return cat === 'Iuran Warga' || desc.includes('iuran');
+        });
+        const totalIuranAmount = matchingIuranTxs.reduce((sum, t) => sum + t.amount, 0);
+
+        const matchingBaksosTxs = matchingTxs.filter((tx) => {
+          const cat = tx.category || '';
+          const desc = (tx.description || '').toLowerCase();
+          return cat === 'Denda Baksos' || desc.includes('denda');
+        });
+        const totalBaksosAmount = matchingBaksosTxs.reduce((sum, t) => sum + t.amount, 0);
+
+        const matchingTungTxs = matchingTxs.filter((tx) => {
+          const cat = tx.category || '';
+          const desc = (tx.description || '').toLowerCase();
+          return cat === 'Pembayaran Tunggakan' || isTunggakanTx(tx);
+        });
+        const totalTungAmount = matchingTungTxs.reduce((sum, t) => sum + t.amount, 0);
+
+        const pokokTunggakan = house.previousArrears || 0;
+
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95">
-              <div className="bg-rose-600 p-4 text-white flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <Trash2 className="w-5 h-5 text-rose-200" />
-                  <h4 className="font-bold text-sm sm:text-base">Hapus Pembayaran KK</h4>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 max-h-[92vh] flex flex-col">
+              <div className="bg-gradient-to-r from-rose-700 via-rose-800 to-slate-900 p-4 text-white flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-rose-500/20 border border-rose-400/30 rounded-xl">
+                    <Trash2 className="w-5 h-5 text-rose-300" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm sm:text-base">Hapus Pembayaran / Tunggakan KK</h4>
+                    <p className="text-[11px] text-rose-200/90">Blok {house.blockNumber} — {displayName} ({periodLabel})</p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setDeletingSingleHouse(null)}
-                  className="text-white/70 hover:text-white cursor-pointer"
+                  className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="p-5 space-y-4">
-                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-xs space-y-2 text-rose-950">
-                  <p className="font-bold">
-                    Konfirmasi pembatalan &amp; penghapusan seluruh pembayaran untuk:
-                  </p>
-                  <div className="bg-white p-2.5 rounded-lg border border-rose-200 space-y-1 font-mono text-[11px]">
-                    <div><strong>No Blok:</strong> Blok {house.blockNumber}</div>
-                    <div><strong>Nama KK:</strong> {displayName}</div>
-                    <div><strong>Periode:</strong> {periodLabel}</div>
-                    <div><strong>Status Saat Ini:</strong> {house.duesStatus}</div>
-                    {totalTxAmount > 0 && (
-                      <div className="text-rose-700 font-bold pt-1 border-t border-rose-100">
-                        <strong>Tercatat di Buku Kas:</strong> {formatRupiah(totalTxAmount)} ({matchingTxs.length} transaksi)
+              <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-extrabold text-slate-800">
+                    Pilih Komponen Pembayaran yang Ingin Dihapus:
+                  </label>
+                  <div className="space-y-2">
+                    {/* Option 1: Semua Pembayaran */}
+                    <div
+                      onClick={() => setDeleteTargetComponent('all')}
+                      className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                        deleteTargetComponent === 'all'
+                          ? 'border-rose-600 bg-rose-50/70 shadow-xs ring-1 ring-rose-400'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="deleteComponentChoice"
+                            checked={deleteTargetComponent === 'all'}
+                            onChange={() => setDeleteTargetComponent('all')}
+                            className="text-rose-600 focus:ring-rose-500"
+                          />
+                          <span className="text-xs font-black text-rose-950">
+                            1. Hapus Semua Pembayaran Periode Ini
+                          </span>
+                        </div>
+                        <span className="font-mono text-xs font-black text-rose-700">
+                          {totalTxAmount > 0 ? formatRupiah(totalTxAmount) : 'Rp 0'}
+                        </span>
                       </div>
-                    )}
+                      <p className="text-[11px] text-slate-600 mt-1 pl-6">
+                        Menghapus pembayaran Iuran, Denda Baksos, dan Tunggakan pada periode {periodLabel}. Semua transaksi terkait akan dibersihkan dari Buku Kas.
+                      </p>
+                    </div>
+
+                    {/* Option 2: Iuran Bulanan Saja */}
+                    <div
+                      onClick={() => setDeleteTargetComponent('iuran')}
+                      className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                        deleteTargetComponent === 'iuran'
+                          ? 'border-emerald-600 bg-emerald-50/70 shadow-xs ring-1 ring-emerald-400'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="deleteComponentChoice"
+                            checked={deleteTargetComponent === 'iuran'}
+                            onChange={() => setDeleteTargetComponent('iuran')}
+                            className="text-emerald-600 focus:ring-emerald-500"
+                          />
+                          <span className="text-xs font-black text-emerald-950">
+                            2. Hapus Pembayaran Iuran Bulanan Saja
+                          </span>
+                        </div>
+                        <span className="font-mono text-xs font-black text-emerald-700">
+                          {totalIuranAmount > 0 ? `+${formatRupiah(totalIuranAmount)}` : house.duesStatus !== 'Belum Bayar' ? 'Status Lunas' : 'Rp 0'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-1 pl-6">
+                        Status iuran KK ini akan kembali ke <strong>Belum Bayar (Rp 0)</strong>. Transaksi penerimaan kas Iuran Warga akan dihapus dari Buku Kas. Denda baksos dan tunggakan tetap aman.
+                      </p>
+                    </div>
+
+                    {/* Option 3: Denda Baksos Saja */}
+                    <div
+                      onClick={() => setDeleteTargetComponent('baksos')}
+                      className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                        deleteTargetComponent === 'baksos'
+                          ? 'border-teal-600 bg-teal-50/70 shadow-xs ring-1 ring-teal-400'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="deleteComponentChoice"
+                            checked={deleteTargetComponent === 'baksos'}
+                            onChange={() => setDeleteTargetComponent('baksos')}
+                            className="text-teal-600 focus:ring-teal-500"
+                          />
+                          <span className="text-xs font-black text-teal-950">
+                            3. Hapus Pembayaran Denda Baksos Saja
+                          </span>
+                        </div>
+                        <span className="font-mono text-xs font-black text-teal-700">
+                          {totalBaksosAmount > 0 ? `+${formatRupiah(totalBaksosAmount)}` : 'Rp 0'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-1 pl-6">
+                        Membatalkan pelunasan denda baksos untuk KK ini. Transaksi penerimaan Denda Baksos akan dihapus dari Buku Kas.
+                      </p>
+                    </div>
+
+                    {/* Option 4: Pembayaran Tunggakan Saja */}
+                    <div
+                      onClick={() => setDeleteTargetComponent('tunggakan')}
+                      className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                        deleteTargetComponent === 'tunggakan'
+                          ? 'border-indigo-600 bg-indigo-50/70 shadow-xs ring-1 ring-indigo-400'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="deleteComponentChoice"
+                            checked={deleteTargetComponent === 'tunggakan'}
+                            onChange={() => setDeleteTargetComponent('tunggakan')}
+                            className="text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span className="text-xs font-black text-indigo-950">
+                            4. Hapus Pembayaran Tunggakan Saja
+                          </span>
+                        </div>
+                        <span className="font-mono text-xs font-black text-indigo-700">
+                          {totalTungAmount > 0 ? `+${formatRupiah(totalTungAmount)}` : 'Rp 0'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-1 pl-6">
+                        Menghapus transaksi penerimaan pembayaran tunggakan dari Buku Kas. Nominal yang dibatalkan akan otomatis dikembalikan ke saldo pokok tunggakan profil KK.
+                      </p>
+                    </div>
+
+                    {/* Option 5: Nolkan Saldo Pokok Tunggakan Profil KK */}
+                    <div
+                      onClick={() => setDeleteTargetComponent('reset_pokok_tunggakan')}
+                      className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                        deleteTargetComponent === 'reset_pokok_tunggakan'
+                          ? 'border-purple-600 bg-purple-50/70 shadow-xs ring-1 ring-purple-400'
+                          : 'border-slate-200 hover:border-slate-300 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="deleteComponentChoice"
+                            checked={deleteTargetComponent === 'reset_pokok_tunggakan'}
+                            onChange={() => setDeleteTargetComponent('reset_pokok_tunggakan')}
+                            className="text-purple-600 focus:ring-purple-500"
+                          />
+                          <span className="text-xs font-black text-purple-950">
+                            5. Hapus / Nolkan Saldo Pokok Tunggakan Profil KK (Rp 0)
+                          </span>
+                        </div>
+                        <span className="font-mono text-xs font-black text-purple-700">
+                          {formatRupiah(pokokTunggakan)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 mt-1 pl-6">
+                        Menghapus seluruh catatan hutang pokok tunggakan masa lalu untuk KK ini menjadi <strong>Rp 0 (Lunas/Bebas)</strong>.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
-                  ⚠️ <strong>Dampak ke Buku Kas:</strong> Status iuran warga untuk KK ini akan kembali ke <strong>Belum Bayar (Rp 0)</strong>, dan seluruh transaksi penerimaan kas terkait untuk KK ini pada periode tersebut akan <strong>otomatis dihapus dari Buku Kas Keluar Masuk</strong>. Saldo kas utama akan langsung berkurang sesuai nominal yang dihapus.
+                  ⚠️ <strong>Dampak ke Buku Kas:</strong> Tindakan ini akan langsung memperbarui catatan warga dan menghapus transaksi kas terkait secara sinkron. Saldo kas akan menyesuaikan otomatis.
                 </div>
+              </div>
 
-                <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setDeletingSingleHouse(null)}
-                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer font-semibold"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleResetSingleHousePayment(house, periodLabel)}
-                    className="px-4 py-2 text-xs bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold rounded-lg cursor-pointer shadow-xs flex items-center gap-1.5"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Ya, Hapus &amp; Kurangi Kas</span>
-                  </button>
-                </div>
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setDeletingSingleHouse(null)}
+                  className="px-4 py-2 text-xs text-slate-700 hover:bg-slate-200 rounded-xl cursor-pointer font-bold transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExecuteDeleteComponent(house, periodLabel, deleteTargetComponent)}
+                  className="px-4 py-2 text-xs bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold rounded-xl cursor-pointer shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>
+                    {deleteTargetComponent === 'all'
+                      ? 'Hapus Semua Pembayaran'
+                      : deleteTargetComponent === 'iuran'
+                      ? 'Hapus Pembayaran Iuran'
+                      : deleteTargetComponent === 'baksos'
+                      ? 'Hapus Pembayaran Denda'
+                      : deleteTargetComponent === 'tunggakan'
+                      ? 'Hapus Pembayaran Tunggakan'
+                      : 'Nolkan Pokok Tunggakan'}
+                  </span>
+                </button>
               </div>
             </div>
           </div>
@@ -7448,21 +8095,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <FileText className="w-3.5 h-3.5 text-teal-300" />
                   <span className="truncate">2. Teks Arus Kas</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWaRecapMode('iuran_kk');
-                    setWaCustomText('');
-                  }}
-                  className={`py-2 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                    waRecapMode === 'iuran_kk'
-                      ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-                  }`}
-                >
-                  <Users className="w-3.5 h-3.5 text-cyan-300" />
-                  <span className="truncate">3. Iuran Per KK</span>
-                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaRecapMode('iuran_kk');
+                      setWaCustomText('');
+                    }}
+                    className={`py-2 px-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                      waRecapMode === 'iuran_kk'
+                        ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-500'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                    }`}
+                  >
+                    <Users className="w-3.5 h-3.5 text-cyan-300" />
+                    <span className="truncate">3. Iuran Per KK</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => {
@@ -7476,7 +8125,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   }`}
                 >
                   <Coins className="w-3.5 h-3.5 text-amber-300" />
-                  <span className="truncate">4. Rekap Semua KK</span>
+                  <span className="truncate">{isAdmin ? '4. Rekap Semua KK' : '3. Rekap Semua KK'}</span>
                 </button>
               </div>
 
