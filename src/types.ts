@@ -59,6 +59,7 @@ export interface ResidentHouse {
     customDuesAmount?: number;
     paidAmount?: number;
     paidDate?: string;
+    settlementMonth?: string;
     updatedAt?: string;
   }>;
   members: FamilyMember[];

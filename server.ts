@@ -260,10 +260,176 @@ async function saveStateToCloudFirestore(payload: RuntimeDatabasePayload): Promi
   }
 }
 
+const SQL_FILE_PATH = path.join(__dirname, 'database_warga_gang_mandor.sql');
+
+function escapeSql(val: any): string {
+  if (val === null || val === undefined) return 'NULL';
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'boolean') return val ? '1' : '0';
+  return `'${String(val).replace(/'/g, "''").replace(/\\/g, '\\\\')}'`;
+}
+
+function generateSqlDump(payload: RuntimeDatabasePayload): string {
+  const lines: string[] = [];
+  const now = new Date().toISOString();
+  lines.push('-- ============================================================');
+  lines.push('-- DATABASE WARGA & KAS GANG MANDOR BLOK K2/25 - K3/24');
+  lines.push(`-- Terakhir Disinkronkan: ${now}`);
+  lines.push(`-- Revisi: #${payload.revision || 1}`);
+  lines.push('-- ============================================================\n');
+
+  lines.push('SET FOREIGN_KEY_CHECKS = 0;');
+  lines.push('SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";\n');
+
+  // Table: warga
+  lines.push('CREATE TABLE IF NOT EXISTS `warga` (');
+  lines.push('  `id` VARCHAR(64) NOT NULL PRIMARY KEY,');
+  lines.push('  `block_number` VARCHAR(32) NOT NULL,');
+  lines.push('  `head_name` VARCHAR(128) NOT NULL,');
+  lines.push('  `phone` VARCHAR(32) DEFAULT NULL,');
+  lines.push('  `ownership` VARCHAR(32) DEFAULT NULL,');
+  lines.push('  `occupancy` VARCHAR(32) DEFAULT NULL,');
+  lines.push('  `rukem` VARCHAR(32) DEFAULT NULL,');
+  lines.push('  `wifi_status` VARCHAR(32) DEFAULT NULL,');
+  lines.push('  `wifi_provider` VARCHAR(64) DEFAULT NULL,');
+  lines.push('  `dues_status` VARCHAR(32) DEFAULT NULL,');
+  lines.push('  `custom_dues_amount` INT DEFAULT NULL,');
+  lines.push('  `dues_paid_amount` INT DEFAULT NULL,');
+  lines.push('  `dues_paid_months` INT DEFAULT NULL,');
+  lines.push('  `dues_prepaid_balance` INT DEFAULT NULL,');
+  lines.push('  `dues_paid_date` VARCHAR(32) DEFAULT NULL,');
+  lines.push('  `dues_month_note` VARCHAR(128) DEFAULT NULL,');
+  lines.push('  `previous_arrears` INT DEFAULT 0,');
+  lines.push('  `previous_arrears_note` TEXT DEFAULT NULL,');
+  lines.push('  `previous_baksos_arrears` INT DEFAULT 0,');
+  lines.push('  `previous_baksos_arrears_note` TEXT DEFAULT NULL,');
+  lines.push('  `custom_baksos_fine_amount` INT DEFAULT NULL,');
+  lines.push('  `updated_at` VARCHAR(64) DEFAULT NULL');
+  lines.push(') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;\n');
+
+  // Table: anggota_keluarga
+  lines.push('CREATE TABLE IF NOT EXISTS `anggota_keluarga` (');
+  lines.push('  `id` VARCHAR(64) NOT NULL PRIMARY KEY,');
+  lines.push('  `resident_house_id` VARCHAR(64) NOT NULL,');
+  lines.push('  `name` VARCHAR(128) NOT NULL,');
+  lines.push('  `relation` VARCHAR(64) DEFAULT NULL,');
+  lines.push('  `birth_place` VARCHAR(64) DEFAULT NULL,');
+  lines.push('  `birth_date` VARCHAR(32) DEFAULT NULL,');
+  lines.push('  `gender` VARCHAR(32) DEFAULT NULL,');
+  lines.push('  `religion` VARCHAR(32) DEFAULT NULL,');
+  lines.push('  `occupation` VARCHAR(64) DEFAULT NULL,');
+  lines.push('  KEY `idx_resident_house_id` (`resident_house_id`)');
+  lines.push(') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;\n');
+
+  // Table: transaksi_kas
+  lines.push('CREATE TABLE IF NOT EXISTS `transaksi_kas` (');
+  lines.push('  `id` VARCHAR(64) NOT NULL PRIMARY KEY,');
+  lines.push('  `date` VARCHAR(32) NOT NULL,');
+  lines.push('  `type` VARCHAR(16) NOT NULL,');
+  lines.push('  `pool` VARCHAR(32) NOT NULL,');
+  lines.push('  `category` VARCHAR(64) NOT NULL,');
+  lines.push('  `description` TEXT DEFAULT NULL,');
+  lines.push('  `amount` INT NOT NULL');
+  lines.push(') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;\n');
+
+  // Table: agenda_baksos
+  lines.push('CREATE TABLE IF NOT EXISTS `agenda_baksos` (');
+  lines.push('  `id` VARCHAR(64) NOT NULL PRIMARY KEY,');
+  lines.push('  `title` VARCHAR(128) NOT NULL,');
+  lines.push('  `date` VARCHAR(32) NOT NULL,');
+  lines.push('  `location` VARCHAR(128) DEFAULT NULL,');
+  lines.push('  `description` TEXT DEFAULT NULL,');
+  lines.push('  `fine_amount` INT DEFAULT 10000');
+  lines.push(') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;\n');
+
+  // Table: pengurus
+  lines.push('CREATE TABLE IF NOT EXISTS `pengurus` (');
+  lines.push('  `id` VARCHAR(64) NOT NULL PRIMARY KEY,');
+  lines.push('  `name` VARCHAR(128) NOT NULL,');
+  lines.push('  `role` VARCHAR(64) NOT NULL,');
+  lines.push('  `phone` VARCHAR(32) DEFAULT NULL');
+  lines.push(') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;\n');
+
+  // Table: pengumuman
+  lines.push('CREATE TABLE IF NOT EXISTS `pengumuman` (');
+  lines.push('  `id` VARCHAR(64) NOT NULL PRIMARY KEY,');
+  lines.push('  `title` VARCHAR(128) NOT NULL,');
+  lines.push('  `date` VARCHAR(32) NOT NULL,');
+  lines.push('  `content` TEXT DEFAULT NULL,');
+  lines.push('  `priority` VARCHAR(16) DEFAULT "normal"');
+  lines.push(') ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;\n');
+
+  // Populate data
+  if (Array.isArray(payload.residents) && payload.residents.length > 0) {
+    lines.push('-- Data Warga');
+    for (const h of payload.residents) {
+      lines.push(
+        `REPLACE INTO \`warga\` VALUES (${escapeSql(h.id)}, ${escapeSql(h.blockNumber)}, ${escapeSql(h.headName)}, ${escapeSql(h.phone)}, ${escapeSql(h.ownership)}, ${escapeSql(h.occupancy)}, ${escapeSql(h.rukem)}, ${escapeSql(h.wifiStatus)}, ${escapeSql(h.wifiProvider)}, ${escapeSql(h.duesStatus)}, ${escapeSql(h.customDuesAmount)}, ${escapeSql(h.duesPaidAmount)}, ${escapeSql(h.duesPaidMonths)}, ${escapeSql(h.duesPrepaidBalance)}, ${escapeSql(h.duesPaidDate)}, ${escapeSql(h.duesMonthNote)}, ${Number(h.previousArrears) || 0}, ${escapeSql(h.previousArrearsNote)}, ${Number(h.previousBaksosArrears) || 0}, ${escapeSql(h.previousBaksosArrearsNote)}, ${escapeSql(h.customBaksosFineAmount)}, ${escapeSql(h.updatedAt)});`
+      );
+      if (Array.isArray(h.members)) {
+        for (const m of h.members) {
+          lines.push(
+            `REPLACE INTO \`anggota_keluarga\` VALUES (${escapeSql(m.id)}, ${escapeSql(h.id)}, ${escapeSql(m.name)}, ${escapeSql(m.relation)}, ${escapeSql(m.birthPlace)}, ${escapeSql(m.birthDate)}, ${escapeSql(m.gender)}, ${escapeSql(m.religion)}, ${escapeSql(m.occupation)});`
+          );
+        }
+      }
+    }
+    lines.push('');
+  }
+
+  if (Array.isArray(payload.transactions) && payload.transactions.length > 0) {
+    lines.push('-- Data Transaksi Kas');
+    for (const t of payload.transactions) {
+      lines.push(
+        `REPLACE INTO \`transaksi_kas\` VALUES (${escapeSql(t.id)}, ${escapeSql(t.date)}, ${escapeSql(t.type)}, ${escapeSql(t.pool)}, ${escapeSql(t.category)}, ${escapeSql(t.description)}, ${Number(t.amount) || 0});`
+      );
+    }
+    lines.push('');
+  }
+
+  if (Array.isArray(payload.baksosAgendas) && payload.baksosAgendas.length > 0) {
+    lines.push('-- Data Agenda Bakti Sosial');
+    for (const a of payload.baksosAgendas) {
+      lines.push(
+        `REPLACE INTO \`agenda_baksos\` VALUES (${escapeSql(a.id)}, ${escapeSql(a.title)}, ${escapeSql(a.date)}, ${escapeSql(a.location)}, ${escapeSql(a.description)}, ${Number(a.fineAmount) || 10000});`
+      );
+    }
+    lines.push('');
+  }
+
+  if (Array.isArray(payload.committees) && payload.committees.length > 0) {
+    lines.push('-- Data Pengurus & Kontak Layanan');
+    for (const c of payload.committees) {
+      lines.push(
+        `REPLACE INTO \`pengurus\` VALUES (${escapeSql(c.id)}, ${escapeSql(c.name)}, ${escapeSql(c.role)}, ${escapeSql(c.phone)});`
+      );
+    }
+    lines.push('');
+  }
+
+  if (Array.isArray(payload.announcements) && payload.announcements.length > 0) {
+    lines.push('-- Data Papan Pengumuman');
+    for (const ann of payload.announcements) {
+      lines.push(
+        `REPLACE INTO \`pengumuman\` VALUES (${escapeSql(ann.id)}, ${escapeSql(ann.title)}, ${escapeSql(ann.date)}, ${escapeSql(ann.content)}, ${escapeSql(ann.priority)});`
+      );
+    }
+    lines.push('');
+  }
+
+  lines.push('SET FOREIGN_KEY_CHECKS = 1;');
+  lines.push('-- Selesai Ekspor SQL\n');
+  return lines.join('\n');
+}
+
 function persistStateEverywhereSync(payload: RuntimeDatabasePayload) {
   memoryDbState = payload;
   writeJsonFileAtomic(DB_FILE_PATH, payload);
   writeJsonFileAtomic(TMP_DB_FILE_PATH, payload);
+  try {
+    const sqlContent = generateSqlDump(payload);
+    fs.writeFileSync(SQL_FILE_PATH, sqlContent, 'utf-8');
+  } catch {}
 }
 
 function ensureOnlineDatabaseInitialized(): RuntimeDatabasePayload {
@@ -318,7 +484,16 @@ async function startServer() {
     })
     .catch(() => {});
 
-  app.use(express.json({ limit: '15mb' }));
+  app.use(express.json({ limit: '20mb' }));
+  app.use(express.text({ limit: '20mb', type: ['text/plain', 'application/json'] }));
+  app.use((req, _res, next) => {
+    if (typeof req.body === 'string') {
+      try {
+        req.body = JSON.parse(req.body);
+      } catch {}
+    }
+    next();
+  });
 
   // Disable caching on API routes so clients always get fresh data
   app.use('/api', (_req, res, next) => {
@@ -326,6 +501,22 @@ async function startServer() {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     next();
+  });
+
+  // GET /api/database/sql - Download synchronized MySQL/MariaDB database dump
+  app.get('/api/database/sql', (_req, res) => {
+    try {
+      const current = ensureOnlineDatabaseInitialized();
+      const sqlContent = generateSqlDump(current);
+      res.setHeader('Content-Type', 'application/sql; charset=utf-8');
+      res.setHeader(
+        'Content-Disposition',
+        'attachment; filename="database_warga_gang_mandor.sql"'
+      );
+      return res.send(sqlContent);
+    } catch {
+      return res.status(500).json({ error: 'Failed to generate SQL database dump' });
+    }
   });
 
   // GET /api/database/stream - Real-Time Server-Sent Events (SSE) stream for instant multi-device sync

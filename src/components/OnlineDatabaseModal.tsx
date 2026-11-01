@@ -374,6 +374,15 @@ export const OnlineDatabaseModal: React.FC<OnlineDatabaseModalProps> = ({
                   <span>Download Backup (.json)</span>
                 </button>
 
+                <a
+                  href="/api/database/sql"
+                  download="database_warga_gang_mandor.sql"
+                  className="flex items-center gap-1.5 px-3.5 py-2 bg-teal-700 hover:bg-teal-800 text-white text-xs font-bold rounded-xl shadow-2xs transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5 text-cyan-300" />
+                  <span>Download SQL (.sql)</span>
+                </a>
+
                 <input
                   ref={fileInputRef}
                   type="file"

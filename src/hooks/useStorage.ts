@@ -1572,6 +1572,7 @@ export function useStorage() {
               paidDate: '',
               updatedAt: new Date().toISOString(),
             };
+            delete updatedPeriodHist[k].settlementMonth;
           });
         } else {
           if (periodKey) {
@@ -1582,6 +1583,7 @@ export function useStorage() {
               paidDate: '',
               updatedAt: new Date().toISOString(),
             };
+            delete updatedPeriodHist[periodKey].settlementMonth;
           }
           if (trimmedPeriod && trimmedPeriod !== periodKey) {
             updatedPeriodHist[trimmedPeriod] = {
@@ -1591,6 +1593,7 @@ export function useStorage() {
               paidDate: '',
               updatedAt: new Date().toISOString(),
             };
+            delete updatedPeriodHist[trimmedPeriod].settlementMonth;
           }
         }
 
@@ -1654,7 +1657,7 @@ export function useStorage() {
         if (periodKey) {
           const [yr, mo] = periodKey.split('-');
           const monthName = (INDONESIAN_MONTHS[parseInt(mo, 10) - 1] || '').toLowerCase();
-          if (descLower.includes(monthName) && descLower.includes(yr)) return false;
+          if (descLower.includes(monthName) && (descLower.includes(yr) || mKey === periodKey)) return false;
         }
 
         return true;

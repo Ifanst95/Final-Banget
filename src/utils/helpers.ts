@@ -1256,9 +1256,16 @@ export function findArrearSettlementForPeriod(
 ): { settlementMonth: string; paidDate?: string } | null {
   if (!house || !targetKey) return null;
 
-  const periodMonthLower = (periodLabel.split(' ')[0] || '').toLowerCase();
+  // 1. Cek periodHistory jika sudah eksplisit tercatat settlementMonth
+  if (house.periodHistory) {
+    const snap = house.periodHistory[targetKey] || house.periodHistory[periodLabel];
+    if (snap?.settlementMonth) {
+      return { settlementMonth: snap.settlementMonth, paidDate: snap.paidDate };
+    }
+  }
 
-  // 1. Cek transaksi eksplisit di Buku Kas yang menyebut nama bulan atau key periode ini
+  // 2. Cek transaksi eksplisit di Buku Kas yang menyebut nama bulan atau key periode spesifik ini
+  const periodMonthLower = (periodLabel.split(' ')[0] || '').toLowerCase();
   const explicitTx = transactions.find((t) => {
     if (t.type !== 'masuk' || !isTransactionForHouse(t, house)) return false;
     const txKey = getMonthKeyFromDate(t.date);
@@ -1279,48 +1286,6 @@ export function findArrearSettlementForPeriod(
       formatMonthYearFromKey(getMonthKeyFromDate(explicitTx.date));
     if (sMonth) {
       return { settlementMonth: sMonth, paidDate: explicitTx.date };
-    }
-  }
-
-  // 2. Cek transaksi pembayaran tunggakan umum untuk rumah ini di bulan kemudian
-  const laterTungTxs = transactions
-    .filter((t) => {
-      if (t.type !== 'masuk' || !isTransactionForHouse(t, house)) return false;
-      const txKey = getMonthKeyFromDate(t.date);
-      if (!txKey || txKey <= targetKey) return false;
-      return isTunggakanTx(t);
-    })
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  if (laterTungTxs.length > 0) {
-    const sMonth =
-      formatMonthYearFromDate(laterTungTxs[0].date) ||
-      formatMonthYearFromKey(getMonthKeyFromDate(laterTungTxs[0].date));
-    if (sMonth) {
-      return { settlementMonth: sMonth, paidDate: laterTungTxs[0].date };
-    }
-  }
-
-  // 3. Cek catatan pelunasan di previousArrearsNote jika ada
-  if (house.previousArrearsNote) {
-    const note = house.previousArrearsNote.toLowerCase();
-    const match = note.match(/lunas\s+(?:di\s+|pada\s+|bulan\s+)?([a-z]+(?:\s+\d{4})?)/i);
-    if (match && match[1]) {
-      const parsedMonth = match[1].trim();
-      const capMonth = parsedMonth
-        .split(' ')
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
-      const sMonth = capMonth.includes('202') ? capMonth : `${capMonth} 2026`;
-      return { settlementMonth: sMonth, paidDate: house.duesPaidDate };
-    }
-  }
-
-  // 4. Cek periodHistory jika sudah tercatat settlementMonth
-  if (house.periodHistory) {
-    const snap = house.periodHistory[targetKey] || house.periodHistory[periodLabel];
-    if (snap?.settlementMonth) {
-      return { settlementMonth: snap.settlementMonth, paidDate: snap.paidDate };
     }
   }
 

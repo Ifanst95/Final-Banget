@@ -1320,10 +1320,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         !isRumahKosongHitam &&
         !isBayarLebih &&
         !isAdvanceSubsequent &&
-        (tunggakanPaid > 0 ||
-         (statusInfo && (statusInfo.status === 'Lunas' || (statusInfo.amount || 0) > 0)) ||
-         (selectedKKPeriod === 'semua' && isLunas) ||
-         (iuranPaid > 0));
+        (statusInfo
+          ? statusInfo.status === 'Lunas' || (statusInfo.amount || 0) > 0
+          : selectedKKPeriod === 'semua'
+          ? isLunas || iuranPaid > 0
+          : iuranPaid > 0);
 
       const isMenunggak = !isRumahKosongHitam && !isBayarLebih && !isAdvanceSubsequent && !isSudahBayar;
 
@@ -2217,6 +2218,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     const todayStr = new Date().toISOString().slice(0, 10);
     const monthLabel = getHousePeriodLabel(house);
     const displayName = house.duesHeadNameOverride || house.headName;
+    const periodKey = parseIndonesianMonthYearToKey(monthLabel);
+    const updatedPeriodHist = { ...(house.periodHistory || {}) };
+    if (periodKey) {
+      updatedPeriodHist[periodKey] = {
+        ...(updatedPeriodHist[periodKey] || {}),
+        duesStatus: nextStatus,
+        paidAmount: nextStatus === 'Lunas' ? nominal : 0,
+        paidDate: nextStatus === 'Lunas' ? todayStr : '',
+        updatedAt: new Date().toISOString(),
+      };
+      if (nextStatus === 'Belum Bayar') {
+        delete (updatedPeriodHist[periodKey] as any).settlementMonth;
+      }
+    }
 
     onUpdateResident({
       ...house,
@@ -2227,6 +2242,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       duesPrepaidBalance: 0,
       duesPaidDate: nextStatus === 'Lunas' ? todayStr : '',
       duesMonthNote: monthLabel,
+      periodHistory: updatedPeriodHist,
     });
 
     if (nextStatus === 'Lunas') {
@@ -2532,11 +2548,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         duesHeadNameOverride: finalHeadName,
         duesStatus: houseDuesStatusInput,
         customDuesAmount: amountNum,
-        paidAmount: isNowPaid ? amountNum : partialNum,
-        paidDate: paidDateVal,
+        paidAmount: isNowPaid ? (isAdvancePay ? totalReceived : amountNum) : partialNum,
+        paidDate: isNowPaid || partialNum > 0 ? paidDateVal : '',
         updatedAt: new Date().toISOString(),
       };
-      newPeriodHistory[activeEditPeriod] = newPeriodHistory[editPeriodKey];
+      if (houseDuesStatusInput === 'Belum Bayar') {
+        delete (newPeriodHistory[editPeriodKey] as any).settlementMonth;
+      }
+      newPeriodHistory[activeEditPeriod] = { ...newPeriodHistory[editPeriodKey] };
     }
 
     // Jika mengedit bulan berjalan aktif atau periode terbaru, update juga bulan-bulan selanjutnya
@@ -2551,8 +2570,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     }
 
     // Tentukan main occupancy, customDuesAmount, dan duesStatus:
-    const isPastPeriodEdit = Boolean(editPeriodKey && editPeriodKey < currentActiveKey);
-    const isEditingCurrentActive = !isPastPeriodEdit || activeEditPeriod === defaultMonthLabel;
+    const isPastPeriodEdit = Boolean(
+      selectedKKPeriod !== 'semua' && editPeriodKey && editPeriodKey < currentActiveKey
+    );
+    const isEditingCurrentActive =
+      !isPastPeriodEdit ||
+      activeEditPeriod === defaultMonthLabel ||
+      activeEditPeriod === (editingHouseDues.duesMonthNote || '').trim() ||
+      selectedKKPeriod === 'semua' ||
+      !editPeriodKey ||
+      editPeriodKey >= currentActiveKey;
 
     let finalMonthNote = isPastPeriodEdit ? editingHouseDues.duesMonthNote : monthLabel;
     if (houseDuesStatusInput === 'Belum Bayar' && editingHouseDues.duesMonthNote) {
@@ -2603,11 +2630,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           duesHeadNameOverride: isPastPeriodEdit ? editingHouseDues.duesHeadNameOverride : finalHeadName,
           customDuesAmount: effectiveMainCustomDuesAmount,
           duesStatus: effectiveMainDuesStatus,
-          duesPaidAmount: isEditingCurrentActive ? (isNowPaid ? 0 : partialNum) : editingHouseDues.duesPaidAmount,
-          duesPaidMonths: isEditingCurrentActive ? monthsCount : editingHouseDues.duesPaidMonths,
+          duesPaidAmount: isEditingCurrentActive ? (isNowPaid ? (isAdvancePay ? prepaidBalance : 0) : partialNum) : editingHouseDues.duesPaidAmount,
+          duesPaidMonths: isEditingCurrentActive ? (isNowPaid ? monthsCount : 0) : editingHouseDues.duesPaidMonths,
           duesPrepaidBalance: isEditingCurrentActive ? prepaidBalance : editingHouseDues.duesPrepaidBalance,
           duesPaidDate: isEditingCurrentActive ? (isNowPaid || partialNum > 0 ? paidDateVal : '') : editingHouseDues.duesPaidDate,
-          duesMonthNote: finalMonthNote,
+          duesMonthNote: isNowPaid ? monthLabel : finalMonthNote,
           previousArrears: newPrevArrears,
           previousArrearsNote: isVacant ? '' : houseDuesPrevNoteInput.trim(),
         };
@@ -2629,8 +2656,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const oldTxsFromActiveEdit = activeEditPeriod && activeEditPeriod !== monthLabel && activeEditPeriod !== selectedKKPeriod
         ? findTransactionsForHousePeriod(editingHouseDues, activeEditPeriod)
         : [];
+      const oldTxsFromEditPeriod = editPeriodKey
+        ? findTransactionsForHousePeriod(editingHouseDues, formatMonthYearFromKey(editPeriodKey))
+        : [];
       const oldMatchingMap = new Map<string, CashTransaction>();
-      [...oldTxsFromMonthLabel, ...oldTxsFromSelectedPeriod, ...oldTxsFromActiveEdit].forEach((t) => oldMatchingMap.set(t.id, t));
+      [...oldTxsFromMonthLabel, ...oldTxsFromSelectedPeriod, ...oldTxsFromActiveEdit, ...oldTxsFromEditPeriod].forEach((t) => oldMatchingMap.set(t.id, t));
       oldTxIdsToDelete = Array.from(oldMatchingMap.keys());
     }
 
