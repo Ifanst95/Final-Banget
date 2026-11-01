@@ -456,6 +456,7 @@ export function exportFinancialReportToExcel({
         let iuranPeriod = 0;
         let isPeriodLunas = false;
         let isAdv = false;
+        let advancePaidMonth: string | null = null;
 
         const isPeriodVacant = isHouseVacantInPeriod(house, pLabel, transactions);
         const periodNominal = isPeriodVacant ? 0 : getHouseDuesNominal(house, pLabel);
@@ -479,13 +480,37 @@ export function exportFinancialReportToExcel({
             isPeriodLunas = false;
           }
         } else {
+          // Check prior advance transaction
+          const priorAdvanceTx = transactions.find((t) => {
+            if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
+            const txMonthKey = getMonthKeyFromDate(t.date);
+            if (!txMonthKey || txMonthKey >= pKey) return false;
+            const desc = t.description.toLowerCase();
+            const pMonthLower = pLabel.split(' ')[0].toLowerCase();
+            return (
+              desc.includes(pMonthLower) ||
+              desc.includes(pKey) ||
+              (desc.includes('lebih dari 1 bulan') && t.amount >= periodNominal * 2)
+            );
+          });
+
+          if (priorAdvanceTx) {
+            isAdv = true;
+            advancePaidMonth = formatMonthYearFromDate(priorAdvanceTx.date) || formatMonthYearFromKey(getMonthKeyFromDate(priorAdvanceTx.date));
+          }
+
           // Check advance or base match
           const houseBase = house.duesMonthNote || currentPeriod;
           const baseKey = parseIndonesianMonthYearToKey(houseBase);
           const isPaid = house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih';
           const paidMonths = house.duesPaidMonths || (house.duesStatus === 'Bayar Lebih' ? 2 : isPaid ? 1 : 0);
           const covered = isPaid ? getSubsequentMonthLabels(houseBase, Math.max(1, paidMonths)) : [];
-          isAdv = Boolean(isPaid && paidMonths > 1 && baseKey && pKey > baseKey && covered.some(m => parseIndonesianMonthYearToKey(m) === pKey));
+          const isCovered = Boolean(isPaid && paidMonths > 1 && baseKey && pKey > baseKey && covered.some(m => parseIndonesianMonthYearToKey(m) === pKey));
+
+          if (isCovered && !isAdv) {
+            isAdv = true;
+            advancePaidMonth = (baseKey ? formatMonthYearFromKey(baseKey) : null) || houseBase;
+          }
 
           if (isAdv) {
             iuranPeriod = 0;
@@ -506,7 +531,7 @@ export function exportFinancialReportToExcel({
 
         // Deteksi pelunasan tunggakan jika tertunggak di bulan sebelumnya
         let settlementMonth: string | null = null;
-        if (!isPeriodLunas && !isPureKosong && !isUnoccupied) {
+        if (!isPeriodLunas && !isPureKosong) {
           const currentActiveKey = parseIndonesianMonthYearToKey(currentPeriod) || '2026-10';
           const periodMonthName = (pLabel.split(' ')[0] || '').toLowerCase();
 
@@ -547,22 +572,6 @@ export function exportFinancialReportToExcel({
               const parsedMonth = match[1].trim();
               const capMonth = parsedMonth.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
               settlementMonth = capMonth.includes('202') ? capMonth : `${capMonth} 2026`;
-            }
-          }
-
-          if (!settlementMonth) {
-            const hasZeroArrears = (house.previousArrears || 0) === 0;
-            const isCurrentlyPaid = house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih';
-            if (hasZeroArrears && isCurrentlyPaid && pKey < currentActiveKey) {
-              if (house.duesPaidDate) {
-                const payMonthKey = getMonthKeyFromDate(house.duesPaidDate);
-                if (payMonthKey && payMonthKey > pKey) {
-                  settlementMonth = formatMonthYearFromKey(payMonthKey) || formatMonthYearFromDate(house.duesPaidDate);
-                }
-              }
-              if (!settlementMonth) {
-                settlementMonth = currentPeriod;
-              }
             }
           }
 
@@ -611,7 +620,7 @@ export function exportFinancialReportToExcel({
         if (isPureKosong || isPeriodVacant) {
           periodStatusText = iuranPeriod > 0 ? `Lunas (Kosong +Rp ${iuranPeriod.toLocaleString('id-ID')})` : 'Bebas Iuran (Kosong)';
         } else if (isAdv) {
-          periodStatusText = 'Lunas (Dimuka)';
+          periodStatusText = advancePaidMonth ? `Lunas Bulan ${advancePaidMonth} (Bayar >1 Bulan)` : 'Lunas (Bayar >1 Bulan)';
         } else if (settlementMonth) {
           periodStatusText = `Lunas Bulan ${settlementMonth}`;
         } else if (iuranPeriod > nominal && !isPureKosong) {
