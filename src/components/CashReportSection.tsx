@@ -1462,6 +1462,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     let sumTunggakan = 0;
     let sumGrandTotal = 0;
     let sumRemainingArrears = 0;
+    let sumBaksosFineArrears = 0;
 
     filteredOverallKKList.forEach((r) => {
       sumIuran += r.totalIuranAllPeriods;
@@ -1469,6 +1470,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       sumTunggakan += r.totalTunggakanAllPeriods;
       sumGrandTotal += r.grandTotalAllPeriods;
       sumRemainingArrears += r.remainingArrearsTotal;
+      sumBaksosFineArrears += r.baksosFineArrears;
     });
 
     return {
@@ -1477,6 +1479,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       sumTunggakan,
       sumGrandTotal,
       sumRemainingArrears,
+      sumBaksosFineArrears,
     };
   }, [filteredOverallKKList]);
 
@@ -5330,7 +5333,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               <span className="flex items-center gap-2 font-medium flex-wrap">
                 <Lock className="w-4 h-4 text-purple-700 shrink-0" />
                 <span>
-                  <strong>Tabel Terkunci &amp; Otomatis:</strong> Isian <strong>No Blok</strong> dan <strong>Nama KK per bulannya</strong> pada tabel ini tidak dapat diedit langsung, melainkan <strong>100% otomatis mengikuti</strong> inputan dari <em>Tabel Rekap Pembayaran Iuran Per KK</em> per bulannya.
+                  <strong>Tabel Terkunci &amp; Otomatis:</strong> Isian <strong>No Blok</strong> dan <strong>Nama KK per bulannya</strong> pada tabel ini otomatis mengikuti inputan dari <em>Tabel Rekap Pembayaran Iuran Per KK</em>. <strong>Sisa Tunggakan</strong> adalah iuran belum bayar di bulan-bulan sebelumnya, sedangkan <strong>Denda Baksos</strong> dicatat tersendiri pada kolom khusus denda baksos.
                 </span>
               </span>
               <span className="text-[10px] text-purple-800 font-bold bg-white px-2.5 py-1 rounded-lg border border-purple-300 shrink-0 shadow-2xs self-start sm:self-auto flex items-center gap-1">
@@ -5357,8 +5360,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       </th>
                     ))}
 
-                    <th className="py-3 px-3 text-right border border-slate-300/70 text-rose-200">
-                      Sisa Tunggakan
+                    <th className="py-3 px-3 text-right border border-slate-300/70 text-amber-200">
+                      <div>Sisa Tunggakan</div>
+                      <div className="text-[10px] font-normal text-amber-300/80 tracking-normal font-sans">(Bulan Sebelumnya)</div>
+                    </th>
+                    <th className="py-3 px-3 text-center border border-slate-300/70 text-teal-200">
+                      <div>Denda Baksos</div>
+                      <div className="text-[10px] font-normal text-teal-300/80 tracking-normal font-sans">(Khusus Baksos)</div>
                     </th>
                     <th className="py-3 px-3 text-center border border-slate-300/70 text-white w-28">
                       Aksi &amp; Detail
@@ -5370,7 +5378,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   {filteredOverallKKList.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={4 + sortedPeriods.length}
+                        colSpan={5 + sortedPeriods.length}
                         className="py-8 text-center text-slate-400 italic border border-slate-300"
                       >
                         Tidak ada data KK yang cocok dengan filter ini.
@@ -5715,7 +5723,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             );
                           })}
 
-                          {/* Sisa Tunggakan Berjalan */}
+                          {/* Sisa Tunggakan (Iuran Bulan-Bulan Sebelumnya yang Belum Bayar) */}
                           <td
                             className={`py-2.5 px-3 text-right font-mono tabular-nums border font-bold ${
                               isRumahKosongHitam
@@ -5727,28 +5735,69 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               <span className="text-neutral-400 font-semibold text-[11px]">
                                 Rp 0 (Bebas Kosong)
                               </span>
-                            ) : remainingArrearsTotal > 0 ? (
+                            ) : row.previousDuesArrears > 0 ? (
                               <div>
-                                <span className="text-rose-700">
-                                  {formatRupiah(remainingArrearsTotal)}
+                                <span className="text-rose-700 font-black">
+                                  {formatRupiah(row.previousDuesArrears)}
                                 </span>
-                                {row.previousDuesArrears > 0 && (
+                                {row.previousArrearsNote ? (
                                   <span
-                                    className="block text-[10px] text-amber-700 font-semibold"
-                                    title={`Tunggakan Bulan Sebelumnya: ${row.previousArrearsNote || formatRupiah(row.previousDuesArrears)}`}
+                                    className="block text-[9.5px] text-amber-800 font-bold max-w-[130px] ml-auto truncate"
+                                    title={`Tunggakan: ${row.previousArrearsNote}`}
                                   >
-                                    (Lalu: {formatRupiah(row.previousDuesArrears)})
+                                    ({row.previousArrearsNote})
+                                  </span>
+                                ) : (
+                                  <span className="block text-[9.5px] text-amber-700 font-semibold">
+                                    (Bulan Lalu)
                                   </span>
                                 )}
                               </div>
                             ) : (
-                              <span className="text-emerald-700 font-semibold text-[11px]">
-                                Rp 0 (Bersih)
+                              <span className="text-emerald-700 font-bold text-[11px]">
+                                Rp 0 (Lunas)
                               </span>
                             )}
                           </td>
 
-                          {/* 11. Aksi & Detail */}
+                          {/* Denda Baksos (Dianggap Denda Baksos Saja, BUKAN Tunggakan) */}
+                          <td
+                            className={`py-2.5 px-3 text-center font-mono text-xs border ${
+                              isRumahKosongHitam
+                                ? 'bg-neutral-950 text-neutral-300 border-neutral-800'
+                                : 'border-slate-300'
+                            }`}
+                          >
+                            {isRumahKosongHitam ? (
+                              <span className="text-neutral-400 font-medium text-[10.5px]">
+                                Bebas (Kosong)
+                              </span>
+                            ) : row.baksosFineArrears > 0 ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-900 border border-rose-300 font-extrabold text-[10px] shadow-2xs whitespace-nowrap">
+                                  Belum Bayar
+                                </span>
+                                <span className="text-rose-700 font-black font-mono text-[11px]">
+                                  {formatRupiah(row.baksosFineArrears)}
+                                </span>
+                              </div>
+                            ) : row.totalDendaAllPeriods > 0 ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className="px-2 py-0.5 rounded-md bg-teal-100 text-teal-900 border border-teal-300 font-bold text-[10px] shadow-2xs whitespace-nowrap">
+                                  ✓ Denda Lunas
+                                </span>
+                                <span className="text-teal-800 font-bold font-mono text-[10.5px]">
+                                  +{formatRupiah(row.totalDendaAllPeriods)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-slate-500 font-medium text-[11px]">
+                                Bebas Denda
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Aksi & Detail */}
                           <td
                             className={`py-2.5 px-3 text-center border ${
                               isRumahKosongHitam
@@ -5778,8 +5827,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       `• Total Denda Baksos: ${formatRupiah(totalDendaAllPeriods)}\n` +
                                       `• Total Bayar Tunggakan: ${formatRupiah(totalTunggakanAllPeriods)}\n` +
                                       `👉 *TOTAL KAS MASUK PER KK: ${formatRupiah(grandTotalAllPeriods)}*\n` +
-                                      `• Status: ${overallStatus === 'Lunas Semua' ? 'LUNAS SEMUA PERIODE' : overallStatus === 'Bayar Lebih' ? 'BAYAR LEBIH (>1 BULAN)' : `Ada Tunggakan: ${formatRupiah(remainingArrearsTotal)}`}\n\n` +
-                                      `Terima kasih atas partisipasi aktif dalam kerukunan warga Gang Mandor.`;
+                                      `• Status Iuran: ${overallStatus === 'Lunas Semua' ? 'LUNAS SEMUA PERIODE' : overallStatus === 'Bayar Lebih' ? 'BAYAR LEBIH (>1 BULAN)' : `Ada Tunggakan Iuran: ${formatRupiah(row.previousDuesArrears)}`}\n` +
+                                      (row.baksosFineArrears > 0 ? `• Denda Baksos Belum Bayar: ${formatRupiah(row.baksosFineArrears)}\n` : '') +
+                                      `\nTerima kasih atas partisipasi aktif dalam kerukunan warga Gang Mandor.`;
                                     openWhatsAppShare(waMsg);
                                   }}
                                   className="p-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-300 transition-colors cursor-pointer"
@@ -5795,6 +5845,45 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     })
                   )}
                 </tbody>
+
+                {/* FOOTER TOTAL REKAPITULASI KESELURUHAN KAS PER KK */}
+                <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-400">
+                  <tr className="bg-gradient-to-r from-slate-200 via-purple-100/90 to-indigo-100/90 text-slate-900 border-b border-slate-300">
+                    <td colSpan={2} className="py-3 px-3 text-center border border-slate-300 font-black text-xs text-slate-900">
+                      TOTAL ({filteredOverallKKList.length} KK)
+                    </td>
+                    {sortedPeriods.map((periodName) => {
+                      const pSum = periodSummaries[periodName];
+                      return (
+                        <td key={periodName} className="py-2.5 px-2 text-center border border-slate-300 font-mono text-xs">
+                          <div className="font-black text-emerald-950">
+                            +{formatRupiah(pSum?.sumPemasukan || 0)}
+                          </div>
+                          <div className="text-[9.5px] font-semibold text-slate-600">
+                            (Iuran: {formatRupiah(pSum?.sumIuran || 0)})
+                          </div>
+                        </td>
+                      );
+                    })}
+                    <td className="py-2.5 px-3 text-right border border-slate-300 font-mono font-black text-rose-700 text-xs">
+                      {overallTotals.sumRemainingArrears > 0
+                        ? formatRupiah(overallTotals.sumRemainingArrears)
+                        : 'Rp 0'}
+                    </td>
+                    <td className="py-2.5 px-3 text-center border border-slate-300 font-mono text-xs">
+                      {overallTotals.sumBaksosFineArrears > 0 ? (
+                        <span className="text-rose-700 font-black">
+                          {formatRupiah(overallTotals.sumBaksosFineArrears)}
+                        </span>
+                      ) : (
+                        <span className="text-emerald-700 font-bold">Rp 0</span>
+                      )}
+                    </td>
+                    <td className="py-2.5 px-2 text-center border border-slate-300 text-slate-400">
+                      -
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
 
@@ -5918,33 +6007,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-slate-600 border-t border-purple-200/60 pt-1.5">
-                      <span>Sisa Tunggakan Belum Dibayar:</span>
-                      <span className={`font-mono font-bold ${matchRow.remainingArrearsTotal > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                        {matchRow.remainingArrearsTotal > 0 ? formatRupiah(matchRow.remainingArrearsTotal) : 'Rp 0 (Bersih / Bebas Tunggakan)'}
+                      <span>Sisa Tunggakan (Iuran Bulan Sebelumnya):</span>
+                      <span className={`font-mono font-bold ${matchRow.previousDuesArrears > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                        {matchRow.previousDuesArrears > 0 ? formatRupiah(matchRow.previousDuesArrears) : 'Rp 0 (Bersih / Bebas Tunggakan)'}
                       </span>
                     </div>
-                    {matchRow.remainingArrearsTotal > 0 && (
-                      <div className="text-[10.5px] text-slate-600 space-y-1 pt-1.5 pl-2.5 border-l-2 border-purple-300">
-                        {matchRow.currentMonthDuesArrears > 0 && (
-                          <div className="flex justify-between items-center">
-                            <span>• Iuran Bulan Berjalan ({defaultMonthLabel}):</span>
-                            <span className="font-mono font-bold text-rose-600">{formatRupiah(matchRow.currentMonthDuesArrears)}</span>
-                          </div>
-                        )}
-                        {matchRow.previousDuesArrears > 0 && (
-                          <div className="flex justify-between items-center">
-                            <span>• Tunggakan Bulan Sebelumnya{matchRow.previousArrearsNote ? ` (${matchRow.previousArrearsNote})` : ''}:</span>
-                            <span className="font-mono font-bold text-amber-700">{formatRupiah(matchRow.previousDuesArrears)}</span>
-                          </div>
-                        )}
-                        {matchRow.baksosFineAmount > 0 && (
-                          <div className="flex justify-between items-center">
-                            <span>• Denda Bakti Sosial:</span>
-                            <span className="font-mono font-bold text-cyan-800">{formatRupiah(matchRow.baksosFineAmount)}</span>
-                          </div>
-                        )}
+                    {matchRow.previousDuesArrears > 0 && matchRow.previousArrearsNote && (
+                      <div className="text-[10px] text-amber-800 font-semibold pl-2">
+                        Detail: {matchRow.previousArrearsNote}
                       </div>
                     )}
+                    <div className="flex items-center justify-between text-[11px] text-slate-600 border-t border-purple-200/60 pt-1.5">
+                      <span>Denda Bakti Sosial (Khusus Baksos):</span>
+                      <span className={`font-mono font-bold ${matchRow.baksosFineArrears > 0 ? 'text-rose-700' : 'text-teal-700'}`}>
+                        {matchRow.baksosFineArrears > 0 ? `${formatRupiah(matchRow.baksosFineArrears)} (Belum Bayar)` : 'Bebas Denda / Lunas'}
+                      </span>
+                    </div>
                   </div>
                 );
               })()}

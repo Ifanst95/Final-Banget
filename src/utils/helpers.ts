@@ -2264,9 +2264,9 @@ export function computeOverallKKRecapList(
       ? house.customBaksosFineAmount
       : periodsDetail.reduce((sum, p) => sum + (p.baksosFineUnpaid || 0), 0);
 
-    const remainingArrearsTotal = isPureKosong
-      ? 0
-      : currentMonthDuesArrears + previousDuesArrears + baksosFineArrears;
+    // Yang dimaksud tunggakan di Tabel Rekapitulasi Keseluruhan Kas Per Kepala Keluarga
+    // adalah iuran belum bayar di bulan-bulan sebelumnya. Denda baksos dianggap denda baksos saja bukan tunggakan.
+    const remainingArrearsTotal = isPureKosong ? 0 : previousDuesArrears;
 
     const unpaidPeriods = periodsDetail
       .filter((p) => !p.isLunasThisPeriod && !p.isPeriodVacant)
@@ -2283,24 +2283,20 @@ export function computeOverallKKRecapList(
     if (isPureKosong) {
       overallStatus = 'Kosong';
       overallBadgeClass = 'bg-black text-white border-neutral-700';
-    } else if (unpaidPeriodsCount === 0 && remainingArrearsTotal === 0) {
-      if (
-        house.duesStatus === 'Bayar Lebih' ||
-        (house.duesPaidMonths || 0) > 1 ||
-        periodsDetail.some((p) => p.statusInfo?.status === 'Bayar Lebih')
-      ) {
-        overallStatus = 'Bayar Lebih';
-        overallBadgeClass = 'bg-sky-100 text-sky-950 border border-sky-300 font-bold';
-      } else {
-        overallStatus = 'Lunas Semua';
-        overallBadgeClass = 'bg-emerald-100 text-emerald-950 border border-emerald-300 font-bold';
-      }
-    } else if (remainingArrearsTotal === 0 && (house.duesStatus === 'Bayar Lebih' || (house.duesPaidMonths || 0) > 1)) {
+    } else if (remainingArrearsTotal > 0) {
+      // Ada tunggakan iuran dari bulan-bulan sebelumnya
+      overallStatus = 'Ada Tunggakan';
+      overallBadgeClass = 'bg-rose-100 text-rose-950 border border-rose-300 font-bold';
+    } else if (
+      house.duesStatus === 'Bayar Lebih' ||
+      (house.duesPaidMonths || 0) > 1 ||
+      periodsDetail.some((p) => p.statusInfo?.status === 'Bayar Lebih' || p.isAdvanceSubsequent)
+    ) {
       overallStatus = 'Bayar Lebih';
       overallBadgeClass = 'bg-sky-100 text-sky-950 border border-sky-300 font-bold';
     } else {
-      overallStatus = 'Ada Tunggakan';
-      overallBadgeClass = 'bg-rose-100 text-rose-950 border border-rose-300 font-bold';
+      overallStatus = 'Lunas Semua';
+      overallBadgeClass = 'bg-emerald-100 text-emerald-950 border border-emerald-300 font-bold';
     }
 
     const rowCellClass = isRumahKosongHitam

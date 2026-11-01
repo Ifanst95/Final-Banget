@@ -651,7 +651,8 @@ export function exportFinancialReportToExcel({
         'Total Denda Baksos (Rp)': totalDendaAll,
         'Total Pembayaran Tunggakan (Rp)': totalTunggakanAll,
         'TOTAL KESELURUHAN KAS MASUK (Rp)': grandTotalAll,
-        'Sisa Tunggakan Berjalan (Rp)': remainingTotal,
+        'Sisa Tunggakan Bulan Lalu (Rp)': remainingTotal,
+        'Denda Baksos Belum Bayar (Rp)': recapItem ? recapItem.baksosFineArrears : 0,
         'Status Kelunasan Keseluruhan': statusOverall,
       };
     });
@@ -666,13 +667,15 @@ export function exportFinancialReportToExcel({
     let sumTotalTunggakanAll = 0;
     let sumGrandTotalAll = 0;
     let sumTotalRemainingArrears = 0;
+    let sumTotalUnpaidBaksos = 0;
 
     overallRows.forEach((r: any) => {
       sumTotalIuranAll += Number(r['Total Iuran Rutin (Rp)']) || 0;
       sumTotalDendaAll += Number(r['Total Denda Baksos (Rp)']) || 0;
       sumTotalTunggakanAll += Number(r['Total Pembayaran Tunggakan (Rp)']) || 0;
       sumGrandTotalAll += Number(r['TOTAL KESELURUHAN KAS MASUK (Rp)']) || 0;
-      sumTotalRemainingArrears += Number(r['Sisa Tunggakan Berjalan (Rp)']) || 0;
+      sumTotalRemainingArrears += Number(r['Sisa Tunggakan Bulan Lalu (Rp)']) || 0;
+      sumTotalUnpaidBaksos += Number(r['Denda Baksos Belum Bayar (Rp)']) || 0;
     });
 
     sortedAllPeriods.forEach((pLabel) => {
@@ -712,7 +715,8 @@ export function exportFinancialReportToExcel({
       'Total Denda Baksos (Rp)': sumTotalDendaAll,
       'Total Pembayaran Tunggakan (Rp)': sumTotalTunggakanAll,
       'TOTAL KESELURUHAN KAS MASUK (Rp)': sumGrandTotalAll,
-      'Sisa Tunggakan Berjalan (Rp)': sumTotalRemainingArrears,
+      'Sisa Tunggakan Bulan Lalu (Rp)': sumTotalRemainingArrears,
+      'Denda Baksos Belum Bayar (Rp)': sumTotalUnpaidBaksos,
       'Status Kelunasan Keseluruhan': 'TOTAL PEMASUKAN SEMUA PERIODE',
     });
 
@@ -728,7 +732,8 @@ export function exportFinancialReportToExcel({
       'Total Denda Baksos (Rp)': '-',
       'Total Pembayaran Tunggakan (Rp)': '-',
       'TOTAL KESELURUHAN KAS MASUK (Rp)': '-',
-      'Sisa Tunggakan Berjalan (Rp)': sumTotalRemainingArrears,
+      'Sisa Tunggakan Bulan Lalu (Rp)': sumTotalRemainingArrears,
+      'Denda Baksos Belum Bayar (Rp)': sumTotalUnpaidBaksos,
       'Status Kelunasan Keseluruhan': 'SISA TUNGGAKAN AKTIF',
     });
 
