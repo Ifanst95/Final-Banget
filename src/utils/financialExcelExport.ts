@@ -690,6 +690,98 @@ export function exportFinancialReportToExcel({
       };
     });
 
+    // Hitung Akumulasi Total Pemasukan Kas, Tunggakan & Baksos per Kolom Periode
+    const periodTotalsPemasukan: Record<string, string> = {};
+    const periodTotalsTunggakan: Record<string, string> = {};
+    const periodTotalsBaksos: Record<string, string> = {};
+
+    let sumTotalIuranAll = 0;
+    let sumTotalDendaAll = 0;
+    let sumTotalTunggakanAll = 0;
+    let sumGrandTotalAll = 0;
+    let sumTotalRemainingArrears = 0;
+
+    overallRows.forEach((r: any) => {
+      sumTotalIuranAll += Number(r['Total Iuran Rutin (Rp)']) || 0;
+      sumTotalDendaAll += Number(r['Total Denda Baksos (Rp)']) || 0;
+      sumTotalTunggakanAll += Number(r['Total Pembayaran Tunggakan (Rp)']) || 0;
+      sumGrandTotalAll += Number(r['TOTAL KESELURUHAN KAS MASUK (Rp)']) || 0;
+      sumTotalRemainingArrears += Number(r['Sisa Tunggakan Berjalan (Rp)']) || 0;
+    });
+
+    sortedAllPeriods.forEach((pLabel) => {
+      const pKey = parseIndonesianMonthYearToKey(pLabel) || '';
+      let periodInflow = 0;
+      let periodUnpaid = 0;
+
+      overallKKRecapList.forEach((item) => {
+        const pDet = item.periodsDetail.find((d) => d.periodLabel === pLabel);
+        if (pDet) {
+          periodInflow += pDet.periodTotal;
+          if (pDet.unpaidAmount > 0) {
+            periodUnpaid += pDet.unpaidAmount;
+          }
+        }
+      });
+
+      const matchingAgendas = baksosAgendas.filter((a) => {
+        const mKey = getMonthKeyFromDate(a.date);
+        return mKey === pKey || formatMonthYearFromKey(mKey) === pLabel;
+      });
+
+      periodTotalsPemasukan[`Periode ${pLabel}`] = `+Rp ${periodInflow.toLocaleString('id-ID')}`;
+      periodTotalsTunggakan[`Periode ${pLabel}`] = periodUnpaid > 0 ? `Rp ${periodUnpaid.toLocaleString('id-ID')} (Tertunggak)` : 'Lunas 100%';
+      periodTotalsBaksos[`Periode ${pLabel}`] = matchingAgendas.length > 0 ? `Baksos (${matchingAgendas[0].title})` : 'Tidak Ada Agenda';
+    });
+
+    // Baris 1: TOTAL PEMASUKAN KAS PER PERIODE
+    (overallRows as any).push({
+      No: 'TOTAL',
+      'No Blok': 'PEMASUKAN',
+      'Nama Kepala Keluarga': 'TOTAL PEMASUKAN KAS PER PERIODE',
+      ...periodTotalsPemasukan,
+      'Jumlah Periode Tercatat': sortedAllPeriods.length,
+      'Periode Lunas': 'Akumulasi Kas',
+      'Total Iuran Rutin (Rp)': sumTotalIuranAll,
+      'Total Denda Baksos (Rp)': sumTotalDendaAll,
+      'Total Pembayaran Tunggakan (Rp)': sumTotalTunggakanAll,
+      'TOTAL KESELURUHAN KAS MASUK (Rp)': sumGrandTotalAll,
+      'Sisa Tunggakan Berjalan (Rp)': sumTotalRemainingArrears,
+      'Status Kelunasan Keseluruhan': 'TOTAL PEMASUKAN SEMUA PERIODE',
+    });
+
+    // Baris 2: TOTAL SISA TUNGGAKAN PER PERIODE
+    (overallRows as any).push({
+      No: 'TOTAL',
+      'No Blok': 'TUNGGAKAN',
+      'Nama Kepala Keluarga': 'SISA TUNGGAKAN IURAN PERIODE',
+      ...periodTotalsTunggakan,
+      'Jumlah Periode Tercatat': '-',
+      'Periode Lunas': '-',
+      'Total Iuran Rutin (Rp)': '-',
+      'Total Denda Baksos (Rp)': '-',
+      'Total Pembayaran Tunggakan (Rp)': '-',
+      'TOTAL KESELURUHAN KAS MASUK (Rp)': '-',
+      'Sisa Tunggakan Berjalan (Rp)': sumTotalRemainingArrears,
+      'Status Kelunasan Keseluruhan': 'SISA TUNGGAKAN AKTIF',
+    });
+
+    // Baris 3: DETAIL BAKSOS PER PERIODE
+    (overallRows as any).push({
+      No: 'DETAIL',
+      'No Blok': 'BAKSOS',
+      'Nama Kepala Keluarga': 'STATUS AGENDA BAKTI SOSIAL (BAKSOS)',
+      ...periodTotalsBaksos,
+      'Jumlah Periode Tercatat': '-',
+      'Periode Lunas': '-',
+      'Total Iuran Rutin (Rp)': '-',
+      'Total Denda Baksos (Rp)': sumTotalDendaAll,
+      'Total Pembayaran Tunggakan (Rp)': '-',
+      'TOTAL KESELURUHAN KAS MASUK (Rp)': '-',
+      'Sisa Tunggakan Berjalan (Rp)': '-',
+      'Status Kelunasan Keseluruhan': 'DETAIL BAKSOS & DENDA',
+    });
+
     const wsOverall = XLSX.utils.json_to_sheet(overallRows);
     wsOverall['!cols'] = [
       { wch: 5 },

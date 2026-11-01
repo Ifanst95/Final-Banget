@@ -19,7 +19,7 @@ import {
   INITIAL_SITE_CONFIG,
   INITIAL_TRANSACTIONS,
 } from '../data/initialData';
-import { formatMonthYearFromDate, formatRupiah, getHouseOccupancyForPeriod, getHouseHeadNameForPeriod, getHouseDuesNominalForPeriod, getMonthKeyFromDate, parseIndonesianMonthYearToKey } from '../utils/helpers';
+import { formatMonthYearFromDate, formatRupiah, getHouseOccupancyForPeriod, getHouseHeadNameForPeriod, getHouseDuesNominalForPeriod, getMonthKeyFromDate, parseIndonesianMonthYearToKey, INDONESIAN_MONTHS, isHouseVacant } from '../utils/helpers';
 import { parseAndNormalizeBackupJson } from '../utils/backupRestoreHelper';
 import {
   getIsFirestoreQuotaExceeded,
@@ -1545,26 +1545,90 @@ export function useStorage() {
     periodLabel: string,
     unmarkBaksosFines: boolean = true
   ) => {
-    const trimmedPeriod = periodLabel.trim();
+    const trimmedPeriod = (periodLabel || '').trim();
     const periodKey = parseIndonesianMonthYearToKey(trimmedPeriod);
     const periodLower = trimmedPeriod.toLowerCase();
+    const isAllPeriods = trimmedPeriod === 'semua' || !trimmedPeriod;
 
     commitLocalMutation((cur) => {
       const targetHouse = cur.residents.find((h) => h.id === houseId);
       if (!targetHouse) return {};
 
       const blockRegex = new RegExp(`\\b${targetHouse.blockNumber.replace('/', '\\/')}\\b`, 'i');
+      const isVacant = targetHouse.occupancy === 'Kosong' || isHouseVacant(targetHouse);
 
-      // 1. Reset status pembayaran KK
+      // 1. Reset status pembayaran KK (baik di root maupun di periodHistory & duesMonthNote)
       const updatedResidents = cur.residents.map((h) => {
         if (h.id !== houseId) return h;
+
+        // Reset snapshot di periodHistory untuk periode ini
+        const updatedPeriodHist = { ...(h.periodHistory || {}) };
+        if (isAllPeriods) {
+          Object.keys(updatedPeriodHist).forEach((k) => {
+            updatedPeriodHist[k] = {
+              ...updatedPeriodHist[k],
+              duesStatus: isVacant ? 'Kosong' : 'Belum Bayar',
+              paidAmount: 0,
+              paidDate: '',
+              updatedAt: new Date().toISOString(),
+            };
+          });
+        } else {
+          if (periodKey) {
+            updatedPeriodHist[periodKey] = {
+              ...(updatedPeriodHist[periodKey] || {}),
+              duesStatus: isVacant ? 'Kosong' : 'Belum Bayar',
+              paidAmount: 0,
+              paidDate: '',
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          if (trimmedPeriod && trimmedPeriod !== periodKey) {
+            updatedPeriodHist[trimmedPeriod] = {
+              ...(updatedPeriodHist[trimmedPeriod] || {}),
+              duesStatus: isVacant ? 'Kosong' : 'Belum Bayar',
+              paidAmount: 0,
+              paidDate: '',
+              updatedAt: new Date().toISOString(),
+            };
+          }
+        }
+
+        // Cek apakah periode yang dihapus cocok dengan duesMonthNote atau periode aktif
+        const currentActivePeriod = cur.siteConfig.duesCurrentMonth || 'Oktober 2026';
+        const isCurrentActive = isAllPeriods || trimmedPeriod === currentActivePeriod || trimmedPeriod === h.duesMonthNote;
+
+        // Bersihkan periode ini dari duesMonthNote jika multi-bulan
+        let newMonthNote = h.duesMonthNote || '';
+        if (!isAllPeriods && newMonthNote) {
+          const parts = newMonthNote.split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
+          const filteredParts = parts.filter((p) => {
+            const pKey = parseIndonesianMonthYearToKey(p);
+            return p.toLowerCase() !== periodLower && (!periodKey || pKey !== periodKey);
+          });
+          newMonthNote = filteredParts.join(', ');
+        } else if (isAllPeriods) {
+          newMonthNote = '';
+        }
+
+        const remainingMonths = newMonthNote ? newMonthNote.split(/[,;/+]+/).filter(Boolean).length : 0;
+        const newDuesStatus = isVacant
+          ? ('Kosong' as const)
+          : isCurrentActive || !newMonthNote
+          ? ('Belum Bayar' as const)
+          : remainingMonths > 1
+          ? ('Bayar Lebih' as const)
+          : ('Lunas' as const);
+
         return {
           ...h,
-          duesStatus: 'Belum Bayar' as const,
-          duesPaidAmount: 0,
-          duesPaidMonths: 0,
-          duesPrepaidBalance: 0,
-          duesPaidDate: '',
+          duesStatus: newDuesStatus,
+          duesPaidAmount: isCurrentActive || !newMonthNote ? 0 : h.duesPaidAmount,
+          duesPaidMonths: isCurrentActive || !newMonthNote ? 0 : remainingMonths,
+          duesPrepaidBalance: isCurrentActive || !newMonthNote ? 0 : h.duesPrepaidBalance,
+          duesPaidDate: isCurrentActive || !newMonthNote ? '' : h.duesPaidDate,
+          duesMonthNote: newMonthNote,
+          periodHistory: updatedPeriodHist,
           updatedAt: new Date().toISOString(),
         };
       });
@@ -1582,12 +1646,18 @@ export function useStorage() {
 
         if (!isIuran && !isDenda && !isTunggakan) return true;
 
-        const matchesPeriod =
-          trimmedPeriod === 'semua' ||
-          descLower.includes(periodLower) ||
-          (periodKey && mKey === periodKey);
+        if (isAllPeriods) return false;
 
-        return !matchesPeriod;
+        // Cocokkan periode
+        if (descLower.includes(periodLower)) return false;
+        if (periodKey && mKey === periodKey) return false;
+        if (periodKey) {
+          const [yr, mo] = periodKey.split('-');
+          const monthName = (INDONESIAN_MONTHS[parseInt(mo, 10) - 1] || '').toLowerCase();
+          if (descLower.includes(monthName) && descLower.includes(yr)) return false;
+        }
+
+        return true;
       });
 
       // 3. Batalkan status denda baksos lunas jika ada di periode ini
@@ -1596,12 +1666,15 @@ export function useStorage() {
         updatedBaksos = cur.baksosAgendas.map((agenda) => {
           const agendaKey = getMonthKeyFromDate(agenda.date);
           const matchesAgendaPeriod =
-            trimmedPeriod === 'semua' || (periodKey && agendaKey === periodKey);
+            isAllPeriods || (periodKey && agendaKey === periodKey);
           if (!matchesAgendaPeriod) return agenda;
 
-          if (agenda.finesPaid?.[houseId]) {
+          if (agenda.finesPaid?.[houseId] || (targetHouse.blockNumber && agenda.finesPaid?.[targetHouse.blockNumber])) {
             const newFinesPaid = { ...agenda.finesPaid };
             delete newFinesPaid[houseId];
+            if (targetHouse.blockNumber) {
+              delete newFinesPaid[targetHouse.blockNumber];
+            }
             return {
               ...agenda,
               finesPaid: newFinesPaid,
@@ -1648,7 +1721,41 @@ export function useStorage() {
 
         if (!matches && !isAllPeriods) return house;
 
-        const isVacant = house.occupancy === 'Kosong' || /rumah kosong|^kosong$/i.test(house.headName);
+        const isVacant = house.occupancy === 'Kosong' || isHouseVacant(house);
+
+        // Reset periodHistory juga agar tampilan per periode berubah ke Belum Bayar
+        const updatedPeriodHist = { ...(house.periodHistory || {}) };
+        if (isAllPeriods) {
+          Object.keys(updatedPeriodHist).forEach((k) => {
+            updatedPeriodHist[k] = {
+              ...updatedPeriodHist[k],
+              duesStatus: isVacant ? 'Kosong' : 'Belum Bayar',
+              paidAmount: 0,
+              paidDate: '',
+              updatedAt: new Date().toISOString(),
+            };
+          });
+        } else {
+          if (periodKey) {
+            updatedPeriodHist[periodKey] = {
+              ...(updatedPeriodHist[periodKey] || {}),
+              duesStatus: isVacant ? 'Kosong' : 'Belum Bayar',
+              paidAmount: 0,
+              paidDate: '',
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          if (trimmed) {
+            updatedPeriodHist[trimmed] = {
+              ...(updatedPeriodHist[trimmed] || {}),
+              duesStatus: isVacant ? 'Kosong' : 'Belum Bayar',
+              paidAmount: 0,
+              paidDate: '',
+              updatedAt: new Date().toISOString(),
+            };
+          }
+        }
+
         return {
           ...house,
           duesStatus: isVacant ? ('Kosong' as const) : ('Belum Bayar' as const),
@@ -1656,6 +1763,8 @@ export function useStorage() {
           duesPaidMonths: 0,
           duesPrepaidBalance: 0,
           duesPaidDate: '',
+          duesMonthNote: isAllPeriods ? '' : house.duesMonthNote,
+          periodHistory: updatedPeriodHist,
           updatedAt: new Date().toISOString(),
         };
       });
@@ -1678,12 +1787,17 @@ export function useStorage() {
             return true;
           }
 
-          const matchesPeriod =
-            isAllPeriods ||
-            descLower.includes(periodLower) ||
-            (periodKey && mKey === periodKey);
+          if (isAllPeriods) return false;
 
-          return !matchesPeriod;
+          if (descLower.includes(periodLower)) return false;
+          if (periodKey && mKey === periodKey) return false;
+          if (periodKey) {
+            const [yr, mo] = periodKey.split('-');
+            const monthName = (INDONESIAN_MONTHS[parseInt(mo, 10) - 1] || '').toLowerCase();
+            if (descLower.includes(monthName) && descLower.includes(yr)) return false;
+          }
+
+          return true;
         });
       }
 

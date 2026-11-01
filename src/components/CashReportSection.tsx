@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
-  BarChart3,
   Calendar,
   Check,
   CheckCircle2,
@@ -35,6 +34,9 @@ import {
   ShieldCheck,
   Image as LucideImage,
   Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Info,
 } from 'lucide-react';
 import {
   BaksosAgenda,
@@ -55,6 +57,11 @@ import {
   formatMonthYearFromKey,
   formatRupiah,
   getBaksosAttendanceForHouse,
+  getHouseBaksosForPeriod as getHouseBaksosForPeriodHelper,
+  getHouseDuesNominalForPeriod,
+  getHouseHeadNameForPeriod,
+  getHouseOccupancyForPeriod,
+  getHouseStatusForPeriod as getHouseStatusForPeriodHelper,
   getLastDayOfMonthISO,
   getMonthKeyFromDate,
   getPreviousMonthKey,
@@ -63,9 +70,6 @@ import {
   isBaksosFinePaidForHouse,
   isHouseVacant,
   isHouseVacantInPeriod,
-  getHouseOccupancyForPeriod,
-  getHouseHeadNameForPeriod,
-  getHouseDuesNominalForPeriod,
   isPeriodCoveredInDuesNote,
   isTransactionForHouse,
   openWhatsAppShare,
@@ -1072,481 +1076,31 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     }
   }, [sortedPeriods, config.duesCurrentMonth, config.duesAvailablePeriods, defaultMonthLabel, selectedKKPeriod]);
 
-  // Status computation for any given house in any given period
-  // Status computation for any given house in any given period
-  const getHouseStatusForPeriod = useCallback((house: ResidentHouse, periodLabel: string) => {
-    const isPeriodVacant = isHouseVacantInPeriod(house, periodLabel, transactions);
-    const nominal = getHouseDuesNominal(house, periodLabel) || config.duesAmountPerMonth || 25000;
-    const targetKey = parseIndonesianMonthYearToKey(periodLabel) || '';
-    const currentKey = parseIndonesianMonthYearToKey(defaultMonthLabel) || '2026-09';
-    const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
-
-    // 1. Prioritas Utama untuk Rumah Kosong pada periode ini: Bebas Iuran (Rp 0), kecuali ada transaksi nyata di Buku Kas
-    if (isPeriodVacant) {
-      const voluntaryTxs = transactions.filter((t) => {
-        if (t.type !== 'masuk' || !isPureIuranTx(t) || !blockRegex.test(t.description)) return false;
-        const descMatch = t.description.match(/\(([^)]+202\d)\)/)?.[1];
-        const descKey = descMatch ? parseIndonesianMonthYearToKey(descMatch) : null;
-        if (descKey) return descKey === targetKey;
-        return getMonthKeyFromDate(t.date) === targetKey;
-      });
-      const voluntarySum = voluntaryTxs.reduce((s, t) => s + t.amount, 0);
-      if (voluntarySum > 0) {
-        return {
-          status: 'Lunas' as const,
-          amount: voluntarySum,
-          isAdvanceSubsequentMonth: false,
-          label: 'Lunas (Kosong)',
-          badgeClass: 'bg-emerald-600 text-white border border-emerald-500 font-bold shadow-xs',
-          paidDate: voluntaryTxs[0].date,
-          note: 'Iuran Sukarela (Rumah Kosong)',
-        };
-      }
-      return {
-        status: 'Kosong' as const,
-        amount: 0,
-        isAdvanceSubsequentMonth: false,
-        label: 'Bebas Iuran',
-        badgeClass: 'bg-black text-white border border-neutral-700 font-semibold',
-        paidDate: undefined,
-        note: 'Rumah Kosong (Tidak Wajib)',
-      };
-    }
-
-    // 2. Cek transaksi langsung di Buku Kas untuk rumah ini pada periode tersebut
-    // Iuran bulanan diakui di periode ini jika TANGGAL transaksi kas masuk iuran berada pada bulan ini
-    const matchingIuranTxs = transactions.filter((t) => {
-      if (t.type !== 'masuk' || !isPureIuranTx(t) || !blockRegex.test(t.description)) return false;
-      return getMonthKeyFromDate(t.date) === targetKey;
-    });
-    const sumIuranFromTxs = matchingIuranTxs.reduce((sum, t) => sum + t.amount, 0);
-
-    if (sumIuranFromTxs > 0) {
-      const isAdvance = sumIuranFromTxs > nominal;
-      const txPaidMonths = Math.max(1, Math.round(sumIuranFromTxs / nominal));
-      const txCoveredMonths = isAdvance ? getSubsequentMonthLabels(periodLabel, txPaidMonths) : [periodLabel];
-      return {
-        status: isAdvance ? ('Bayar Lebih' as const) : ('Lunas' as const),
-        amount: sumIuranFromTxs,
-        isAdvanceSubsequentMonth: false,
-        label: isAdvance ? `Bayar Lebih (${txPaidMonths} Bln)` : 'Lunas',
-        badgeClass: isAdvance
-          ? 'bg-sky-600 text-white border border-sky-500 font-bold shadow-xs'
-          : 'bg-emerald-600 text-white border border-emerald-500 font-bold shadow-xs',
-        paidDate: matchingIuranTxs[0].date,
-        note: isAdvance
-          ? `Tercakup: ${txCoveredMonths.join(', ')} (Total iuran ${formatRupiah(sumIuranFromTxs)} masuk di bulan ini)`
-          : undefined,
-        basePaymentMonth: periodLabel,
-        paidMonthsCount: txPaidMonths,
-        coveredMonths: txCoveredMonths,
-        lastCoveredMonth: txCoveredMonths[txCoveredMonths.length - 1] || periodLabel,
-      };
-    }
-
-    // 2b. Cek terlebih dahulu apakah periode ini merupakan bulan lanjutan dari pembayaran di muka (>1 bulan) dari bulan sebelumnya (< targetKey)
-    const houseBasePeriod = house.duesMonthNote || defaultMonthLabel;
-    const baseKey = parseIndonesianMonthYearToKey(houseBasePeriod);
-    const isPaidState = house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih';
-    const paidMonths = house.duesPaidMonths || (house.duesStatus === 'Bayar Lebih' ? 2 : isPaidState ? 1 : 0);
-    const coveredMonths = isPaidState
-      ? getSubsequentMonthLabels(houseBasePeriod, Math.max(1, paidMonths))
-      : [];
-
-    const explicitNoteMonths = (house.duesMonthNote || '').split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
-    const isExplicitSubsequent =
-      isPaidState &&
-      explicitNoteMonths.length > 1 &&
-      explicitNoteMonths
-        .slice(1)
-        .some(
-          (m) =>
-            m.toLowerCase() === periodLabel.toLowerCase() ||
-            (targetKey && parseIndonesianMonthYearToKey(m) === targetKey)
-        );
-
-    const isCoveredByAdvance =
-      isExplicitSubsequent ||
-      (isPaidState &&
-        (paidMonths > 1 || (house.duesMonthNote && isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel))) &&
-        (
-          (baseKey && targetKey > baseKey && coveredMonths.some((m) => parseIndonesianMonthYearToKey(m) === targetKey)) ||
-          Boolean(house.duesMonthNote && isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel) && baseKey && targetKey > baseKey)
-        ));
-
-    // Cari juga di Buku Kas apakah ada transaksi advance di bulan sebelumnya yang mencakup bulan ini
-    const priorAdvanceTx = transactions.find((t) => {
-      if (t.type !== 'masuk' || !isPureIuranTx(t) || !blockRegex.test(t.description)) return false;
-      const txMonthKey = getMonthKeyFromDate(t.date);
-      if (!txMonthKey || txMonthKey >= targetKey) return false;
-      const desc = t.description.toLowerCase();
-      const monthParts = targetKey.split('-');
-      const monthName = (INDONESIAN_MONTHS[parseInt(monthParts[1], 10) - 1] || '').toLowerCase();
-      const matchMonths = desc.match(/(\d+)\s*bulan/i);
-      const mCount = matchMonths ? parseInt(matchMonths[1], 10) : nominal > 0 ? Math.floor(t.amount / nominal) : 1;
-      if (mCount > 1) {
-        const cLabels = getSubsequentMonthLabels(formatMonthYearFromKey(txMonthKey), mCount);
-        if (cLabels.some((l) => parseIndonesianMonthYearToKey(l) === targetKey)) return true;
-      }
-      return (
-        desc.includes(monthName) ||
-        desc.includes(targetKey) ||
-        (desc.includes('lebih dari 1 bulan') && t.amount >= nominal * 2)
+  // Status computation for any given house in any given period (100% unified with computeOverallKKRecapList)
+  const getHouseStatusForPeriod = useCallback(
+    (house: ResidentHouse, periodLabel: string) => {
+      return getHouseStatusForPeriodHelper(
+        house,
+        periodLabel,
+        config,
+        transactions,
+        residents,
+        defaultMonthLabel
       );
-    });
+    },
+    [config, transactions, residents, defaultMonthLabel]
+  );
 
-    // Cek riwayat periodHistory bulan sebelumnya yang bayar lebih
-    let histAdvanceMonth: string | null = null;
-    if (!isCoveredByAdvance && !priorAdvanceTx && house.periodHistory) {
-      for (const [histPeriodKey, histVal] of Object.entries(house.periodHistory)) {
-        const normKey = parseIndonesianMonthYearToKey(histPeriodKey) || histPeriodKey;
-        if (
-          normKey < targetKey &&
-          (histVal.duesStatus === 'Bayar Lebih' ||
-            (histVal.paidAmount && nominal > 0 && histVal.paidAmount >= nominal * 2))
-        ) {
-          const mCount =
-            histVal.paidAmount && nominal > 0
-              ? Math.max(2, Math.floor(histVal.paidAmount / (histVal.customDuesAmount || nominal)))
-              : 2;
-          const cLabels = getSubsequentMonthLabels(formatMonthYearFromKey(normKey), mCount);
-          if (cLabels.some((l) => parseIndonesianMonthYearToKey(l) === targetKey)) {
-            histAdvanceMonth = formatMonthYearFromKey(normKey);
-            break;
-          }
-        }
-      }
-    }
-
-    if (isCoveredByAdvance || Boolean(priorAdvanceTx) || Boolean(histAdvanceMonth)) {
-      const originMonth = priorAdvanceTx
-        ? formatMonthYearFromDate(priorAdvanceTx.date) || formatMonthYearFromKey(getMonthKeyFromDate(priorAdvanceTx.date))
-        : histAdvanceMonth || houseBasePeriod;
-      const effectivePaidMonths = paidMonths > 1 ? paidMonths : priorAdvanceTx ? Math.round(priorAdvanceTx.amount / nominal) : 2;
-      const effectiveCovered = coveredMonths.length > 0 ? coveredMonths : getSubsequentMonthLabels(originMonth, effectivePaidMonths);
-      return {
-        status: 'Lunas' as const,
-        amount: 0,
-        isAdvanceSubsequentMonth: true,
-        label: `Lunas Bulan ${originMonth}`,
-        badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold shadow-xs',
-        paidDate: house.duesPaidDate || priorAdvanceTx?.date,
-        note: `(Bayar >1 Bulan)`,
-        basePaymentMonth: originMonth,
-        paidMonthsCount: effectivePaidMonths,
-        coveredMonths: effectiveCovered,
-        lastCoveredMonth: effectiveCovered[effectiveCovered.length - 1] || originMonth,
-      };
-    }
-
-    // 2c. Cek snapshot eksplisit di periodHistory untuk periode ini
-    const periodSnapshot = house.periodHistory?.[targetKey] || (targetKey ? house.periodHistory?.[periodLabel] : undefined);
-    if (periodSnapshot) {
-      const snapNominal = periodSnapshot.customDuesAmount ?? nominal;
-      if (periodSnapshot.occupancy === 'Kosong' || periodSnapshot.duesStatus === 'Kosong' || isPeriodVacant) {
-        if (periodSnapshot.duesStatus === 'Lunas' && (periodSnapshot.paidAmount || 0) > 0) {
-          return {
-            status: 'Lunas' as const,
-            amount: periodSnapshot.paidAmount || 0,
-            isAdvanceSubsequentMonth: false,
-            label: 'Lunas (Kosong)',
-            badgeClass: 'bg-emerald-600 text-white border border-emerald-500 font-bold shadow-xs',
-            paidDate: periodSnapshot.paidDate,
-            note: 'Iuran Sukarela (Rumah Kosong)',
-          };
-        }
-        return {
-          status: 'Kosong' as const,
-          amount: 0,
-          isAdvanceSubsequentMonth: false,
-          label: 'Bebas Iuran',
-          badgeClass: 'bg-black text-white border border-neutral-700 font-semibold',
-          paidDate: undefined,
-          note: 'Rumah Kosong (Tidak Wajib)',
-        };
-      }
-      if (periodSnapshot.duesStatus === 'Lunas' || periodSnapshot.duesStatus === 'Bayar Lebih') {
-        const isAdv = periodSnapshot.duesStatus === 'Bayar Lebih';
-        const paidVal = periodSnapshot.paidAmount !== undefined ? periodSnapshot.paidAmount : snapNominal;
-        return {
-          status: periodSnapshot.duesStatus,
-          amount: paidVal,
-          isAdvanceSubsequentMonth: false,
-          label: isAdv ? 'Bayar Lebih' : 'Lunas',
-          badgeClass: isAdv
-            ? 'bg-sky-600 text-white border border-sky-500 font-bold shadow-xs'
-            : 'bg-emerald-600 text-white border border-emerald-500 font-bold shadow-xs',
-          paidDate: periodSnapshot.paidDate,
-          basePaymentMonth: periodLabel,
-        };
-      }
-      if (periodSnapshot.duesStatus === 'Belum Bayar') {
-        const paidPart = periodSnapshot.paidAmount || 0;
-        return {
-          status: 'Belum Bayar' as const,
-          amount: paidPart,
-          isAdvanceSubsequentMonth: false,
-          label: paidPart > 0 ? `Cicil ${formatRupiah(paidPart)}` : 'Belum Bayar',
-          badgeClass: 'bg-rose-100 text-rose-800 border border-rose-200 font-bold',
-          note: paidPart > 0 ? `Sisa ${formatRupiah(Math.max(0, snapNominal - paidPart))}` : 'Belum Bayar',
-        };
-      }
-    }
-
-    // 4. Jika periode cocok dengan inputan dasar rumah (base month) dan status Lunas / Bayar Lebih
-    const isBaseMatch = (baseKey && targetKey === baseKey) || periodLabel === houseBasePeriod;
-    if (isBaseMatch && isPaidState) {
-      const isAdvance = paidMonths > 1 || house.duesStatus === 'Bayar Lebih';
-      const totalDuesInBase = isAdvance ? nominal * paidMonths : nominal;
-      return {
-        status: isAdvance ? ('Bayar Lebih' as const) : ('Lunas' as const),
-        amount: totalDuesInBase,
-        isAdvanceSubsequentMonth: false,
-        label: isAdvance ? `Bayar Lebih (${paidMonths} Bln)` : 'Lunas',
-        badgeClass: isAdvance
-          ? 'bg-sky-600 text-white border border-sky-500 font-bold shadow-xs'
-          : 'bg-emerald-600 text-white border border-emerald-500 font-bold shadow-xs',
-        paidDate: house.duesPaidDate,
-        note: isAdvance
-          ? `Tercakup: ${coveredMonths.join(', ')} (Total iuran ${formatRupiah(totalDuesInBase)} masuk di bulan ini)`
-          : undefined,
-        basePaymentMonth: houseBasePeriod,
-        paidMonthsCount: paidMonths,
-        coveredMonths: coveredMonths,
-        lastCoveredMonth: coveredMonths[coveredMonths.length - 1] || houseBasePeriod,
-      };
-    }
-
-    // 5. Belum Ditempati (jika belum membayar, tampilkan Belum Bayar)
-    const periodOccupancy = getHouseOccupancyForPeriod(house, periodLabel, transactions);
-    if (periodOccupancy === 'Belum Ditempati') {
-      return {
-        status: 'Belum Bayar' as const,
-        amount: 0,
-        isAdvanceSubsequentMonth: false,
-        label: 'Belum Bayar',
-        badgeClass: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold shadow-xs',
-        paidDate: undefined,
-        note: 'Rumah Belum Ditempati (Belum Bayar)',
-      };
-    }
-
-    // 6. Bulan berjalan aktif jika periodLabel cocok
-    if (periodLabel === defaultMonthLabel || targetKey === currentKey) {
-      if (house.occupancy === 'Kosong' || house.duesStatus === 'Kosong' || isPeriodVacant) {
-        return {
-          status: 'Kosong' as const,
-          amount: 0,
-          isAdvanceSubsequentMonth: false,
-          label: 'Bebas Iuran',
-          badgeClass: 'bg-black text-white border border-neutral-700 font-semibold',
-          paidDate: undefined,
-          note: 'Rumah Kosong (Tidak Wajib)',
-        };
-      }
-      if (house.duesStatus === 'Lunas' || house.duesStatus === 'Bayar Lebih') {
-        const isAdvance = house.duesStatus === 'Bayar Lebih';
-        const advMonths = Math.max(2, house.duesPaidMonths || 2);
-        const advCovered = getSubsequentMonthLabels(defaultMonthLabel, advMonths);
-        return {
-          status: house.duesStatus,
-          amount: isAdvance ? nominal * advMonths : nominal,
-          isAdvanceSubsequentMonth: false,
-          label: isAdvance ? `Bayar Lebih (${advMonths} Bln)` : 'Lunas',
-          badgeClass: isAdvance
-            ? 'bg-sky-600 text-white border border-sky-500 font-bold shadow-xs'
-            : 'bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold',
-          paidDate: house.duesPaidDate,
-          note: isAdvance
-            ? `Tercakup: ${advCovered.join(', ')} (Total iuran ${formatRupiah(nominal * advMonths)} masuk di bulan ini)`
-            : undefined,
-          basePaymentMonth: defaultMonthLabel,
-          paidMonthsCount: advMonths,
-          coveredMonths: advCovered,
-          lastCoveredMonth: advCovered[advCovered.length - 1] || defaultMonthLabel,
-        };
-      }
-      const paidPart = house.duesPaidAmount || 0;
-      return {
-        status: 'Belum Bayar' as const,
-        amount: paidPart,
-        isAdvanceSubsequentMonth: false,
-        label: paidPart > 0 ? `Cicil ${formatRupiah(paidPart)}` : 'Belum Bayar',
-        badgeClass: 'bg-rose-100 text-rose-800 border border-rose-200 font-bold',
-        note: paidPart > 0 ? `Sisa ${formatRupiah(Math.max(0, nominal - paidPart))}` : 'Belum Bayar',
-      };
-    }
-
-    // 7. Bulan lampau (targetKey < currentKey)
-    if (targetKey < currentKey) {
-      const periodMonthLower = (periodLabel.split(' ')[0] || '').toLowerCase();
-      let settlementMonth: string | null = null;
-
-      // Cek transaksi pelunasan eksplisit di Buku Kas pada bulan kemudian
-      const explicitTx = transactions.find((t) => {
-        if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
-        const txKey = getMonthKeyFromDate(t.date);
-        if (!txKey || txKey <= targetKey) return false;
-        const desc = t.description.toLowerCase();
-        return (
-          desc.includes(periodMonthLower) ||
-          desc.includes(periodLabel.toLowerCase()) ||
-          desc.includes(targetKey)
-        );
-      });
-      if (explicitTx) {
-        settlementMonth =
-          formatMonthYearFromDate(explicitTx.date) ||
-          formatMonthYearFromKey(getMonthKeyFromDate(explicitTx.date));
-      }
-
-      if (!settlementMonth) {
-        const laterTungTxs = transactions
-          .filter((t) => {
-            if (t.type !== 'masuk' || !blockRegex.test(t.description)) return false;
-            const txKey = getMonthKeyFromDate(t.date);
-            if (!txKey || txKey <= targetKey) return false;
-            return isTunggakanTx(t);
-          })
-          .sort((a, b) => a.date.localeCompare(b.date));
-        if (laterTungTxs.length > 0) {
-          settlementMonth =
-            formatMonthYearFromDate(laterTungTxs[0].date) ||
-            formatMonthYearFromKey(getMonthKeyFromDate(laterTungTxs[0].date));
-        }
-      }
-
-      if (!settlementMonth && house.previousArrearsNote) {
-        const note = house.previousArrearsNote.toLowerCase();
-        const match = note.match(/lunas\s+(?:di\s+|pada\s+|bulan\s+)?([a-z]+(?:\s+\d{4})?)/i);
-        if (match && match[1]) {
-          const parsed = match[1].trim();
-          settlementMonth = parsed.includes('202') ? parsed : `${parsed} 2026`;
-        }
-      }
-
-      if (settlementMonth) {
-        return {
-          status: 'Lunas' as const,
-          amount: 0,
-          isAdvanceSubsequentMonth: false,
-          label: `Lunas Bulan ${settlementMonth}`,
-          badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold shadow-xs',
-          paidDate: undefined,
-          note: `Tunggakan dilunasi pada bulan ${settlementMonth}`,
-        };
-      }
-
-      return {
-        status: 'Belum Bayar' as const,
-        amount: 0,
-        isAdvanceSubsequentMonth: false,
-        label: 'Tertunggak',
-        badgeClass: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold',
-        note: house.previousArrearsNote || 'Tertunggak',
-      };
-    }
-
-    // 8. Bulan masa depan
-    return {
-      status: 'Belum Bayar' as const,
-      amount: 0,
-      isAdvanceSubsequentMonth: false,
-      label: 'Belum Masuk Periode',
-      badgeClass: 'bg-slate-100 text-slate-500 border border-slate-200',
-    };
-  }, [defaultMonthLabel, transactions, config.duesAmountPerMonth]);
-
-  // Helper to compute Baksos attendance, fine payment, and unpaid fines for any house and period
+  // Helper to compute Baksos attendance, fine payment, and unpaid fines for any house and period (100% unified with computeOverallKKRecapList)
   const getHouseBaksosForPeriod = useCallback(
     (house: ResidentHouse, periodLabel: string) => {
-      const isPureKosong = house.occupancy === 'Kosong' || isHouseVacant(house);
-      const isUnoccupied = house.occupancy === 'Belum Ditempati';
-      const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
-      const targetKey = periodLabel !== 'semua' ? parseIndonesianMonthYearToKey(periodLabel) : null;
-      const pMonthName = (periodLabel || '').split(' ')[0]?.toLowerCase();
-
-      const agendas = baksosAgendas || [];
-
-      // Filter agendas matching this period
-      const matchingAgendas = agendas.filter((agenda) => {
-        if (!targetKey) return true;
-        const agendaKey = getMonthKeyFromDate(agenda.date);
-        if (agendaKey && agendaKey === targetKey) return true;
-        if (pMonthName && pMonthName.length > 2) {
-          const titleDesc = `${agenda.title || ''} ${agenda.description || ''} ${agenda.date || ''}`.toLowerCase();
-          if (titleDesc.includes(pMonthName)) return true;
-        }
-        return false;
-      });
-
-      // Matching baksos fine payment transactions in Kas Utama
-      const baksosTxs = transactions.filter((t) => {
-        if (t.type !== 'masuk') return false;
-        const cat = t.category || '';
-        const desc = (t.description || '').toLowerCase();
-        const isBaksos = cat === 'Denda Baksos' || desc.includes('denda');
-        if (!isBaksos) return false;
-        if (!isTransactionForHouse(t, house)) return false;
-        if (targetKey) {
-          const tKey = getMonthKeyFromDate(t.date);
-          const descMatchesMonth = pMonthName && desc.includes(pMonthName);
-          return tKey === targetKey || descMatchesMonth;
-        }
-        return true;
-      });
-      const txPaidAmount = baksosTxs.reduce((sum, t) => sum + t.amount, 0);
-
-      // Paid baksos agendas
-      const paidAgendas = matchingAgendas.filter((agenda) => {
-        const isPaid = isBaksosFinePaidForHouse(agenda, house, residents);
-        const att = getBaksosAttendanceForHouse(agenda, house, residents);
-        return isPaid || (att === 'Tidak Hadir' && isPaid);
-      });
-      const agendaPaidAmount = paidAgendas.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
-
-      // Total denda baksos paid
-      const dendaPaid = isPureKosong || isUnoccupied ? 0 : Math.max(txPaidAmount, agendaPaidAmount);
-
-      // Unpaid baksos agendas
-      const unpaidAgendas = matchingAgendas.filter((agenda) => {
-        const isPaid = isBaksosFinePaidForHouse(agenda, house, residents);
-        if (isPaid) return false;
-        const att = getBaksosAttendanceForHouse(agenda, house, residents);
-        if (att) {
-          return att === 'Tidak Hadir';
-        }
-        if (house.occupancy === 'Kosong' || isPureKosong || isUnoccupied) return false;
-        if (isContract) return false;
-        return false;
-      });
-      const calculatedUnpaid = isPureKosong || isUnoccupied ? 0 : unpaidAgendas.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
-      const dendaUnpaid =
-        targetKey === null && house.customBaksosFineAmount !== undefined
-          ? house.customBaksosFineAmount
-          : calculatedUnpaid;
-
-      const hadHadir = matchingAgendas.some((a) => {
-        const att = getBaksosAttendanceForHouse(a, house, residents);
-        return att === 'Hadir';
-      });
-      const hadTidakWajib =
-        (matchingAgendas.length > 0 && isContract) ||
-        matchingAgendas.some((a) => {
-          const att = getBaksosAttendanceForHouse(a, house, residents);
-          return att === 'Tidak Wajib';
-        });
-
-      return {
-        matchingAgendasCount: matchingAgendas.length,
-        dendaPaid,
-        dendaUnpaid,
-        hadHadir,
-        hadTidakWajib,
-        isPureKosong: isPureKosong || isUnoccupied,
-        paidAgendas,
-        unpaidAgendas,
-      };
+      return getHouseBaksosForPeriodHelper(
+        house,
+        periodLabel,
+        baksosAgendas,
+        transactions,
+        residents
+      );
     },
     [baksosAgendas, transactions, residents]
   );
@@ -1926,6 +1480,201 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     };
   }, [overallKKRecapList]);
 
+  // Per-Period Summaries for Footer Columns & Detailed Breakdown
+  const periodSummaries = useMemo(() => {
+    const map: Record<
+      string,
+      {
+        periodName: string;
+        pKey: string;
+        sumIuran: number;
+        sumDenda: number;
+        sumTunggakan: number;
+        sumPemasukan: number;
+        paidHousesCount: number;
+        lunasCount: number;
+        vacantCount: number;
+        sumUnpaidDues: number;
+        unpaidHousesCount: number;
+        unpaidDuesList: Array<{
+          house: ResidentHouse;
+          headName: string;
+          blockNumber: string;
+          unpaidAmount: number;
+          isArrearSettledLater: boolean;
+          settlementMonth: string | null;
+        }>;
+        settledLaterCount: number;
+        stillUnpaidCount: number;
+        stillUnpaidAmount: number;
+        hasBaksos: boolean;
+        agendas: BaksosAgenda[];
+        baksosHadirCount: number;
+        baksosTidakHadirCount: number;
+        baksosTidakWajibCount: number;
+        baksosPaidDendaCount: number;
+        baksosUnpaidDendaCount: number;
+        sumDendaCollected: number;
+        sumUnpaidBaksosDenda: number;
+        unpaidBaksosList: Array<{
+          house: ResidentHouse;
+          headName: string;
+          blockNumber: string;
+          fineAmount: number;
+        }>;
+      }
+    > = {};
+
+    sortedPeriods.forEach((periodName) => {
+      const pKey = parseIndonesianMonthYearToKey(periodName) || '';
+
+      const matchingAgendas = (baksosAgendas || []).filter((a) => {
+        const mKey = getMonthKeyFromDate(a.date);
+        return mKey === pKey || formatMonthYearFromKey(mKey) === periodName;
+      });
+
+      let sumIuran = 0;
+      let sumDenda = 0;
+      let sumTunggakan = 0;
+      let sumPemasukan = 0;
+      let paidHousesCount = 0;
+      let lunasCount = 0;
+      let vacantCount = 0;
+
+      let sumUnpaidDues = 0;
+      const unpaidDuesList: Array<{
+        house: ResidentHouse;
+        headName: string;
+        blockNumber: string;
+        unpaidAmount: number;
+        isArrearSettledLater: boolean;
+        settlementMonth: string | null;
+      }> = [];
+      let settledLaterCount = 0;
+      let stillUnpaidCount = 0;
+      let stillUnpaidAmount = 0;
+
+      let baksosHadirCount = 0;
+      let baksosTidakHadirCount = 0;
+      let baksosTidakWajibCount = 0;
+      let baksosPaidDendaCount = 0;
+      let baksosUnpaidDendaCount = 0;
+      let sumDendaCollected = 0;
+      let sumUnpaidBaksosDenda = 0;
+      const unpaidBaksosList: Array<{
+        house: ResidentHouse;
+        headName: string;
+        blockNumber: string;
+        fineAmount: number;
+      }> = [];
+
+      filteredOverallKKList.forEach((row) => {
+        const pDet = row.periodsDetail.find((d) => d.periodLabel === periodName);
+        if (!pDet) return;
+
+        sumIuran += pDet.iuranPaid;
+        sumDenda += pDet.dendaPaid;
+        sumTunggakan += pDet.tunggakanPaid;
+        sumPemasukan += pDet.periodTotal;
+
+        if (pDet.periodTotal > 0) {
+          paidHousesCount++;
+        }
+        if (pDet.isLunasThisPeriod) {
+          lunasCount++;
+        }
+        if (pDet.isPeriodVacant || row.isPureKosong) {
+          vacantCount++;
+        }
+
+        // Tunggakan per periode
+        if (!row.isPureKosong && !pDet.isPeriodVacant) {
+          if (pDet.unpaidAmount > 0) {
+            sumUnpaidDues += pDet.unpaidAmount;
+            unpaidDuesList.push({
+              house: row.house,
+              headName: pDet.periodHeadName,
+              blockNumber: row.house.blockNumber,
+              unpaidAmount: pDet.unpaidAmount,
+              isArrearSettledLater: pDet.isArrearSettledLater,
+              settlementMonth: pDet.settlementMonth,
+            });
+            if (pDet.isArrearSettledLater) {
+              settledLaterCount++;
+            } else {
+              stillUnpaidCount++;
+              stillUnpaidAmount += pDet.unpaidAmount;
+            }
+          }
+        }
+
+        // Baksos per periode
+        if (matchingAgendas.length > 0) {
+          const agenda = matchingAgendas[0];
+          const isContract = row.house.ownership === 'Kontrak' || row.house.occupancy === 'Dikontrakan';
+          const attendance =
+            agenda.attendance?.[row.house.id] ||
+            (row.isPureKosong || pDet.isPeriodVacant ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
+          const finePaid = Boolean(agenda.finesPaid?.[row.house.id]) || pDet.dendaPaid > 0;
+
+          if (attendance === 'Hadir') {
+            baksosHadirCount++;
+          } else if (attendance === 'Tidak Hadir') {
+            baksosTidakHadirCount++;
+            if (finePaid || pDet.dendaPaid > 0) {
+              baksosPaidDendaCount++;
+              sumDendaCollected += pDet.dendaPaid > 0 ? pDet.dendaPaid : (agenda.fineAmount || 10000);
+            } else if (!row.isPureKosong && !pDet.isPeriodVacant) {
+              baksosUnpaidDendaCount++;
+              const fine = agenda.fineAmount || 10000;
+              sumUnpaidBaksosDenda += fine;
+              unpaidBaksosList.push({
+                house: row.house,
+                headName: pDet.periodHeadName,
+                blockNumber: row.house.blockNumber,
+                fineAmount: fine,
+              });
+            }
+          } else {
+            baksosTidakWajibCount++;
+          }
+        } else {
+          sumDendaCollected += pDet.dendaPaid;
+        }
+      });
+
+      map[periodName] = {
+        periodName,
+        pKey,
+        sumIuran,
+        sumDenda,
+        sumTunggakan,
+        sumPemasukan,
+        paidHousesCount,
+        lunasCount,
+        vacantCount,
+        sumUnpaidDues,
+        unpaidHousesCount: unpaidDuesList.length,
+        unpaidDuesList,
+        settledLaterCount,
+        stillUnpaidCount,
+        stillUnpaidAmount,
+        hasBaksos: matchingAgendas.length > 0,
+        agendas: matchingAgendas,
+        baksosHadirCount,
+        baksosTidakHadirCount,
+        baksosTidakWajibCount,
+        baksosPaidDendaCount,
+        baksosUnpaidDendaCount,
+        sumDendaCollected,
+        sumUnpaidBaksosDenda,
+        unpaidBaksosList,
+      };
+    });
+
+    return map;
+  }, [sortedPeriods, filteredOverallKKList, baksosAgendas]);
+
   // DATA STRUKTUR TABEL BUKU KAS YANG DISEMPURNAKAN & DISEDERHANAKAN:
   // 1. Sisa saldo bulan sebelumnya
   // 1. Sisa saldo bulan sebelumnya
@@ -2293,7 +2042,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
       if (targetPeriod === 'semua') return true;
 
-      return (targetKey && mKey === targetKey) || descLower.includes(targetPeriodLower);
+      if (descLower.includes(targetPeriodLower)) return true;
+      if (targetKey && mKey === targetKey) return true;
+      if (targetKey) {
+        const [yr, mo] = targetKey.split('-');
+        const monthName = (INDONESIAN_MONTHS[parseInt(mo, 10) - 1] || '').toLowerCase();
+        if (descLower.includes(monthName) && descLower.includes(yr)) return true;
+      }
+
+      return false;
     });
   };
 
@@ -2322,7 +2079,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       if (targetPeriod === 'semua') return true;
 
       const mKey = getMonthKeyFromDate(tx.date);
-      return (targetKey && mKey === targetKey) || descLower.includes(targetPeriodLower);
+      if (descLower.includes(targetPeriodLower)) return true;
+      if (targetKey && mKey === targetKey) return true;
+      if (targetKey) {
+        const [yr, mo] = targetKey.split('-');
+        const monthName = (INDONESIAN_MONTHS[parseInt(mo, 10) - 1] || '').toLowerCase();
+        if (descLower.includes(monthName) && descLower.includes(yr)) return true;
+      }
+      return false;
     });
   };
 
@@ -2368,6 +2132,26 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     if (onResetSingleHousePaymentAndSync) {
       onResetSingleHousePaymentAndSync(house.id, period, true);
     } else {
+      const periodKey = parseIndonesianMonthYearToKey(period);
+      const updatedPeriodHist = { ...(house.periodHistory || {}) };
+      if (periodKey) {
+        updatedPeriodHist[periodKey] = {
+          ...(updatedPeriodHist[periodKey] || {}),
+          duesStatus: 'Belum Bayar',
+          paidAmount: 0,
+          paidDate: '',
+          updatedAt: new Date().toISOString(),
+        };
+      }
+      if (period) {
+        updatedPeriodHist[period] = {
+          ...(updatedPeriodHist[period] || {}),
+          duesStatus: 'Belum Bayar',
+          paidAmount: 0,
+          paidDate: '',
+          updatedAt: new Date().toISOString(),
+        };
+      }
       onUpdateResident({
         ...house,
         duesStatus: 'Belum Bayar',
@@ -2375,6 +2159,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         duesPaidMonths: 0,
         duesPrepaidBalance: 0,
         duesPaidDate: '',
+        periodHistory: updatedPeriodHist,
       });
       removeTransactionsForHousePeriod(house, period);
     }
@@ -2575,12 +2360,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     setEditingHouseDues(house);
     setEditingHouseDuesTab(focusTab);
 
-    // KUNCI: Otomatis aktifkan preserveExistingDues = true saat membuka tab baksos/tunggakan,
-    // ATAU bila KK ini memiliki iuran > 1 bulan dan tidak sedang secara eksplisit membuka tab 'iuran'
-    const shouldPreserve =
-      focusTab === 'baksos' ||
-      focusTab === 'tunggakan' ||
-      (hasAdvanceDues && focusTab !== 'iuran');
+    // KUNCI: Aktifkan preserveExistingDues = true HANYA jika membuka secara spesifik tab baksos atau tunggakan
+    const shouldPreserve = focusTab === 'baksos' || focusTab === 'tunggakan';
     setPreserveExistingDues(shouldPreserve);
 
     const activePeriodForModal = (selectedKKPeriod && selectedKKPeriod !== 'semua' ? selectedKKPeriod : defaultMonthLabel).trim();
@@ -2770,18 +2551,28 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     }
 
     // Tentukan main occupancy, customDuesAmount, dan duesStatus:
-    // Jika periode yang diedit adalah bulan lampau (kurang dari bulan aktif berjalan),
-    // pertahankan status utama saat ini agar data bulan berjalan tidak terganggu!
     const isPastPeriodEdit = Boolean(editPeriodKey && editPeriodKey < currentActiveKey);
+    const isEditingCurrentActive = !isPastPeriodEdit || activeEditPeriod === defaultMonthLabel;
+
+    let finalMonthNote = isPastPeriodEdit ? editingHouseDues.duesMonthNote : monthLabel;
+    if (houseDuesStatusInput === 'Belum Bayar' && editingHouseDues.duesMonthNote) {
+      const parts = editingHouseDues.duesMonthNote.split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
+      const filtered = parts.filter((p) => {
+        const pKey = parseIndonesianMonthYearToKey(p);
+        return p.toLowerCase() !== activeEditPeriod.toLowerCase() && (!editPeriodKey || pKey !== editPeriodKey);
+      });
+      finalMonthNote = filtered.join(', ');
+    }
+
     const effectiveMainOccupancy = isPastPeriodEdit
       ? editingHouseDues.occupancy
       : houseDuesOccupancyInput;
-    const effectiveMainCustomDuesAmount = isPastPeriodEdit
-      ? editingHouseDues.customDuesAmount
-      : amountNum;
-    const effectiveMainDuesStatus = isPastPeriodEdit
-      ? editingHouseDues.duesStatus
-      : houseDuesStatusInput;
+    const effectiveMainCustomDuesAmount = isEditingCurrentActive
+      ? amountNum
+      : editingHouseDues.customDuesAmount;
+    const effectiveMainDuesStatus = isEditingCurrentActive
+      ? houseDuesStatusInput
+      : (!finalMonthNote ? 'Belum Bayar' : editingHouseDues.duesStatus);
 
     const preservedHeadName = isPastPeriodEdit
       ? editingHouseDues.headName
@@ -2789,7 +2580,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       ? (editingHouseDues.headName || finalHeadName)
       : finalHeadName;
 
-    // PENTING: Jika preserveExistingDues aktif, pertahankan status dan riwayat iuran KK (>1 bulan) secara utuh!
+    // PENTING: Simpan hasil edit status, tanggal, dan nominal iuran
     const updatedResident: ResidentHouse = preserveExistingDues
       ? {
           ...editingHouseDues,
@@ -2812,11 +2603,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           duesHeadNameOverride: isPastPeriodEdit ? editingHouseDues.duesHeadNameOverride : finalHeadName,
           customDuesAmount: effectiveMainCustomDuesAmount,
           duesStatus: effectiveMainDuesStatus,
-          duesPaidAmount: isPastPeriodEdit ? editingHouseDues.duesPaidAmount : (isNowPaid ? 0 : partialNum),
-          duesPaidMonths: isPastPeriodEdit ? editingHouseDues.duesPaidMonths : monthsCount,
-          duesPrepaidBalance: isPastPeriodEdit ? editingHouseDues.duesPrepaidBalance : prepaidBalance,
-          duesPaidDate: isPastPeriodEdit ? editingHouseDues.duesPaidDate : (isNowPaid || partialNum > 0 ? paidDateVal : ''),
-          duesMonthNote: isPastPeriodEdit ? editingHouseDues.duesMonthNote : monthLabel,
+          duesPaidAmount: isEditingCurrentActive ? (isNowPaid ? 0 : partialNum) : editingHouseDues.duesPaidAmount,
+          duesPaidMonths: isEditingCurrentActive ? monthsCount : editingHouseDues.duesPaidMonths,
+          duesPrepaidBalance: isEditingCurrentActive ? prepaidBalance : editingHouseDues.duesPrepaidBalance,
+          duesPaidDate: isEditingCurrentActive ? (isNowPaid || partialNum > 0 ? paidDateVal : '') : editingHouseDues.duesPaidDate,
+          duesMonthNote: finalMonthNote,
           previousArrears: newPrevArrears,
           previousArrearsNote: isVacant ? '' : houseDuesPrevNoteInput.trim(),
         };
@@ -2835,8 +2626,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const oldTxsFromSelectedPeriod = selectedKKPeriod && selectedKKPeriod !== 'semua' && selectedKKPeriod !== monthLabel
         ? findTransactionsForHousePeriod(editingHouseDues, selectedKKPeriod)
         : [];
+      const oldTxsFromActiveEdit = activeEditPeriod && activeEditPeriod !== monthLabel && activeEditPeriod !== selectedKKPeriod
+        ? findTransactionsForHousePeriod(editingHouseDues, activeEditPeriod)
+        : [];
       const oldMatchingMap = new Map<string, CashTransaction>();
-      [...oldTxsFromMonthLabel, ...oldTxsFromSelectedPeriod].forEach((t) => oldMatchingMap.set(t.id, t));
+      [...oldTxsFromMonthLabel, ...oldTxsFromSelectedPeriod, ...oldTxsFromActiveEdit].forEach((t) => oldMatchingMap.set(t.id, t));
       oldTxIdsToDelete = Array.from(oldMatchingMap.keys());
     }
 
@@ -3234,11 +3028,27 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         `• Total Pembayaran Tunggakan: ${formatRupiah(overallTotals.sumTunggakan)}\n` +
         `👉 *TOTAL KESELURUHAN KAS MASUK PER KK: ${formatRupiah(overallTotals.sumGrandTotal)}*\n` +
         `• Total Sisa Tunggakan Belum Lunas: ${formatRupiah(overallTotals.sumRemainingArrears)}\n\n` +
-        `*2. TINGKAT KELUNASAN WARGA:*\n` +
+        `*2. RINCIAN PER PERIODE BULAN (PEMASUKAN, TUNGGAKAN & BAKSOS):*\n` +
+        sortedPeriods
+          .map((p) => {
+            const s = periodSummaries[p];
+            if (!s) return '';
+            const baksosTxt = s.hasBaksos
+              ? `Baksos (${s.baksosHadirCount} Hadir, ${s.baksosTidakHadirCount} Absen, Denda: +${formatRupiah(s.sumDendaCollected)})`
+              : 'Baksos: Nihil Agenda';
+            const tungTxt =
+              s.unpaidHousesCount > 0
+                ? `Tunggakan: ${formatRupiah(s.sumUnpaidDues)} (${s.unpaidHousesCount} KK)`
+                : 'Tunggakan: Nihil (Lunas 100%)';
+            return `• *${p}*: Kas Masuk +${formatRupiah(s.sumPemasukan)} | ${tungTxt} | ${baksosTxt}`;
+          })
+          .filter(Boolean)
+          .join('\n') +
+        `\n\n*3. TINGKAT KELUNASAN WARGA:*\n` +
         `• Lunas Semua Periode: ${overallStats.lunasCount} KK (${overallStats.pctLunas}%)\n` +
         `• Ada Tunggakan: ${overallStats.tunggakanCount} KK\n` +
         `• Total Rumah Berpenghuni: ${occupied.length} KK\n\n` +
-        `*3. DAFTAR KELUNASAN WARGA (RINGKASAN):*\n` +
+        `*4. DAFTAR KELUNASAN WARGA (RINGKASAN):*\n` +
         overallKKRecapList
           .filter((r) => !r.isPureKosong)
           .map(
@@ -5388,10 +5198,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       (Bayar &gt;1 Bulan)
                                     </span>
                                   </div>
-                                ) : pDet.statusInfo?.status === 'Bayar Lebih' ? (
+                                ) : (pDet.statusInfo?.status === 'Bayar Lebih' || pDet.statusBadge?.includes('Bayar Lebih')) ? (
                                   <div className="flex flex-col items-center">
                                     <span className="px-1.5 py-0.5 rounded-md bg-sky-100 text-sky-950 text-[10px] font-extrabold border border-sky-400 whitespace-nowrap shadow-2xs">
-                                      Bayar Lebih ({pDet.statusInfo.paidMonthsCount || 2} Bln)
+                                      {pDet.statusBadge || `Bayar Lebih (${pDet.statusInfo?.paidMonthsCount || 2} Bln)`}
                                     </span>
                                     <span className="font-bold text-sky-900 text-[11px] mt-0.5">
                                       +{formatRupiah(pDet.iuranPaid)}
@@ -5421,11 +5231,29 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                         +Tung {formatRupiah(pDet.tunggakanPaid)}
                                       </span>
                                     )}
+                                    {pDet.baksosFineUnpaid && pDet.baksosFineUnpaid > 0 ? (
+                                      <span
+                                        className="text-[8px] text-rose-700 font-bold bg-rose-50 px-1 rounded border border-rose-200 mt-0.5"
+                                        title={`Absen Baksos: Sisa Denda ${formatRupiah(pDet.baksosFineUnpaid)}`}
+                                      >
+                                        Absen Baksos ({formatRupiah(pDet.baksosFineUnpaid)})
+                                      </span>
+                                    ) : null}
                                   </div>
                                 ) : (
-                                  <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[10px] font-bold border border-rose-300 shadow-2xs">
-                                    Belum Bayar
-                                  </span>
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <span className="px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-800 text-[10px] font-bold border border-rose-300 shadow-2xs">
+                                      Belum Bayar
+                                    </span>
+                                    {pDet.baksosFineUnpaid && pDet.baksosFineUnpaid > 0 ? (
+                                      <span
+                                        className="text-[8px] text-rose-700 font-bold bg-rose-50 px-1 rounded border border-rose-200"
+                                        title={`Absen Baksos: Denda ${formatRupiah(pDet.baksosFineUnpaid)}`}
+                                      >
+                                        +Denda Baksos {formatRupiah(pDet.baksosFineUnpaid)}
+                                      </span>
+                                    ) : null}
+                                  </div>
                                 )}
                               </td>
                             );
@@ -5511,60 +5339,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     })
                   )}
                 </tbody>
-
-                {/* FOOTER TABEL: TOTAL AKUMULASI GANG MANDOR */}
-                {filteredOverallKKList.length > 0 && (
-                  <tfoot>
-                    <tr className="bg-gradient-to-r from-slate-900 via-purple-950 to-indigo-950 text-white font-extrabold border-t-2 border-slate-300">
-                      <td colSpan={2 + sortedPeriods.length} className="py-3 px-4 text-right text-xs uppercase tracking-wider text-amber-200 border border-slate-300/70">
-                        TOTAL AKUMULASI SISA TUNGGAKAN ({filteredOverallKKList.length} KK):
-                      </td>
-                      <td className="py-3 px-3 text-right font-mono text-xs tabular-nums text-rose-300 border border-slate-300/70">
-                        {formatRupiah(overallTotals.sumRemainingArrears)}
-                      </td>
-                      <td className="py-3 px-3 text-center font-sans text-xs text-purple-200 border border-slate-300/70">
-                        -
-                      </td>
-                    </tr>
-                  </tfoot>
-                )}
               </table>
             </div>
 
-            {/* STATUS PENCOCOKAN AKUMULASI SELURUH PERIODE */}
-            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-purple-50 via-indigo-50/80 to-purple-50 border-2 border-purple-300 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                  <CheckCircle2 className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <div className="font-extrabold text-purple-950 flex items-center gap-2 text-sm">
-                    <span>Rekap Keseluruhan Kas Per KK: 100% Terintegrasi Seluruh Periode</span>
-                    <span className="px-2 py-0.5 rounded-md bg-purple-600 text-white text-[10px] font-black uppercase tracking-wider">
-                      Semua Periode ({sortedPeriods.length})
-                    </span>
-                  </div>
-                  <div className="text-slate-600 text-[11px] mt-0.5 flex items-center gap-2 flex-wrap">
-                    <span>Periode: <strong className="text-slate-900">{sortedPeriods.join(' • ')}</strong></span>
-                    <span>•</span>
-                    <span>Iuran Rutin: <strong className="text-emerald-800">{formatRupiah(overallTotals.sumIuran)}</strong></span>
-                    <span>•</span>
-                    <span>Denda Baksos: <strong className="text-cyan-800">{formatRupiah(overallTotals.sumDenda)}</strong></span>
-                    <span>•</span>
-                    <span>Tunggakan Bayar: <strong className="text-amber-800">{formatRupiah(overallTotals.sumTunggakan)}</strong></span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 shrink-0 bg-white/90 px-3.5 py-1.5 rounded-xl border border-purple-200">
-                <div className="text-right">
-                  <div className="text-[10px] text-slate-500 font-semibold uppercase">Total Seluruh Kas Masuk</div>
-                  <div className="font-mono text-base font-black text-purple-900">
-                    +{formatRupiah(overallTotals.sumGrandTotal)}
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}
