@@ -373,6 +373,13 @@ export const ResidentSelfCheckBar: React.FC<ResidentSelfCheckBarProps> = ({
             <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
               <button
                 type="button"
+                onClick={() => onNavigateTab('rekap_total_kk')}
+                className="px-3 py-1.5 rounded-xl bg-purple-50 text-purple-800 hover:bg-purple-100 font-bold border border-purple-200 transition-colors cursor-pointer"
+              >
+                Lihat Rekap Keseluruhan Kas KK →
+              </button>
+              <button
+                type="button"
                 onClick={() => onNavigateTab('kas')}
                 className="px-3 py-1.5 rounded-xl bg-teal-50 text-teal-800 hover:bg-teal-100 font-bold border border-teal-200 transition-colors cursor-pointer"
               >

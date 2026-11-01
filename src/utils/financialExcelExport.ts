@@ -576,6 +576,21 @@ export function exportFinancialReportToExcel({
           periodHeadName = 'Rumah Kosong';
         }
 
+        // Tunggakan
+        const tunggakanTxs = transactions.filter((t) => {
+          if (t.type !== 'masuk') return false;
+          const desc = (t.description || '').toLowerCase();
+          const cat = t.category || '';
+          const isTung = cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan') || desc.includes('bayar tunggakan');
+          return isTung && blockRegex.test(t.description) && getMonthKeyFromDate(t.date) === pKey;
+        });
+        const tunggakanPeriod = isPureKosong ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
+        totalTunggakanAll += tunggakanPeriod;
+
+        if (tunggakanPeriod > 0) {
+          isPeriodLunas = true;
+        }
+
         let periodStatusText = 'Belum Bayar';
         if (isPureKosong || isPeriodVacant) {
           periodStatusText = iuranPeriod > 0 ? `Lunas (Kosong +Rp ${iuranPeriod.toLocaleString('id-ID')})` : 'Bebas Iuran (Kosong)';
@@ -583,10 +598,12 @@ export function exportFinancialReportToExcel({
           periodStatusText = advancePaidMonth ? `Lunas Bulan ${advancePaidMonth} (Bayar >1 Bulan)` : 'Lunas (Bayar >1 Bulan)';
         } else if (settlementMonth) {
           periodStatusText = `Lunas Bulan ${settlementMonth}`;
+        } else if (tunggakanPeriod > 0 && iuranPeriod === 0) {
+          periodStatusText = `Lunas (Bayar Tunggakan +Rp ${tunggakanPeriod.toLocaleString('id-ID')})`;
         } else if (iuranPeriod > nominal && !isPureKosong) {
           periodStatusText = `Bayar Lebih (+Rp ${iuranPeriod.toLocaleString('id-ID')})`;
         } else if (isPeriodLunas) {
-          periodStatusText = `Lunas (+Rp ${iuranPeriod.toLocaleString('id-ID')})`;
+          periodStatusText = `Lunas (+Rp ${(iuranPeriod + tunggakanPeriod).toLocaleString('id-ID')})`;
         }
         periodStatusMap[`Periode ${pLabel}`] = `${periodHeadName} (${periodStatusText})`;
 
@@ -605,17 +622,6 @@ export function exportFinancialReportToExcel({
         }).reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
         const dendaPeriod = isPureKosong ? 0 : Math.max(baksosTxs.reduce((s, t) => s + t.amount, 0), agendaPaid);
         totalDendaAll += dendaPeriod;
-
-        // Tunggakan
-        const tunggakanTxs = transactions.filter((t) => {
-          if (t.type !== 'masuk') return false;
-          const desc = (t.description || '').toLowerCase();
-          const cat = t.category || '';
-          const isTung = cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan') || desc.includes('bayar tunggakan');
-          return isTung && blockRegex.test(t.description) && getMonthKeyFromDate(t.date) === pKey;
-        });
-        const tunggakanPeriod = isPureKosong ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
-        totalTunggakanAll += tunggakanPeriod;
       });
 
       const grandTotalAll = totalIuranAll + totalDendaAll + totalTunggakanAll;

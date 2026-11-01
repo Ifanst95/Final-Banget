@@ -1289,6 +1289,51 @@ export function findArrearSettlementForPeriod(
     }
   }
 
+  // 3. Cek apakah ada transaksi Pembayaran Tunggakan untuk KK ini di bulan kemudian (txKey > targetKey)
+  // yang melunasi tunggakan bulan ini
+  const tunggakanTx = transactions.find((t) => {
+    if (t.type !== 'masuk' || !isTunggakanTx(t)) return false;
+    if (!isTransactionForHouse(t, house)) return false;
+    const txKey = getMonthKeyFromDate(t.date);
+    return Boolean(txKey && txKey > targetKey);
+  });
+
+  if (tunggakanTx) {
+    const sMonth =
+      formatMonthYearFromDate(tunggakanTx.date) ||
+      formatMonthYearFromKey(getMonthKeyFromDate(tunggakanTx.date));
+    if (sMonth) {
+      return { settlementMonth: sMonth, paidDate: tunggakanTx.date };
+    }
+  }
+
+  // 4. Jika KK ini sudah tidak memiliki sisa tunggakan lalu (previousArrears === 0),
+  // dan di catatan sebelumnya (previousArrearsNote) tertera periode ini,
+  // cari transaksi pembayaran tunggakan atau pelunasan untuk menentukan bulan pelunasannya
+  if (
+    house.previousArrears === 0 &&
+    house.previousArrearsNote &&
+    (house.previousArrearsNote.toLowerCase().includes(periodMonthLower) ||
+      house.previousArrearsNote.toLowerCase().includes(periodLabel.toLowerCase()))
+  ) {
+    const anyTungTx = transactions.find((t) => {
+      if (t.type !== 'masuk' || !isTunggakanTx(t)) return false;
+      return isTransactionForHouse(t, house);
+    });
+    if (anyTungTx) {
+      const sMonth =
+        formatMonthYearFromDate(anyTungTx.date) ||
+        formatMonthYearFromKey(getMonthKeyFromDate(anyTungTx.date));
+      if (sMonth) {
+        return { settlementMonth: sMonth, paidDate: anyTungTx.date };
+      }
+    }
+    return {
+      settlementMonth: house.duesPaidDate ? formatMonthYearFromDate(house.duesPaidDate) : 'Pelunasan',
+      paidDate: house.duesPaidDate,
+    };
+  }
+
   return null;
 }
 
@@ -1472,6 +1517,27 @@ export function getHouseStatusForPeriod(
       paidMonthsCount: txPaidMonths,
       coveredMonths: txCoveredMonths,
       lastCoveredMonth: txCoveredMonths[txCoveredMonths.length - 1] || periodLabel,
+    };
+  }
+
+  // 3a. Cek apakah ada transaksi Pembayaran Tunggakan untuk rumah ini pada periode bulan ini
+  const matchingTunggakanTxs = transactions.filter((t) => {
+    if (t.type !== 'masuk' || !isTunggakanTx(t)) return false;
+    if (!isTransactionForHouse(t, house)) return false;
+    return getMonthKeyFromDate(t.date) === targetKey;
+  });
+  const sumTunggakanFromTxs = matchingTunggakanTxs.reduce((sum, t) => sum + t.amount, 0);
+
+  if (sumTunggakanFromTxs > 0 && sumIuranFromTxs === 0) {
+    return {
+      status: 'Lunas',
+      amount: sumTunggakanFromTxs,
+      isAdvanceSubsequentMonth: false,
+      label: 'Lunas (Bayar Tunggakan)',
+      badgeClass: 'bg-emerald-600 text-white border border-emerald-500 font-bold shadow-xs',
+      paidDate: matchingTunggakanTxs[0].date,
+      note: `Pelunasan tunggakan ${formatRupiah(sumTunggakanFromTxs)} di bulan ini`,
+      basePaymentMonth: periodLabel,
     };
   }
 
@@ -1993,6 +2059,8 @@ export function computeOverallKKRecapList(
       const settlementMonth = statusInfo.settlementMonth || null;
       const advancePaymentMonth = statusInfo.basePaymentMonth || null;
 
+      const hasTunggakanPaidThisPeriod = tunggakanPaid > 0;
+
       const isLunasThisPeriod =
         isPeriodVacant
           ? true
@@ -2000,12 +2068,13 @@ export function computeOverallKKRecapList(
             statusInfo.status === 'Bayar Lebih' ||
             isAdvanceSubsequent ||
             isArrearSettledLater ||
+            hasTunggakanPaidThisPeriod ||
             (iuranPaid >= periodNominal && periodNominal > 0);
 
       const unpaidAmount =
         isPeriodVacant || isLunasThisPeriod
           ? 0
-          : Math.max(0, periodNominal - iuranPaid);
+          : Math.max(0, periodNominal - (iuranPaid + tunggakanPaid));
 
       const statusBadge =
         isPeriodVacant
@@ -2018,6 +2087,8 @@ export function computeOverallKKRecapList(
           ? statusInfo.label || 'Bayar Lebih'
           : isArrearSettledLater && settlementMonth
           ? statusInfo.label || `Lunas Bulan ${settlementMonth}`
+          : hasTunggakanPaidThisPeriod && iuranPaid === 0
+          ? 'Lunas (Bayar Tunggakan)'
           : statusInfo.status === 'Lunas' || (iuranPaid >= periodNominal && periodNominal > 0)
           ? 'Lunas'
           : statusInfo.label || 'Belum Bayar';
