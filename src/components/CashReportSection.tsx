@@ -2051,7 +2051,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
     return transactions.filter((tx) => {
       if (tx.type !== 'masuk') return false;
-      if (!blockRegex.test(tx.description)) return false;
+      const matchesHouse = isTransactionForHouse(tx, house) || blockRegex.test(tx.description);
+      if (!matchesHouse) return false;
 
       const mKey = getMonthKeyFromDate(tx.date);
       const descLower = tx.description.toLowerCase();
@@ -2247,7 +2248,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
       const isCurrentActive = period === defaultMonthLabel || period === house.duesMonthNote;
 
-      onUpdateResident({
+      const updatedResident: ResidentHouse = {
         ...house,
         duesStatus: house.occupancy === 'Kosong' ? 'Kosong' : (isCurrentActive || !newMonthNote ? 'Belum Bayar' : house.duesStatus),
         duesPaidAmount: isCurrentActive || !newMonthNote ? 0 : house.duesPaidAmount,
@@ -2256,12 +2257,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         duesPaidDate: isCurrentActive || !newMonthNote ? '' : house.duesPaidDate,
         duesMonthNote: newMonthNote,
         periodHistory: updatedPeriodHist,
-      });
+      };
 
       // Hapus transaksi Iuran Warga terkait di Buku Kas
       const matchingIuranTxs = transactions.filter((tx) => {
         if (tx.type !== 'masuk') return false;
-        if (!blockRegex.test(tx.description)) return false;
+        const matchesHouse = isTransactionForHouse(tx, house) || blockRegex.test(tx.description);
+        if (!matchesHouse) return false;
         const cat = tx.category || '';
         const desc = (tx.description || '').toLowerCase();
         if (cat !== 'Iuran Warga' && !desc.includes('iuran')) return false;
@@ -2270,11 +2272,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         return desc.includes(period.toLowerCase()) || (periodKey && mKey === periodKey);
       });
 
-      if (matchingIuranTxs.length > 0) {
-        if (onDeleteTransactions) {
-          onDeleteTransactions(matchingIuranTxs.map((t) => t.id));
-        } else if (onDeleteTransaction) {
-          matchingIuranTxs.forEach((tx) => onDeleteTransaction(tx.id));
+      if (onSyncHouseDuesEditAndTransactions) {
+        onSyncHouseDuesEditAndTransactions(
+          updatedResident,
+          [],
+          matchingIuranTxs.map((t) => t.id)
+        );
+      } else {
+        onUpdateResident(updatedResident);
+        if (matchingIuranTxs.length > 0) {
+          if (onDeleteTransactions) {
+            onDeleteTransactions(matchingIuranTxs.map((t) => t.id));
+          } else if (onDeleteTransaction) {
+            matchingIuranTxs.forEach((tx) => onDeleteTransaction(tx.id));
+          }
         }
       }
     } else if (componentType === 'baksos') {
@@ -3097,7 +3108,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     setTxCategory(tx.category);
     setTxDescription(tx.description);
     setTxAmount(tx.amount);
-    setTxResidentId('');
+    const matchedResident = residents.find((r) => isTransactionForHouse(tx, r));
+    setTxResidentId(matchedResident ? matchedResident.id : '');
     setIsTxModalOpen(true);
   };
 
@@ -3126,11 +3138,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         description: txDescription,
         amount: finalAmount,
       });
+    }
 
-      // Sinkronkan ke KK jika memilih KK
-      if (txType === 'masuk' && txCategory === 'Iuran Warga' && txResidentId) {
-        const targetHouse = residents.find((r) => r.id === txResidentId);
-        if (targetHouse) {
+    // Sinkronkan ke Rekap Iuran Kas KK jika transaksi pemasukan terkait warga
+    if (txType === 'masuk') {
+      const targetHouse =
+        residents.find((r) => r.id === txResidentId) ||
+        residents.find((r) =>
+          isTransactionForHouse(
+            {
+              description: txDescription,
+            },
+            r
+          )
+        );
+
+      if (targetHouse) {
+        if (txCategory === 'Iuran Warga') {
           const isVacant =
             targetHouse.occupancy === 'Kosong' ||
             targetHouse.occupancy === 'Belum Ditempati' ||
@@ -3138,7 +3162,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           const nom = getHouseDuesNominal(targetHouse) || config.duesAmountPerMonth || 25000;
           const monthsCount = Math.max(1, txIuranMonths);
           const isAdvance = monthsCount > 1 || finalAmount > nom;
-          const coveredList = getSubsequentMonthLabels(txIuranStartMonth.trim() || defaultMonthLabel, monthsCount);
+          const startPeriod = txIuranStartMonth.trim() || defaultMonthLabel;
+          const coveredList = getSubsequentMonthLabels(startPeriod, monthsCount);
 
           if (onCreatePeriod && isAdvance) {
             coveredList.forEach((m) => {
@@ -3146,15 +3171,90 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             });
           }
 
+          const newPeriodHist = { ...(targetHouse.periodHistory || {}) };
+          coveredList.forEach((m) => {
+            const pKey = parseIndonesianMonthYearToKey(m);
+            if (pKey) {
+              newPeriodHist[pKey] = {
+                ...(newPeriodHist[pKey] || {}),
+                duesStatus: 'Lunas',
+                paidAmount: nom,
+                paidDate: txDate,
+                updatedAt: new Date().toISOString(),
+              };
+              newPeriodHist[m] = { ...newPeriodHist[pKey] };
+            }
+          });
+
+          const currentKey = parseIndonesianMonthYearToKey(defaultMonthLabel);
+          const isAffectingCurrent = coveredList.some(
+            (m) => parseIndonesianMonthYearToKey(m) === currentKey
+          );
+
           onUpdateResident({
             ...targetHouse,
             customDuesAmount: targetHouse.customDuesAmount || (isVacant ? nom : undefined),
-            duesStatus: isAdvance ? 'Bayar Lebih' : 'Lunas',
+            duesStatus: isAffectingCurrent
+              ? (isAdvance ? 'Bayar Lebih' : 'Lunas')
+              : targetHouse.duesStatus,
             duesPaidAmount: 0,
             duesPaidMonths: isAdvance ? monthsCount : 1,
             duesPrepaidBalance: isAdvance ? Math.max(0, finalAmount - nom) : 0,
             duesPaidDate: txDate,
-            duesMonthNote: isAdvance ? coveredList.join(', ') : (txIuranStartMonth.trim() || defaultMonthLabel),
+            duesMonthNote: isAdvance ? coveredList.join(', ') : startPeriod,
+            periodHistory: newPeriodHist,
+          });
+        } else if (txCategory === 'Denda Baksos') {
+          if (onMarkFinePaid && baksosAgendas && baksosAgendas.length > 0) {
+            const txPeriodKey = parseIndonesianMonthYearToKey(txDate);
+            const targetAgenda =
+              baksosAgendas.find(
+                (ag) =>
+                  parseIndonesianMonthYearToKey(ag.date) === txPeriodKey &&
+                  !isBaksosFinePaidForHouse(ag, targetHouse)
+              ) ||
+              baksosAgendas.find(
+                (ag) =>
+                  ag.attendance?.[targetHouse.id] === 'Tidak Hadir' &&
+                  !isBaksosFinePaidForHouse(ag, targetHouse)
+              ) ||
+              baksosAgendas[0];
+
+            if (targetAgenda) {
+              onMarkFinePaid(
+                targetAgenda.id,
+                targetHouse.id,
+                targetHouse.headName,
+                targetHouse.blockNumber
+              );
+            }
+          }
+          if ((targetHouse.previousBaksosArrears || 0) > 0) {
+            onUpdateResident({
+              ...targetHouse,
+              previousBaksosArrears: Math.max(
+                0,
+                (targetHouse.previousBaksosArrears || 0) - finalAmount
+              ),
+            });
+          }
+        } else if (txCategory === 'Pembayaran Tunggakan') {
+          const newPrevArrears = Math.max(0, (targetHouse.previousArrears || 0) - finalAmount);
+          const pKey = parseIndonesianMonthYearToKey(txDate);
+          const mLabel = formatMonthYearFromKey(pKey || '') || defaultMonthLabel;
+          const newPeriodHist = { ...(targetHouse.periodHistory || {}) };
+          if (pKey) {
+            newPeriodHist[pKey] = {
+              ...(newPeriodHist[pKey] || {}),
+              settlementMonth: mLabel,
+              paidDate: txDate,
+              updatedAt: new Date().toISOString(),
+            };
+          }
+          onUpdateResident({
+            ...targetHouse,
+            previousArrears: newPrevArrears,
+            periodHistory: newPeriodHist,
           });
         }
       }
@@ -6197,15 +6297,35 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               </div>
 
               {/* Opsi KK & Pilihan Iuran Lebih dari 1 Bulan */}
-              {!editingTx && txType === 'masuk' && txCategory === 'Iuran Warga' && (
-                <div className="p-3.5 bg-gradient-to-br from-emerald-50/90 via-teal-50/50 to-indigo-50/50 border border-emerald-200 rounded-2xl space-y-3">
+              {!editingTx && txType === 'masuk' && (txCategory === 'Iuran Warga' || txCategory === 'Denda Baksos' || txCategory === 'Pembayaran Tunggakan') && (
+                <div className={`p-3.5 border rounded-2xl space-y-3 ${
+                  txCategory === 'Denda Baksos'
+                    ? 'bg-gradient-to-br from-teal-50/90 via-emerald-50/50 to-indigo-50/50 border-teal-200'
+                    : txCategory === 'Pembayaran Tunggakan'
+                    ? 'bg-gradient-to-br from-amber-50/90 via-orange-50/50 to-indigo-50/50 border-amber-200'
+                    : 'bg-gradient-to-br from-emerald-50/90 via-teal-50/50 to-indigo-50/50 border-emerald-200'
+                }`}>
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-xs font-bold text-slate-800">
-                        Tautkan ke Kepala Keluarga / No. Blok
+                        {txCategory === 'Denda Baksos'
+                          ? 'Tautkan KK Pembayar Denda Baksos'
+                          : txCategory === 'Pembayaran Tunggakan'
+                          ? 'Tautkan KK Pembayar Tunggakan'
+                          : 'Tautkan ke Kepala Keluarga / No. Blok'}
                       </label>
-                      <span className="text-[10px] text-emerald-700 bg-white px-2 py-0.5 rounded-md border border-emerald-200 font-semibold">
-                        Sinkron ke Rekap KK
+                      <span className={`text-[10px] bg-white px-2 py-0.5 rounded-md border font-semibold ${
+                        txCategory === 'Denda Baksos'
+                          ? 'text-teal-700 border-teal-200'
+                          : txCategory === 'Pembayaran Tunggakan'
+                          ? 'text-amber-700 border-amber-200'
+                          : 'text-emerald-700 border-emerald-200'
+                      }`}>
+                        {txCategory === 'Denda Baksos'
+                          ? 'Sinkron ke Rekap KK & Baksos'
+                          : txCategory === 'Pembayaran Tunggakan'
+                          ? 'Sinkron ke Rekap KK & Pelunasan'
+                          : 'Sinkron ke Rekap KK'}
                       </span>
                     </div>
                     <select
@@ -6213,146 +6333,167 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       onChange={(e) => {
                         const id = e.target.value;
                         setTxResidentId(id);
-                        updateIuranTxPreview(id, txIuranMonths, txIuranStartMonth, txCustomNote);
+                        const r = residents.find((res) => res.id === id);
+                        if (txCategory === 'Iuran Warga') {
+                          updateIuranTxPreview(id, txIuranMonths, txIuranStartMonth, txCustomNote);
+                        } else if (txCategory === 'Denda Baksos') {
+                          if (r) {
+                            const fine = r.customBaksosFineAmount || 10000;
+                            setTxAmount(fine);
+                            const displayName = r.duesHeadNameOverride || r.headName;
+                            const mLabel = txIuranStartMonth || defaultMonthLabel;
+                            setTxDescription(`Pelunasan Denda Baksos (${mLabel}) - Blok ${r.blockNumber} (${displayName})`);
+                          }
+                        } else if (txCategory === 'Pembayaran Tunggakan') {
+                          if (r) {
+                            if (r.previousArrears > 0) setTxAmount(r.previousArrears);
+                            const displayName = r.duesHeadNameOverride || r.headName;
+                            const notePart = r.previousArrearsNote ? ` (${r.previousArrearsNote})` : ' Lalu';
+                            setTxDescription(`Pembayaran Tunggakan Iuran${notePart} - Blok ${r.blockNumber} (${displayName})`);
+                          }
+                        }
                       }}
                       className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-2xs"
                     >
-                      <option value="">— Tidak ditautkan ke KK spesifik (Iuran Umum) —</option>
+                      <option value="">— Tidak ditautkan ke KK spesifik —</option>
                       {residents.map((r) => {
                         const isVacant =
                           r.occupancy === 'Kosong' ||
                           r.occupancy === 'Belum Ditempati' ||
                           isHouseVacant(r);
                         const displayName = r.duesHeadNameOverride || r.headName;
+                        const arrearInfo = txCategory === 'Pembayaran Tunggakan' && r.previousArrears > 0 ? ` [Tunggakan: ${formatRupiah(r.previousArrears)}]` : '';
                         return (
                           <option key={r.id} value={r.id}>
-                            Blok {r.blockNumber} — {displayName} {isVacant ? '(Rumah Kosong)' : ''}
+                            Blok {r.blockNumber} — {displayName} {isVacant ? '(Rumah Kosong)' : ''}{arrearInfo}
                           </option>
                         );
                       })}
                     </select>
                   </div>
 
-                  {/* Pilihan Iuran Lebih dari 1 Bulan */}
-                  <div className="pt-2 border-t border-emerald-200/80 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-bold text-emerald-950 flex items-center gap-1.5">
-                        <Coins className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Pilihan Jumlah Bulan Iuran</span>
-                      </label>
-                      <span className="text-[11px] font-extrabold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200 shadow-2xs">
-                        {txIuranMonths} Bulan Dibayar
-                      </span>
-                    </div>
-
-                    {/* Quick Preset Buttons */}
-                    <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
-                      {[1, 2, 3, 4, 5, 6, 12].map((num) => {
-                        const isSel = txIuranMonths === num;
-                        const label =
-                          num === 1
-                            ? '1 Bln'
-                            : num === 6
-                            ? '6 Bln'
-                            : num === 12
-                            ? '1 Thn (12)'
-                            : `${num} Bln`;
-                        return (
-                          <button
-                            key={num}
-                            type="button"
-                            onClick={() => {
-                              setTxIuranMonths(num);
-                              updateIuranTxPreview(txResidentId, num, txIuranStartMonth, txCustomNote);
-                            }}
-                            className={`py-1.5 px-1 text-center rounded-lg text-[11px] font-black transition-all cursor-pointer ${
-                              isSel
-                                ? 'bg-indigo-600 text-white shadow-xs scale-102 ring-1 ring-indigo-400'
-                                : 'bg-white hover:bg-emerald-100 text-slate-700 border border-slate-200 shadow-2xs'
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 pt-1">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                          Periode Bulan Mulai
+                  {/* Pilihan Iuran Lebih dari 1 Bulan jika kategori Iuran Warga */}
+                  {txCategory === 'Iuran Warga' && (
+                    <div className="pt-2 border-t border-emerald-200/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                          <Coins className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Pilihan Jumlah Bulan Iuran</span>
                         </label>
-                        <select
-                          value={txIuranStartMonth}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setTxIuranStartMonth(val);
-                            updateIuranTxPreview(txResidentId, txIuranMonths, val, txCustomNote);
-                          }}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800 font-semibold"
-                        >
-                          {availablePeriods.map((p) => (
-                            <option key={p} value={p}>
-                              {p}
-                            </option>
-                          ))}
-                        </select>
+                        <span className="text-[11px] font-extrabold text-indigo-700 bg-white px-2 py-0.5 rounded-md border border-indigo-200 shadow-2xs">
+                          {txIuranMonths} Bulan Dibayar
+                        </span>
                       </div>
 
+                      {/* Quick Preset Buttons */}
+                      <div className="grid grid-cols-4 sm:grid-cols-7 gap-1.5">
+                        {[1, 2, 3, 4, 5, 6, 12].map((num) => {
+                          const isSel = txIuranMonths === num;
+                          const label =
+                            num === 1
+                              ? '1 Bln'
+                              : num === 6
+                              ? '6 Bln'
+                              : num === 12
+                              ? '1 Thn (12)'
+                              : `${num} Bln`;
+                          return (
+                            <button
+                              key={num}
+                              type="button"
+                              onClick={() => {
+                                setTxIuranMonths(num);
+                                updateIuranTxPreview(txResidentId, num, txIuranStartMonth, txCustomNote);
+                              }}
+                              className={`py-1.5 px-1 text-center rounded-lg text-[11px] font-black transition-all cursor-pointer ${
+                                isSel
+                                  ? 'bg-indigo-600 text-white shadow-xs scale-102 ring-1 ring-indigo-400'
+                                  : 'bg-white hover:bg-emerald-100 text-slate-700 border border-slate-200 shadow-2xs'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Periode Bulan Mulai
+                          </label>
+                          <select
+                            value={txIuranStartMonth}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setTxIuranStartMonth(val);
+                              updateIuranTxPreview(txResidentId, txIuranMonths, val, txCustomNote);
+                            }}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800 font-semibold"
+                          >
+                            {availablePeriods.map((p) => (
+                              <option key={p} value={p}>
+                                {p}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Kustom Jumlah Bulan
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={36}
+                            value={txIuranMonths}
+                            onChange={(e) => {
+                              const val = Math.max(1, Number(e.target.value) || 1);
+                              setTxIuranMonths(val);
+                              updateIuranTxPreview(txResidentId, val, txIuranStartMonth, txCustomNote);
+                            }}
+                            className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-800"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Live Preview Periode yang Dicakup */}
+                      <div className="p-2 rounded-xl bg-indigo-50/90 border border-indigo-200 text-indigo-950 text-[11px] font-semibold flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                          <span>
+                            {txIuranMonths > 1
+                              ? `Cakupan: ${txIuranStartMonth} s/d ${
+                                  getSubsequentMonthLabels(txIuranStartMonth, txIuranMonths).slice(-1)[0]
+                                } (${txIuranMonths} Bulan)`
+                              : `Cakupan: ${txIuranStartMonth} (1 Bulan)`}
+                          </span>
+                        </div>
+                        <span className="font-mono font-bold text-indigo-900 bg-white px-2 py-0.5 rounded border border-indigo-200">
+                          {formatRupiah(Number(txAmount) || 0)}
+                        </span>
+                      </div>
+
+                      {/* Catatan Tambahan */}
                       <div>
                         <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                          Kustom Jumlah Bulan
+                          Catatan Tambahan Transaksi (Opsional)
                         </label>
                         <input
-                          type="number"
-                          min={1}
-                          max={36}
-                          value={txIuranMonths}
+                          type="text"
+                          placeholder="Misal: Transfer BCA, Titip Bendahara, Bayar Sekaligus"
+                          value={txCustomNote}
                           onChange={(e) => {
-                            const val = Math.max(1, Number(e.target.value) || 1);
-                            setTxIuranMonths(val);
-                            updateIuranTxPreview(txResidentId, val, txIuranStartMonth, txCustomNote);
+                            const val = e.target.value;
+                            setTxCustomNote(val);
+                            updateIuranTxPreview(txResidentId, txIuranMonths, txIuranStartMonth, val);
                           }}
-                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-800"
+                          className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800"
                         />
                       </div>
                     </div>
-
-                    {/* Live Preview Periode yang Dicakup */}
-                    <div className="p-2 rounded-xl bg-indigo-50/90 border border-indigo-200 text-indigo-950 text-[11px] font-semibold flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
-                        <span>
-                          {txIuranMonths > 1
-                            ? `Cakupan: ${txIuranStartMonth} s/d ${
-                                getSubsequentMonthLabels(txIuranStartMonth, txIuranMonths).slice(-1)[0]
-                              } (${txIuranMonths} Bulan)`
-                            : `Cakupan: ${txIuranStartMonth} (1 Bulan)`}
-                        </span>
-                      </div>
-                      <span className="font-mono font-bold text-indigo-900 bg-white px-2 py-0.5 rounded border border-indigo-200">
-                        {formatRupiah(Number(txAmount) || 0)}
-                      </span>
-                    </div>
-
-                    {/* Catatan Tambahan (misal nama pentransfer / keterangan khusus) */}
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Catatan Tambahan Transaksi (Opsional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Misal: Transfer BCA, Titip Bendahara, Bayar Sekaligus"
-                        value={txCustomNote}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setTxCustomNote(val);
-                          updateIuranTxPreview(txResidentId, txIuranMonths, txIuranStartMonth, val);
-                        }}
-                        className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg text-slate-800"
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
               )}
 

@@ -1217,7 +1217,7 @@ export function isPureIuranTx(tx: { category?: string; description?: string; typ
   if (tx.type !== 'masuk') return false;
   const cat = tx.category || '';
   const desc = (tx.description || '').toLowerCase();
-  if (cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan') || desc.includes('pelunasan')) return false;
+  if (cat === 'Pembayaran Tunggakan' || desc.includes('tunggakan') || (desc.includes('pelunasan') && !desc.includes('iuran'))) return false;
   if (cat === 'Denda Baksos' || desc.includes('denda')) return false;
   if (
     cat.includes('Cashback') ||
@@ -1234,12 +1234,16 @@ export function isTunggakanTx(tx: { category?: string; description?: string; typ
   if (tx.type !== 'masuk') return false;
   const cat = tx.category || '';
   const desc = (tx.description || '').toLowerCase();
+  // Transaksi Denda Baksos BUKAN transaksi tunggakan iuran
+  if (cat === 'Denda Baksos' || desc.includes('denda baksos') || desc.includes('denda')) {
+    return false;
+  }
   return (
     cat === 'Pembayaran Tunggakan' ||
     desc.includes('tunggakan') ||
-    desc.includes('pelunasan') ||
     desc.includes('tertunggak') ||
-    desc.includes('tunggak')
+    desc.includes('tunggak') ||
+    (desc.includes('pelunasan') && !desc.includes('denda'))
   );
 }
 
@@ -1290,12 +1294,18 @@ export function findArrearSettlementForPeriod(
   }
 
   // 3. Cek apakah ada transaksi Pembayaran Tunggakan untuk KK ini di bulan kemudian (txKey > targetKey)
-  // yang melunasi tunggakan bulan ini
+  // yang secara spesifik melunasi tunggakan bulan ini
   const tunggakanTx = transactions.find((t) => {
     if (t.type !== 'masuk' || !isTunggakanTx(t)) return false;
     if (!isTransactionForHouse(t, house)) return false;
     const txKey = getMonthKeyFromDate(t.date);
-    return Boolean(txKey && txKey > targetKey);
+    if (!txKey || txKey <= targetKey) return false;
+    const desc = t.description.toLowerCase();
+    return (
+      desc.includes(periodMonthLower) ||
+      desc.includes(periodLabel.toLowerCase()) ||
+      desc.includes(targetKey)
+    );
   });
 
   if (tunggakanTx) {
@@ -1439,31 +1449,42 @@ export function getHouseStatusForPeriod(
     }
 
     if (periodSnapshot.duesStatus === 'Belum Bayar') {
-      // Periksa apakah tunggakan periode ini telah dilunasi di bulan kemudian
-      const settlement = findArrearSettlementForPeriod(house, targetKey, periodLabel, transactions);
-      if (settlement) {
+      const paidPart = periodSnapshot.paidAmount || 0;
+      if (paidPart > 0) {
+        return {
+          status: 'Belum Bayar',
+          amount: paidPart,
+          isAdvanceSubsequentMonth: false,
+          label: `Cicil ${formatRupiah(paidPart)}`,
+          badgeClass: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold',
+          paidDate: periodSnapshot.paidDate,
+          note: `Sisa ${formatRupiah(Math.max(0, snapNominal - paidPart))}`,
+        };
+      }
+
+      if (periodSnapshot.settlementMonth) {
         return {
           status: 'Lunas',
           amount: 0,
           isAdvanceSubsequentMonth: false,
-          label: `Lunas Bulan ${settlement.settlementMonth}`,
+          label: `Lunas Bulan ${periodSnapshot.settlementMonth}`,
           badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold shadow-xs',
-          paidDate: settlement.paidDate,
-          note: `Tunggakan dilunasi pada bulan ${settlement.settlementMonth}`,
+          paidDate: periodSnapshot.paidDate,
+          note: `Tunggakan dilunasi pada bulan ${periodSnapshot.settlementMonth}`,
           isArrearSettledLater: true,
-          settlementMonth: settlement.settlementMonth,
+          settlementMonth: periodSnapshot.settlementMonth,
         };
       }
 
-      const paidPart = periodSnapshot.paidAmount || 0;
+      // Standar mutlak jika pembayaran dihapus / belum bayar: Status Belum Bayar & Pewarnaan Merah
       return {
         status: 'Belum Bayar',
-        amount: paidPart,
+        amount: 0,
         isAdvanceSubsequentMonth: false,
-        label: paidPart > 0 ? `Cicil ${formatRupiah(paidPart)}` : 'Belum Bayar',
-        badgeClass: 'bg-rose-100 text-rose-800 border border-rose-200 font-bold',
-        paidDate: periodSnapshot.paidDate,
-        note: paidPart > 0 ? `Sisa ${formatRupiah(Math.max(0, snapNominal - paidPart))}` : 'Belum Bayar',
+        label: 'Belum Bayar',
+        badgeClass: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold',
+        paidDate: undefined,
+        note: 'Belum Bayar',
       };
     }
 

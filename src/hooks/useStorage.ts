@@ -19,7 +19,7 @@ import {
   INITIAL_SITE_CONFIG,
   INITIAL_TRANSACTIONS,
 } from '../data/initialData';
-import { formatMonthYearFromDate, formatRupiah, getHouseOccupancyForPeriod, getHouseHeadNameForPeriod, getHouseDuesNominalForPeriod, getMonthKeyFromDate, parseIndonesianMonthYearToKey, INDONESIAN_MONTHS, isHouseVacant } from '../utils/helpers';
+import { formatMonthYearFromDate, formatMonthYearFromKey, formatRupiah, getHouseOccupancyForPeriod, getHouseHeadNameForPeriod, getHouseDuesNominalForPeriod, getMonthKeyFromDate, parseIndonesianMonthYearToKey, INDONESIAN_MONTHS, isHouseVacant, isTransactionForHouse, isPureIuranTx, isTunggakanTx } from '../utils/helpers';
 import { parseAndNormalizeBackupJson } from '../utils/backupRestoreHelper';
 import {
   getIsFirestoreQuotaExceeded,
@@ -1500,17 +1500,101 @@ export function useStorage() {
   };
 
   const deleteTransaction = (id: string) => {
-    commitLocalMutation((cur) => ({
-      transactions: cur.transactions.filter((t) => t.id !== id),
-    }));
+    commitLocalMutation((cur) => {
+      const txToDelete = cur.transactions.find((t) => t.id === id);
+      const remainingTxs = cur.transactions.filter((t) => t.id !== id);
+      if (!txToDelete || txToDelete.type !== 'masuk') {
+        return { transactions: remainingTxs };
+      }
+
+      // Cari rumah yang bersangkutan dengan transaksi ini
+      const targetHouse = cur.residents.find((h) => isTransactionForHouse(txToDelete, h));
+      if (!targetHouse) {
+        return { transactions: remainingTxs };
+      }
+
+      const txMonthKey = getMonthKeyFromDate(txToDelete.date);
+      const txPeriodLabel = formatMonthYearFromKey(txMonthKey);
+      const isPureIuran = isPureIuranTx(txToDelete);
+      const isBaksos = txToDelete.category === 'Denda Baksos' || (txToDelete.description || '').toLowerCase().includes('denda');
+      const isTunggakan = isTunggakanTx(txToDelete);
+
+      let updatedResidents = cur.residents;
+      let updatedAgendas = cur.baksosAgendas;
+
+      if (isPureIuran && txMonthKey) {
+        // Cek apakah masih ada transaksi iuran lain untuk rumah ini di bulan yang sama
+        const hasOtherIuran = remainingTxs.some(
+          (t) => t.type === 'masuk' && isPureIuranTx(t) && isTransactionForHouse(t, targetHouse) && getMonthKeyFromDate(t.date) === txMonthKey
+        );
+        if (!hasOtherIuran) {
+          const updatedPeriodHist = { ...(targetHouse.periodHistory || {}) };
+          if (updatedPeriodHist[txMonthKey]) {
+            updatedPeriodHist[txMonthKey] = {
+              ...updatedPeriodHist[txMonthKey],
+              duesStatus: targetHouse.occupancy === 'Kosong' ? 'Kosong' : 'Belum Bayar',
+              paidAmount: 0,
+              paidDate: '',
+              updatedAt: new Date().toISOString(),
+            };
+            delete (updatedPeriodHist[txMonthKey] as any).settlementMonth;
+          }
+          if (updatedPeriodHist[txPeriodLabel]) {
+            updatedPeriodHist[txPeriodLabel] = {
+              ...updatedPeriodHist[txPeriodLabel],
+              duesStatus: targetHouse.occupancy === 'Kosong' ? 'Kosong' : 'Belum Bayar',
+              paidAmount: 0,
+              paidDate: '',
+              updatedAt: new Date().toISOString(),
+            };
+            delete (updatedPeriodHist[txPeriodLabel] as any).settlementMonth;
+          }
+          const isCurrentActive = targetHouse.duesMonthNote === txPeriodLabel || cur.siteConfig.duesCurrentMonth === txPeriodLabel;
+          const updatedH: ResidentHouse = {
+            ...targetHouse,
+            duesStatus: isCurrentActive ? (targetHouse.occupancy === 'Kosong' ? 'Kosong' : 'Belum Bayar') : targetHouse.duesStatus,
+            duesPaidAmount: isCurrentActive ? 0 : targetHouse.duesPaidAmount,
+            duesPaidMonths: isCurrentActive ? 0 : targetHouse.duesPaidMonths,
+            duesPrepaidBalance: isCurrentActive ? 0 : targetHouse.duesPrepaidBalance,
+            duesPaidDate: isCurrentActive ? '' : targetHouse.duesPaidDate,
+            periodHistory: updatedPeriodHist,
+            updatedAt: new Date().toISOString(),
+          };
+          updatedResidents = cur.residents.map((h) => (h.id === updatedH.id ? updatedH : h));
+        }
+      } else if (isBaksos) {
+        // Batalkan pelunasan denda baksos di agenda
+        updatedAgendas = cur.baksosAgendas.map((ag) => {
+          const aKey = getMonthKeyFromDate(ag.date);
+          if (aKey === txMonthKey && (ag.finesPaid?.[targetHouse.id] || (targetHouse.blockNumber && ag.finesPaid?.[targetHouse.blockNumber]))) {
+            const newFines = { ...(ag.finesPaid || {}) };
+            delete newFines[targetHouse.id];
+            if (targetHouse.blockNumber) delete newFines[targetHouse.blockNumber];
+            return { ...ag, finesPaid: newFines };
+          }
+          return ag;
+        });
+      } else if (isTunggakan) {
+        // Kembalikan saldo pokok tunggakan
+        const updatedH: ResidentHouse = {
+          ...targetHouse,
+          previousArrears: (targetHouse.previousArrears || 0) + txToDelete.amount,
+          updatedAt: new Date().toISOString(),
+        };
+        updatedResidents = cur.residents.map((h) => (h.id === updatedH.id ? updatedH : h));
+      }
+
+      return {
+        transactions: remainingTxs,
+        residents: updatedResidents,
+        baksosAgendas: updatedAgendas,
+      };
+    });
   };
 
   const deleteTransactions = (ids: string[]) => {
     if (!ids || ids.length === 0) return;
-    const idSet = new Set(ids);
-    commitLocalMutation((cur) => ({
-      transactions: cur.transactions.filter((t) => !idSet.has(t.id)),
-    }));
+    ids.forEach((id) => deleteTransaction(id));
   };
 
   // Sync edits on a house's dues payment with transactions in Buku Kas Keluar Masuk atomically
@@ -1639,7 +1723,8 @@ export function useStorage() {
       // 2. Hapus transaksi terkait di Buku Kas (Iuran Warga, Denda Baksos, Pembayaran Tunggakan periode ini)
       const updatedTransactions = cur.transactions.filter((tx) => {
         if (tx.type !== 'masuk') return true;
-        if (!blockRegex.test(tx.description)) return true;
+        const matchesHouse = isTransactionForHouse(tx, targetHouse) || blockRegex.test(tx.description);
+        if (!matchesHouse) return true;
 
         const mKey = getMonthKeyFromDate(tx.date);
         const descLower = tx.description.toLowerCase();
