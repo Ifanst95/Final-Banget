@@ -1656,10 +1656,10 @@ export function getHouseStatusForPeriod(
       status: 'Lunas',
       amount: 0,
       isAdvanceSubsequentMonth: true,
-      label: `Lunas Bulan ${originMonth}`,
+      label: `Lunas di Bulan ${originMonth}`,
       badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold shadow-xs',
       paidDate: house.duesPaidDate || priorAdvanceTx?.date,
-      note: `(Bayar >1 Bulan)`,
+      note: `(Bayar >1 Bulan di ${originMonth})`,
       basePaymentMonth: originMonth,
       paidMonthsCount: effectivePaidMonths,
       coveredMonths: effectiveCovered,
@@ -2151,7 +2151,7 @@ export function computeOverallKKRecapList(
             ? 'Lunas (Kosong)'
             : 'Bebas Iuran'
           : isAdvanceSubsequent
-          ? statusInfo.label || (advancePaymentMonth ? `Lunas Bulan ${advancePaymentMonth}` : 'Lunas (Dimuka)')
+          ? statusInfo.label || (advancePaymentMonth ? `Lunas di Bulan ${advancePaymentMonth}` : 'Lunas di Muka')
           : statusInfo.status === 'Bayar Lebih'
           ? statusInfo.label || 'Bayar Lebih'
           : isArrearSettledLater && settlementMonth

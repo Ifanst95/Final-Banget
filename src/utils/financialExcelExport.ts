@@ -594,7 +594,7 @@ export function exportFinancialReportToExcel({
         if (isPureKosong || isPeriodVacant) {
           periodStatusText = iuranPeriod > 0 ? `Lunas (Kosong +Rp ${iuranPeriod.toLocaleString('id-ID')})` : 'Bebas Iuran (Kosong)';
         } else if (isAdv) {
-          periodStatusText = advancePaidMonth ? `Lunas Bulan ${advancePaidMonth} (Bayar >1 Bulan)` : 'Lunas (Bayar >1 Bulan)';
+          periodStatusText = advancePaidMonth ? `Lunas di Bulan ${advancePaidMonth} (Bayar >1 Bulan)` : 'Lunas (Bayar >1 Bulan)';
         } else if (settlementMonth) {
           periodStatusText = `Lunas Bulan ${settlementMonth}`;
         } else if (tunggakanPeriod > 0 && iuranPeriod === 0) {
