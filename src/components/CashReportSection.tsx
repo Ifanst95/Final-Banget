@@ -913,8 +913,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const isLunas = house.duesStatus === 'Lunas' || isAdvancePaid;
       const defaultNominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
       const hasAnyPaid = isLunas || (house.duesPaidAmount || 0) > 0;
-      // Rumah kosong default tidak wajib iuran (0 tagihan), namun jika ada pembayaran, perlakukan sesuai standar
-      const isEmptyHouse = isPureKosong || (isUnoccupied && !hasAnyPaid);
+      // Rumah kosong murni default tidak wajib iuran (0 tagihan), namun rumah 'Belum Ditempati' tetap memiliki kewajiban iuran
+      const isEmptyHouse = isPureKosong;
       const nominalPerMonth = isPureKosong && !hasAnyPaid ? 0 : defaultNominal;
       const paidMonthsCount = isEmptyHouse
         ? isAdvancePaid
@@ -1328,7 +1328,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
          (selectedKKPeriod === 'semua' && isAdvancePaid) ||
          ((house.duesPaidMonths || 0) > 1 && !statusInfo));
 
-      const isNeutralKosong = !isRumahKosongHitam && (isPureKosong || isUnoccupied);
+      const isNeutralKosong = !isRumahKosongHitam && isPureKosong;
 
       const isSudahBayar =
         !isRumahKosongHitam &&
@@ -3068,7 +3068,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     const payerName = targetHouse ? targetHouse.duesHeadNameOverride || targetHouse.headName : '';
     const isVacant = targetHouse
       ? targetHouse.occupancy === 'Kosong' ||
-        targetHouse.occupancy === 'Belum Ditempati' ||
         isHouseVacant(targetHouse)
       : false;
     const houseTag = targetHouse
@@ -3157,7 +3156,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         if (txCategory === 'Iuran Warga') {
           const isVacant =
             targetHouse.occupancy === 'Kosong' ||
-            targetHouse.occupancy === 'Belum Ditempati' ||
             isHouseVacant(targetHouse);
           const nom = getHouseDuesNominal(targetHouse) || config.duesAmountPerMonth || 25000;
           const monthsCount = Math.max(1, txIuranMonths);
@@ -5078,7 +5076,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
                                     </span>
                                     <span className="text-[10px] font-sans font-bold text-slate-400">
-                                      {isUnoccupied ? 'Belum Ditempati (Bebas)' : 'Rumah Kosong (Bebas)'}
+                                      Rumah Kosong (Bebas)
                                     </span>
                                   </>
                                 ) : isNeutralKosong ? (
@@ -5087,7 +5085,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
                                     </span>
                                     <span className="text-[10px] font-sans font-bold text-slate-500">
-                                      {isUnoccupied ? 'Belum Ditempati (Bebas)' : 'Rumah Kosong (Bebas)'}
+                                      Rumah Kosong (Bebas)
                                     </span>
                                   </>
                                 ) : isAdvanceSubsequent ? (
@@ -6359,7 +6357,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       {residents.map((r) => {
                         const isVacant =
                           r.occupancy === 'Kosong' ||
-                          r.occupancy === 'Belum Ditempati' ||
                           isHouseVacant(r);
                         const displayName = r.duesHeadNameOverride || r.headName;
                         const arrearInfo = txCategory === 'Pembayaran Tunggakan' && r.previousArrears > 0 ? ` [Tunggakan: ${formatRupiah(r.previousArrears)}]` : '';
@@ -6784,6 +6781,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             setHouseDuesOccupancyInput('Belum Ditempati');
                             if (!houseDuesHeadNameInput || houseDuesHeadNameInput === 'Rumah Kosong') {
                               setHouseDuesHeadNameInput('Belum Ditempati');
+                            }
+                            if (!houseDuesAmountInput || Number(houseDuesAmountInput) === 0) {
+                              setHouseDuesAmountInput(config.duesAmountPerMonth || 25000);
                             }
                           }}
                           className={`py-1.5 px-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer truncate ${

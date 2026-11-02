@@ -274,7 +274,6 @@ export function exportFinancialReportToExcel({
     const perKKRows = residents.map((house, idx) => {
       const isEmpty =
         house.occupancy === 'Kosong' ||
-        house.occupancy === 'Belum Ditempati' ||
         isHouseVacant(house);
       const nominal = getHouseDuesNominal(house);
       const isAdvance = house.duesStatus === 'Bayar Lebih';

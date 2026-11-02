@@ -1682,19 +1682,8 @@ export function getHouseStatusForPeriod(
     };
   }
 
-  // 5. Belum Ditempati (jika belum membayar, tampilkan Belum Bayar)
-  const periodOccupancy = getHouseOccupancyForPeriod(house, periodLabel, transactions);
-  if (periodOccupancy === 'Belum Ditempati') {
-    return {
-      status: 'Belum Bayar',
-      amount: 0,
-      isAdvanceSubsequentMonth: false,
-      label: 'Belum Bayar',
-      badgeClass: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold shadow-xs',
-      paidDate: undefined,
-      note: 'Rumah Belum Ditempati (Belum Bayar)',
-    };
-  }
+  // 5. Belum Ditempati: tetap memiliki kewajiban iuran bulanan normal sesuai aturan paguyuban
+  // (akan diproses pada pengecekan bulan berjalan/lampau di bawah untuk menentukan status bayar, tunggakan, dan pelunasan)
 
   // 6. Bulan berjalan aktif jika periodLabel cocok
   if (periodLabel === defaultMonthLabel || targetKey === currentKey) {

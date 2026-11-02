@@ -1284,11 +1284,11 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
                     const isAllPaid = totalBillRemaining === 0;
 
                     // Kriteria pewarnaan otomatis sama persis dengan Rekap Iuran Per KK:
-                    // 1. Rumah kosong murni (tanpa pembayaran) ATAU belum ditempati tanpa pembayaran -> Hitam pekat
+                    // 1. Rumah kosong murni (tanpa pembayaran) -> Hitam pekat bebas iuran
                     // 2. Bayar Lebih dari 1 bulan atau Lunas di Muka -> Biru Muda
                     // 3. Lunas (sudah bayar 1 bulan / semua komponen lunas) -> Hijau Muda
-                    // 4. Belum Bayar / Menunggak -> Merah Muda
-                    const isRumahKosongHitam = (isVacant && !isDuesPaid) || (isUnoccupied && !isDuesPaid);
+                    // 4. Belum Bayar / Menunggak (termasuk rumah belum ditempati) -> Merah Muda
+                    const isRumahKosongHitam = isVacant && !isDuesPaid;
 
                     const isBayarLebih =
                       !isRumahKosongHitam &&
