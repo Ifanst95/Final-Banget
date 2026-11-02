@@ -63,6 +63,7 @@ export interface ResidentHouse {
     advanceOriginMonth?: string;
     paidDate?: string;
     settlementMonth?: string;
+    customBaksosFineAmount?: number;
     updatedAt?: string;
   }>;
   members: FamilyMember[];

@@ -2812,6 +2812,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       newPrevArrears = Math.max(0, newPrevArrears - tunggakanPaidNum);
     }
 
+    const dendaAmountNum = Math.max(0, Number(houseDuesBaksosAmountInput) || 0);
+
     // Tentukan periode yang sedang diedit
     const activeEditPeriod = (selectedKKPeriod && selectedKKPeriod !== 'semua'
       ? selectedKKPeriod
@@ -2872,6 +2874,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         customDuesAmount: amountNum,
         paidAmount: isNowPaid ? (isAdvancePay ? totalReceived : amountNum) : partialNum,
         paidDate: isNowPaid || partialNum > 0 ? paidDateVal : '',
+        customBaksosFineAmount:
+          houseDuesBaksosStatusInput === 'Belum Bayar'
+            ? dendaAmountNum
+            : houseDuesBaksosStatusInput === 'Lunas' || houseDuesBaksosStatusInput === 'Bebas' || houseDuesBaksosStatusInput === 'Hadir' || houseDuesBaksosStatusInput === 'Tidak Wajib'
+            ? 0
+            : undefined,
         updatedAt: new Date().toISOString(),
       };
       if (houseDuesStatusInput === 'Belum Bayar') {
@@ -2977,6 +2985,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       ? (editingHouseDues.headName || finalHeadName)
       : finalHeadName;
 
+    const finalCustomBaksosFine =
+      houseDuesBaksosStatusInput === 'Belum Bayar'
+        ? dendaAmountNum
+        : houseDuesBaksosStatusInput === 'Lunas' || houseDuesBaksosStatusInput === 'Bebas' || houseDuesBaksosStatusInput === 'Hadir' || houseDuesBaksosStatusInput === 'Tidak Wajib'
+        ? 0
+        : editingHouseDues.customBaksosFineAmount;
+
     // PENTING: Simpan hasil edit status, tanggal, dan nominal iuran
     const updatedResident: ResidentHouse = preserveExistingDues
       ? {
@@ -2987,6 +3002,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           periodHistory: newPeriodHistory,
           headName: preservedHeadName,
           duesHeadNameOverride: isPastPeriodEdit ? editingHouseDues.duesHeadNameOverride : finalHeadName,
+          customBaksosFineAmount: finalCustomBaksosFine,
           previousArrears: newPrevArrears,
           previousArrearsNote: isVacant ? '' : houseDuesPrevNoteInput.trim(),
         }
@@ -3005,6 +3021,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           duesPrepaidBalance: isEditingCurrentActive ? prepaidBalance : editingHouseDues.duesPrepaidBalance,
           duesPaidDate: isEditingCurrentActive ? (isNowPaid || partialNum > 0 ? paidDateVal : '') : editingHouseDues.duesPaidDate,
           duesMonthNote: isNowPaid ? monthLabel : finalMonthNote,
+          customBaksosFineAmount: finalCustomBaksosFine,
           previousArrears: newPrevArrears,
           previousArrearsNote: isVacant ? '' : houseDuesPrevNoteInput.trim(),
         };
@@ -3051,7 +3068,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     }
 
     // 2. Masukkan Pembayaran Denda Baksos jika dipilih Lunas
-    const dendaAmountNum = Math.max(0, Number(houseDuesBaksosAmountInput) || 0);
     const dendaDateVal = houseDuesBaksosDateInput || paidDateVal;
     if (houseDuesBaksosStatusInput === 'Lunas' && dendaAmountNum > 0 && !isVacant) {
       newTxs.push({
@@ -3077,29 +3093,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       return aKey && aKey === effectiveBaksosMonthKey;
     });
 
-    if (!hasMatchingAgenda && houseDuesBaksosStatusInput !== 'Bebas' && effectiveBaksosMonthKey) {
-      const periodLabelName = formatMonthYearFromKey(effectiveBaksosMonthKey);
-      const newAgendaDate = dendaDateVal && dendaDateVal.startsWith(effectiveBaksosMonthKey) ? dendaDateVal : `${effectiveBaksosMonthKey}-10`;
-      const attVal =
-        houseDuesBaksosStatusInput === 'Lunas' || houseDuesBaksosStatusInput === 'Belum Bayar'
-          ? ('Tidak Hadir' as const)
-          : (houseDuesBaksosStatusInput as BaksosAttendanceStatus);
-
-      const autoAgenda: BaksosAgenda = {
-        id: `baksos-${Date.now()}`,
-        title: `Kegiatan Bakti Sosial Periode ${periodLabelName}`,
-        date: newAgendaDate,
-        location: 'Pos & Lingkungan Gang Mandor',
-        description: `Gotong royong kebersihan lingkungan Gang Mandor periode ${periodLabelName}.`,
-        fineAmount: dendaAmountNum || 10000,
-        attendance: {
-          [houseId]: attVal,
-          [houseBlock]: attVal,
-        },
-        finesPaid: houseDuesBaksosStatusInput === 'Lunas' ? { [houseId]: true, [houseBlock]: true } : {},
-      };
-      updatedBaksosList = [autoAgenda, ...updatedBaksosList];
-    } else if (updatedBaksosList.length > 0) {
+    // Sinkronisasi status kehadiran & denda baksos di baksosAgendas HANYA jika agenda sudah ada
+    // (JANGAN otomatis menambahkan agenda baksos baru)
+    if (hasMatchingAgenda && updatedBaksosList.length > 0) {
       updatedBaksosList = updatedBaksosList.map((agenda) => {
         const aKey = getMonthKeyFromDate(agenda.date);
         if (effectiveBaksosMonthKey && aKey !== effectiveBaksosMonthKey) return agenda;

@@ -1876,10 +1876,20 @@ export function getHouseBaksosForPeriod(
     return false;
   });
   const calculatedUnpaid = isPureKosong || isUnoccupied ? 0 : unpaidAgendas.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
+  const periodHistFine = targetKey
+    ? house.periodHistory?.[targetKey]?.customBaksosFineAmount ?? (periodLabel ? house.periodHistory?.[periodLabel]?.customBaksosFineAmount : undefined)
+    : undefined;
+
   const dendaUnpaid =
-    targetKey === null && house.customBaksosFineAmount !== undefined
+    isPureKosong || isUnoccupied
+      ? 0
+      : periodHistFine !== undefined
+      ? periodHistFine
+      : targetKey === null && house.customBaksosFineAmount !== undefined
       ? house.customBaksosFineAmount
-      : calculatedUnpaid;
+      : calculatedUnpaid > 0
+      ? calculatedUnpaid
+      : (house.customBaksosFineAmount !== undefined ? house.customBaksosFineAmount : calculatedUnpaid);
 
   const hadHadir = matchingAgendas.some((a) => {
     const att = getBaksosAttendanceForHouse(a, house, residents);
