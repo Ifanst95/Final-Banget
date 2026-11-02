@@ -1,7 +1,7 @@
 -- ============================================================
 -- DATABASE WARGA & KAS GANG MANDOR BLOK K2/25 - K3/24
--- Terakhir Disinkronkan: 2026-11-02T00:58:34.030Z
--- Revisi: #2497
+-- Terakhir Disinkronkan: 2026-11-02T10:48:51.553Z
+-- Revisi: #2562
 -- ============================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS `pengumuman` (
 -- Data Warga
 REPLACE INTO `warga` VALUES ('warga-1793296822969', 'K2/25', 'Kosong', '-', 'Milik Sendiri', 'Kosong', 'Tidak Ikut', 'Tidak Pasang', '-', 'Belum Bayar', 0, 0, 0, 0, '', NULL, 0, '', 0, NULL, NULL, '2026-10-31T12:27:17.308Z');
 REPLACE INTO `anggota_keluarga` VALUES ('m-1793296793457', 'warga-1793296822969', 'Kosong', 'Kepala Keluarga', 'Jakarta', '1985-01-01', 'Laki-laki', 'Islam', '');
-REPLACE INTO `warga` VALUES ('warga-k2-26', 'K2/26', 'Ibnu Fauzi', '082123305445', 'Milik Sendiri', 'Belum Ditempati', 'Ikut Rukem', 'Tidak Pasang', '-', 'Bayar Lebih', 15000, 0, 6, 75000, '2026-07-06', 'Juli 2026, Agustus 2026, September 2026, Oktober 2026, November 2026, Desember 2026', 0, '', 0, NULL, NULL, '2026-10-30T12:47:39.515Z');
+REPLACE INTO `warga` VALUES ('warga-k2-26', 'K2/26', 'Ibnu Fauzi', '082123305445', 'Milik Sendiri', 'Belum Ditempati', 'Ikut Rukem', 'Tidak Pasang', '-', 'Belum Bayar', 15000, 0, 0, 0, '', 'Mei 2026, Juni 2026', 0, '', 0, NULL, NULL, '2026-11-02T10:23:35.735Z');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/26-1-1792646454399', 'warga-k2-26', 'Ibnu Fauzi', 'Kepala Keluarga', 'Depok', '1998-04-21', 'Laki-laki', 'Islam', '');
 REPLACE INTO `warga` VALUES ('warga-k2-27', 'K2/27', 'Adi Dwi Juniardi', '085640056052', 'Milik Sendiri', 'Ditempati', 'Ikut Rukem', 'Pasang', 'Blessnet', 'Lunas', 40000, 0, 1, 0, '2026-09-23', 'September 2026', 0, '', 0, NULL, NULL, '2026-10-30T06:27:41.051Z');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/27-1-1792646454400', 'warga-k2-27', 'Adi Dwi Juniardi', 'Kepala Keluarga', 'Semarang', '1989-06-10', 'Laki-laki', 'Islam', '');
@@ -107,7 +107,7 @@ REPLACE INTO `anggota_keluarga` VALUES ('m-K2/31-4-1792646454401', 'warga-k2-31'
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/31-5-1792646454401', 'warga-k2-31', 'Rayyina Hannindhiya s', 'Anak', 'Bekasi', '2023-05-23', 'Perempuan', 'Islam', '');
 REPLACE INTO `warga` VALUES ('warga-k2-32', 'K2/32', 'Kosong', 'Kosong', 'Milik Sendiri', 'Kosong', 'Tidak Ikut', 'Tidak Pasang', '-', 'Belum Bayar', 0, 0, 0, 0, '', 'September 2026', 0, '', 0, NULL, 0, '2026-11-01T00:18:45.694Z');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/32-1-1792646454401', 'warga-k2-32', 'Kosong', 'Anak', 'Kosong', '1990-01-01', 'Laki-laki', 'Islam', '');
-REPLACE INTO `warga` VALUES ('warga-k2-33', 'K2/33', 'Rahmat Danu W', '081293778229', 'Milik Sendiri', 'Ditempati', 'Ikut Rukem', 'Pasang', 'Blessnet', 'Belum Bayar', 40000, 0, 1, 0, '', 'September 2026', 0, '', 0, NULL, 0, '2026-11-02T00:32:36.466Z');
+REPLACE INTO `warga` VALUES ('warga-k2-33', 'K2/33', 'Rahmat Danu W', '081293778229', 'Milik Sendiri', 'Ditempati', 'Ikut Rukem', 'Pasang', 'Blessnet', 'Belum Bayar', 40000, 0, 0, 0, '', 'September 2026', 0, '', 0, NULL, 0, '2026-10-31T01:23:13.075Z');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/33-1-1792646454401', 'warga-k2-33', 'Rahmat Danu W', 'Kepala Keluarga', 'Semarang', '1992-12-18', 'Laki-laki', 'Islam', '');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/33-2-1792646454401', 'warga-k2-33', 'Arum Dwi Yuliana', 'Istri', 'Pati', '1994-07-31', 'Perempuan', 'Islam', '');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/33-3-1792646454401', 'warga-k2-33', 'Mysha shaqeena', 'Anak', 'Pati', '2019-12-18', 'Perempuan', 'Islam', '');
@@ -142,7 +142,7 @@ REPLACE INTO `anggota_keluarga` VALUES ('m-K2/40-1-1792646454402', 'warga-k2-40'
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/40-2-1792646454402', 'warga-k2-40', 'Juwita Medina', 'Istri', 'Kedataran', '1994-10-25', 'Perempuan', 'Kristen', '');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/40-3-1792646454402', 'warga-k2-40', 'Gwen Sari Sitohang', 'Anak', 'Bekasi', '2023-08-15', 'Perempuan', 'Kristen', '');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/40-4-1792646454402', 'warga-k2-40', 'Queen Carlina Sitohang', 'Anak', 'Bekasi', '2026-01-20', 'Perempuan', 'Kristen', '');
-REPLACE INTO `warga` VALUES ('warga-k2-41', 'K2/41', 'Acim Wiratma', '0882001365556', 'Kontrak', 'Ditempati', 'Tidak Ikut', 'Tidak Pasang', '-', 'Lunas', 30000, 0, 1, 0, '2026-09-18', 'September 2026', 0, '', 0, NULL, 0, '2026-11-02T00:34:09.012Z');
+REPLACE INTO `warga` VALUES ('warga-k2-41', 'K2/41', 'Acim Wiratma', '0882001365556', 'Kontrak', 'Ditempati', 'Tidak Ikut', 'Tidak Pasang', '-', 'Lunas', 30000, 0, 1, 0, '2026-09-18', 'September 2026', 0, '', 0, NULL, 0, '2026-11-01T00:22:13.699Z');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/41-1-1792646454402', 'warga-k2-41', 'Acim Wiratma', 'Kepala Keluarga', 'Indramayu', '1989-01-08', 'Laki-laki', 'Islam', '');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/41-2-1792646454402', 'warga-k2-41', 'Siti Maryamah', 'Istri', 'Jakarta', '1996-03-05', 'Perempuan', 'Islam', '');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/41-3-1792646454402', 'warga-k2-41', 'Ananda Reva Wiratama Putri', 'Anak', 'Jakarta', '2016-03-04', 'Perempuan', 'Islam', '');
@@ -150,7 +150,7 @@ REPLACE INTO `warga` VALUES ('warga-k2-42', 'K2/42', 'Egi Tata Pradita', '+62895
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/42-1-1792646454402', 'warga-k2-42', 'Egi Tata Pradita', 'Kepala Keluarga', 'Bekasi', '2005-04-24', 'Laki-laki', 'Islam', '');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/42-2-1792646454402', 'warga-k2-42', 'Dede Meidisyafitri', 'Istri', 'Bekasi', '2007-04-21', 'Perempuan', 'Islam', '');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/42-3-1792646454402', 'warga-k2-42', 'Khaira Kinan Zhafira', 'Anak', 'Cikarang', '2025-03-20', 'Perempuan', 'Islam', '');
-REPLACE INTO `warga` VALUES ('warga-k2-43', 'K2/43', 'Aditya Maulana', '082125255358', 'Milik Sendiri', 'Belum Ditempati', 'Ikut Rukem', 'Pasang', 'Blessnet', 'Belum Bayar', 15000, 0, 0, 0, '', '', 0, 'Maret, April, Mei, Juni, Juli, Agustus', 0, NULL, 0, '2026-11-02T00:35:33.579Z');
+REPLACE INTO `warga` VALUES ('warga-k2-43', 'K2/43', 'Aditya Maulana', '082125255358', 'Milik Sendiri', 'Belum Ditempati', 'Ikut Rukem', 'Pasang', 'Blessnet', 'Belum Bayar', 15000, 0, 0, 0, '', 'September 2026', 0, 'Maret, April, Mei, Juni, Juli, Agustus', 0, NULL, 0, '2026-11-01T03:44:14.550Z');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/43-1-1792646454402', 'warga-k2-43', 'Aditya Mulana', 'Kepala Keluarga', 'Jakarta', '1989-06-17', 'Laki-laki', 'Islam', '');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/43-2-1792646454402', 'warga-k2-43', 'Femi Hidayati Wulan', 'Istri', 'Jakarta', '1989-08-01', 'Perempuan', 'Islam', '');
 REPLACE INTO `anggota_keluarga` VALUES ('m-K2/43-3-1792646454402', 'warga-k2-43', 'Aina Talita Zahran', 'Anak', 'Jakarta', '2014-09-24', 'Perempuan', 'Islam', '');
@@ -254,6 +254,7 @@ REPLACE INTO `warga` VALUES ('warga-k3-24', 'K3/24', 'Kosong', 'Kosong', 'Milik 
 REPLACE INTO `anggota_keluarga` VALUES ('m-K3/24-1-1792646454412', 'warga-k3-24', 'Kosong', 'Anak', 'Kosong', '1990-01-01', 'Laki-laki', 'Islam', '');
 
 -- Data Transaksi Kas
+REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793615015735-0-4aj8', '2026-05-02', 'masuk', 'Kas Utama', 'Iuran Warga', 'Iuran Kas Warga Bayar Lebih (Mei 2026, Juni 2026) Warga Blok K2/26 (Ibnu Fauzi)', 30000);
 REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793492474949-0-22uv', '2026-09-18', 'masuk', 'Kas Utama', 'Iuran Warga', 'Iuran Bulanan (September 2026) Warga Blok K2/41 (Acim Wiratma)', 30000);
 REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793492474949-1-47st', '2026-09-18', 'masuk', 'Kas Utama', 'Pembayaran Tunggakan', 'Pelunasan Tunggakan Lalu Blok K2/41 (Acim Wiratma)', 30000);
 REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793455992803-0-5nd6', '2026-09-14', 'masuk', 'Kas Utama', 'Pembayaran Tunggakan', 'Pelunasan / Cicilan Tunggakan Lalu Blok K3/20 (Denny Sanjaya)', 80000);
@@ -305,7 +306,6 @@ REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793366110298-0-pj74', '2026-
 REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793365904009-0-bnti', '2026-05-04', 'masuk', 'Kas Utama', 'Denda Baksos', 'Pelunasan Denda Baksos (Rp 10.000) - Blok K2/36 (Bagus Adi P)', 10000);
 REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793365308289-0-llef', '2026-05-10', 'masuk', 'Kas Utama', 'Iuran Warga', 'Iuran Bulanan (Mei 2026) Warga Blok K3/18 (Deden Wahyudi)', 40000);
 REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793364459516-0-3kzt', '2026-07-06', 'masuk', 'Kas Utama', 'Iuran Warga', 'Iuran Kas Warga Bayar Lebih (Juli 2026, Agustus 2026, September 2026, Oktober 2026, November 2026, Desember 2026) Warga Blok K2/26 (Ibnu Fauzi)', 90000);
-REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793364367028-0-eizi', '2026-05-01', 'masuk', 'Kas Utama', 'Iuran Warga', 'Iuran Kas Warga Bayar Lebih (Mei 2026, Juni 2026) Warga Blok K2/26 (Ibnu Fauzi)', 30000);
 REPLACE INTO `transaksi_kas` VALUES ('tx-1793356102300-xu3i', '2026-09-04', 'masuk', 'Kas Utama', 'Iuran Warga', 'Penarikan Iuran Bulanan (September 2026) Blok K2/36 (Bagus Adi P)', 40000);
 REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793341185731-0-de5e', '2026-09-13', 'masuk', 'Kas Utama', 'Iuran Warga', 'Iuran Bulanan (September 2026) Warga Blok K2/31 (Ipin Tasripin)', 40000);
 REPLACE INTO `transaksi_kas` VALUES ('tx-dues-sync-1793341151738-0-a2hc', '2026-09-02', 'masuk', 'Kas Utama', 'Iuran Warga', 'Iuran Bulanan (September 2026) Warga Blok K2/28 (Andri Setiawan)', 40000);

@@ -37,6 +37,10 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import {
   BaksosAgenda,
@@ -305,6 +309,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [selectedKKPeriod, setSelectedKKPeriod] = useState<string>(defaultMonthLabel);
   const [duesFilter, setDuesFilter] = useState<'semua' | 'Lunas' | 'Bayar Lebih' | 'Belum Bayar'>('semua');
   const [searchKK, setSearchKK] = useState<string>('');
+  // Mode tampilan kompak agar tabel rekap iuran per KK muat 1 layar
+  const [kkViewFit, setKkViewFit] = useState<boolean>(true);
+  const [kkZoomScale, setKkZoomScale] = useState<'75' | '85' | '100'>('85');
+  const [isLegendExpanded, setIsLegendExpanded] = useState<boolean>(false);
 
   // Modals state
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
@@ -4533,46 +4541,54 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
       {/* VIEW 2: REKAP IURAN KAS PER KK (KHUSUS PENGURUS - TERSEMBUNYI DARI WARGA) */}
       {currentSubTab === 'per_kk' && isAdmin && (
-        <div className="bg-gradient-to-b from-white via-slate-50/50 to-indigo-50/20 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden space-y-5 p-4 sm:p-6">
+        <div className={`bg-gradient-to-b from-white via-slate-50/50 to-indigo-50/20 rounded-2xl sm:rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden transition-all ${
+          kkViewFit ? 'p-2.5 sm:p-3 space-y-2' : 'p-4 sm:p-6 space-y-5'
+        }`}>
           {/* Header & Stats (Warga: Khusus Bulan Berjalan. Pengurus: Bisa Buat & Hapus Periode + Ganti Periode) */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+          <div className={`flex flex-col lg:flex-row lg:items-center justify-between gap-2 border-b border-slate-100 ${
+            kkViewFit ? 'pb-2' : 'pb-4'
+          }`}>
             <div>
-              <div className="flex items-center gap-2.5">
-                <div className="p-2.5 rounded-2xl bg-teal-600 text-white shadow-sm shrink-0">
-                  <Users className="w-5 h-5 text-amber-200" />
+              <div className="flex items-center gap-2">
+                <div className={`${kkViewFit ? 'p-1.5 rounded-xl' : 'p-2.5 rounded-2xl'} bg-teal-600 text-white shadow-sm shrink-0`}>
+                  <Users className={`${kkViewFit ? 'w-4 h-4' : 'w-5 h-5'} text-amber-200`} />
                 </div>
                 <div>
-                  <h3 className="font-black text-slate-900 text-base sm:text-lg flex items-center gap-2">
+                  <h3 className={`font-black text-slate-900 flex items-center gap-2 ${
+                    kkViewFit ? 'text-sm sm:text-base' : 'text-base sm:text-lg'
+                  }`}>
                     <span>Rekap Pembayaran Iuran Kas Per KK</span>
                     {isAdmin ? (
-                      <span className="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[10px] font-black uppercase tracking-wider border border-teal-200">
+                      <span className="px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-teal-200">
                         Mode Pengurus
                       </span>
                     ) : (
-                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-black uppercase tracking-wider border border-slate-200">
+                      <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[9px] sm:text-[10px] font-black uppercase tracking-wider border border-slate-200">
                         Informasi Warga
                       </span>
                     )}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className={`text-slate-500 ${kkViewFit ? 'text-[11px] mt-0.5' : 'text-xs mt-0.5'}`}>
                     Pencatatan status kelunasan dan riwayat pembayaran iuran rutin per kepala keluarga ({formatRupiah(config.duesAmountPerMonth || 50000)}/bulan).
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {/* Tombol Buat & Hapus Periode untuk Pengurus */}
               {isAdmin && (
                 <>
                   <button
                     type="button"
                     onClick={() => setIsUploadDuesModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold cursor-pointer shadow-xs transition-all font-sans"
+                    className={`flex items-center gap-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold cursor-pointer shadow-xs transition-all font-sans ${
+                      kkViewFit ? 'px-2.5 py-1.5 text-[11px]' : 'px-3.5 py-2 text-xs'
+                    }`}
                     title="Upload Data Iuran Warga Per KK via Excel (.xlsx / .xls)"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5 text-indigo-100" />
-                    <span>Upload Excel Iuran</span>
+                    <span>Upload Excel</span>
                   </button>
                   <button
                     type="button"
@@ -4580,11 +4596,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       setPeriodModalTab('tambah');
                       setIsPeriodModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold cursor-pointer shadow-xs transition-all font-sans"
+                    className={`flex items-center gap-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold cursor-pointer shadow-xs transition-all font-sans ${
+                      kkViewFit ? 'px-2.5 py-1.5 text-[11px]' : 'px-3.5 py-2 text-xs'
+                    }`}
                     title="Buat Periode Baru Iuran KK & Buku Kas"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Buat Periode Baru</span>
+                    <span>Buat Periode</span>
                   </button>
                   <button
                     type="button"
@@ -4593,7 +4611,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       setDeletePeriodSelect(availablePeriods[0] || '');
                       setIsPeriodModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 border border-rose-200 text-xs font-bold cursor-pointer transition-all font-sans"
+                    className={`flex items-center gap-1 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 border border-rose-200 font-bold cursor-pointer transition-all font-sans ${
+                      kkViewFit ? 'px-2.5 py-1.5 text-[11px]' : 'px-3.5 py-2 text-xs'
+                    }`}
                     title="Hapus Periode Iuran KK & Buku Kas"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -4605,11 +4625,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       setResetAllTargetPeriod(selectedKKPeriod !== 'semua' ? selectedKKPeriod : defaultMonthLabel);
                       setIsResetAllModalOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-bold cursor-pointer shadow-xs transition-all font-sans"
+                    className={`flex items-center gap-1 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-bold cursor-pointer shadow-xs transition-all font-sans ${
+                      kkViewFit ? 'px-2.5 py-1.5 text-[11px]' : 'px-3.5 py-2 text-xs'
+                    }`}
                     title="Hapus / Kosongkan Total Semua Pembayaran Periode Terpilih & Bersihkan dari Buku Kas"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-rose-200" />
-                    <span>Hapus Total Semua Pembayaran</span>
+                    <span>Hapus Total Pembayaran</span>
                   </button>
                 </>
               )}
@@ -4617,14 +4639,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           </div>
 
           {/* BAR FILTER PERIODE, MODE TAMPILAN, STATUS & PENCARIAN */}
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-slate-50 via-indigo-50/30 to-slate-50 border border-slate-200/90 shadow-2xs space-y-3">
-            {/* Baris 1: Pilihan Periode Bulan & Switcher Mode Tampilan */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className={`rounded-xl sm:rounded-2xl bg-gradient-to-r from-slate-50 via-indigo-50/20 to-slate-50 border border-slate-200/90 shadow-2xs space-y-2 ${
+            kkViewFit ? 'p-2 sm:p-2.5' : 'p-3.5 sm:p-4 space-y-3'
+          }`}>
+            {/* Baris 1: Pilihan Periode Bulan & Pengatur Tampilan 1 Layar */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2">
               {/* Filter Periode Bulan */}
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="font-extrabold text-slate-800 mr-1 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-emerald-600" />
-                  Pilih Periode:
+              <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                <span className="font-extrabold text-slate-800 mr-1 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-600" />
+                  Periode:
                 </span>
                 {sortedPeriods.map((p) => {
                   const isCur = p === defaultMonthLabel;
@@ -4637,9 +4661,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         const pKey = parseIndonesianMonthYearToKey(p);
                         if (pKey) setSelectedTxMonth(pKey);
                       }}
-                      className={`px-3 py-1.5 rounded-xl font-extrabold transition-all cursor-pointer ${
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                         selectedKKPeriod === p
-                          ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
+                          ? 'bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-400'
                           : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs'
                       }`}
                     >
@@ -4649,46 +4673,107 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 })}
               </div>
 
-              {/* Indikator Legenda Warna Baris & Sel Otomatis */}
-              <div className="flex flex-wrap items-center gap-2 p-2 bg-white/95 rounded-2xl border border-slate-200/90 shadow-2xs text-[11px] font-bold self-start lg:self-auto backdrop-blur-xs">
-                <span className="text-slate-600 font-extrabold px-1">Pewarnaan Kolom & Sel:</span>
-                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-950 border border-emerald-300 shadow-2xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-                  Hijau: Sudah Bayar / Lunas di Muka
-                </span>
-                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-100 text-rose-950 border border-rose-300 shadow-2xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
-                  Merah: Menunggak
-                </span>
-                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-100 text-sky-950 border border-sky-300 shadow-2xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-sky-600"></span>
-                  Biru: Bulan Saat Bayar &gt;1 Bln
-                </span>
-                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900 text-white border border-slate-700 shadow-2xs">
-                  <span className="w-2.5 h-2.5 rounded-full bg-white"></span>
-                  Hitam: Rumah Kosong
-                </span>
+              {/* Panel Kontrol Muat 1 Layar, Skala & Legenda */}
+              <div className="flex flex-wrap items-center gap-1.5 self-start lg:self-auto">
+                {/* Tombol Muat 1 Layar */}
+                <button
+                  type="button"
+                  onClick={() => setKkViewFit(!kkViewFit)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-black transition-all cursor-pointer border shadow-2xs ${
+                    kkViewFit
+                      ? 'bg-emerald-700 hover:bg-emerald-800 text-white border-emerald-600 ring-1 ring-emerald-400/50'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+                  }`}
+                  title={kkViewFit ? 'Klik untuk kembali ke mode tinggi normal' : 'Klik agar tampilan tabel diperkecil & muat 1 layar penuh'}
+                >
+                  {kkViewFit ? <Minimize2 className="w-3.5 h-3.5 text-emerald-200" /> : <Maximize2 className="w-3.5 h-3.5 text-slate-500" />}
+                  <span>{kkViewFit ? 'Muat 1 Layar: Aktif' : 'Muat 1 Layar'}</span>
+                </button>
+
+                {/* Pilihan Zoom / Skala Perkecil */}
+                {kkViewFit && (
+                  <div className="flex items-center bg-white rounded-lg border border-slate-200 p-0.5 shadow-2xs text-[10px] font-bold">
+                    <span className="px-1.5 text-slate-500 flex items-center gap-0.5">
+                      <ZoomIn className="w-3 h-3 text-slate-400" />
+                      Skala:
+                    </span>
+                    {(['75', '85', '100'] as const).map((scale) => (
+                      <button
+                        key={scale}
+                        type="button"
+                        onClick={() => setKkZoomScale(scale)}
+                        className={`px-1.5 py-0.5 rounded-md cursor-pointer transition-all ${
+                          kkZoomScale === scale
+                            ? 'bg-slate-900 text-white font-extrabold shadow-xs'
+                            : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {scale}%
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Tombol Toggle Legenda Warna */}
+                <button
+                  type="button"
+                  onClick={() => setIsLegendExpanded(!isLegendExpanded)}
+                  className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs cursor-pointer transition-all"
+                  title="Tampilkan / Sembunyikan Keterangan Warna"
+                >
+                  <span className="flex items-center gap-0.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                    <span className="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>
+                    <span className="w-2 h-2 rounded-full bg-sky-500 inline-block"></span>
+                    <span className="w-2 h-2 rounded-full bg-slate-900 inline-block"></span>
+                  </span>
+                  <span>Legenda</span>
+                  {isLegendExpanded ? <ChevronUp className="w-3 h-3 text-slate-400" /> : <ChevronDown className="w-3 h-3 text-slate-400" />}
+                </button>
               </div>
             </div>
 
+            {/* Keterangan Legenda Warna Baris & Sel (Bisa Ditutup/Buka) */}
+            {isLegendExpanded && (
+              <div className="flex flex-wrap items-center gap-1.5 p-1.5 bg-white/95 rounded-xl border border-slate-200 text-[10px] font-bold">
+                <span className="text-slate-600 font-extrabold px-1">Warna Sel:</span>
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-950 border border-emerald-300">
+                  <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+                  Hijau: Sudah Bayar / Lunas di Muka
+                </span>
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-100 text-rose-950 border border-rose-300">
+                  <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+                  Merah: Menunggak
+                </span>
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-sky-100 text-sky-950 border border-sky-300">
+                  <span className="w-2 h-2 rounded-full bg-sky-600"></span>
+                  Biru: Bayar &gt;1 Bln
+                </span>
+                <span className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-900 text-white border border-slate-700">
+                  <span className="w-2 h-2 rounded-full bg-white"></span>
+                  Hitam: Rumah Kosong
+                </span>
+              </div>
+            )}
+
             {/* Baris 2: Filter Status & Search Input */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-slate-200/70">
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60">
+              <div className="flex flex-wrap items-center gap-1 text-[11px]">
                 <button
                   type="button"
                   onClick={() => setDuesFilter('semua')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                     duesFilter === 'semua'
                       ? 'bg-slate-900 text-white shadow-xs'
                       : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 shadow-2xs'
                   }`}
                 >
-                  Semua Status ({residents.length})
+                  Semua ({residents.length})
                 </button>
                 <button
                   type="button"
                   onClick={() => setDuesFilter('Lunas')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                     duesFilter === 'Lunas'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'bg-emerald-50/90 text-emerald-900 hover:bg-emerald-100 border border-emerald-300 shadow-2xs'
@@ -4699,7 +4784,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setDuesFilter('Bayar Lebih')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                     duesFilter === 'Bayar Lebih'
                       ? 'bg-sky-600 text-white shadow-xs'
                       : 'bg-sky-50 text-sky-950 hover:bg-sky-100 border border-sky-300 shadow-2xs'
@@ -4710,7 +4795,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => setDuesFilter('Belum Bayar')}
-                  className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
                     duesFilter === 'Belum Bayar'
                       ? 'bg-rose-600 text-white shadow-xs'
                       : 'bg-rose-50/90 text-rose-900 hover:bg-rose-100 border border-rose-300 shadow-2xs'
@@ -4720,47 +4805,60 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 </button>
               </div>
 
-              <div className="relative w-full sm:w-64">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <div className="relative w-full sm:w-56">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                 <input
                   type="text"
                   placeholder="Cari nama / nomor blok..."
                   value={searchKK}
                   onChange={(e) => setSearchKK(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 shadow-2xs transition-all"
+                  className="w-full pl-7 pr-2.5 py-1 text-[11px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 shadow-2xs transition-all"
                 />
               </div>
             </div>
           </div>
 
           {/* TABEL REKAP IURAN PER KK */}
-          <div className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-600 gap-1.5 pb-1">
+          <div className="space-y-1.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-slate-600 gap-1 pb-0.5">
                 <span className="font-extrabold text-slate-900 flex items-center gap-1.5">
-                  <Table className="w-4 h-4 text-emerald-600" />
+                  <Table className="w-3.5 h-3.5 text-emerald-600" />
                   <span>
                     Tabel Rekap Pembayaran Iuran Per KK {selectedKKPeriod !== 'semua' ? `— Periode ${selectedKKPeriod}` : ''} ({filteredPerKKList.length} KK)
                   </span>
                 </span>
-                <span className="text-[11px] text-slate-500 font-medium">
-                  Rekapitulasi Iuran Kas Per Kepala Keluarga Gang Mandor Blok K2/25 s/d K3/24
+                <span className="text-[10px] text-slate-500 font-medium hidden sm:inline">
+                  Gang Mandor Blok K2/25 s/d K3/24 {kkViewFit ? `• Skala ${kkZoomScale}% (Muat 1 Layar)` : ''}
                 </span>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-slate-200/90 shadow-sm bg-white">
+              <div
+                className={`overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white overflow-y-auto transition-all ${
+                  kkViewFit
+                    ? 'max-h-[calc(100vh-270px)] sm:max-h-[calc(100vh-250px)] min-h-[300px]'
+                    : 'max-h-[750px]'
+                }`}
+                style={
+                  kkViewFit
+                    ? {
+                        zoom: kkZoomScale === '75' ? 0.78 : kkZoomScale === '85' ? 0.88 : 1,
+                      }
+                    : undefined
+                }
+              >
                 <table className="w-full text-left text-xs border-collapse whitespace-nowrap">
-                  <thead className="bg-slate-900 text-slate-100">
+                  <thead className="bg-slate-900 text-slate-100 sticky top-0 z-10 shadow-xs">
                     <tr className="border-b border-slate-800">
-                      <th className="py-3.5 px-3 text-center w-12 text-[11px] font-bold uppercase tracking-wider text-slate-300">No</th>
-                      <th className="py-3.5 px-3 text-center w-28 text-[11px] font-bold uppercase tracking-wider text-slate-300">No Blok</th>
-                      <th className="py-3.5 px-4 min-w-[200px] text-left text-[11px] font-bold uppercase tracking-wider text-slate-300">Nama Kepala Keluarga</th>
-                      <th className="py-3.5 px-3 text-center w-32 text-[11px] font-bold uppercase tracking-wider text-slate-300">Periode Iuran</th>
-                      <th className="py-3.5 px-4 text-right min-w-[170px] text-[11px] font-bold uppercase tracking-wider text-slate-300">Iuran Bulanan</th>
-                      <th className="py-3.5 px-3 text-center min-w-[140px] text-[11px] font-bold uppercase tracking-wider text-slate-300">Pembayaran Denda Baksos</th>
-                      <th className="py-3.5 px-4 text-right min-w-[140px] text-[11px] font-bold uppercase tracking-wider text-slate-300">Pembayaran Tunggakan</th>
-                      <th className="py-3.5 px-3 text-center min-w-[130px] text-[11px] font-bold uppercase tracking-wider text-slate-300">Tanggal Pembayaran</th>
-                      <th className="py-3.5 px-4 text-right min-w-[180px] text-[11px] font-bold uppercase tracking-wider text-slate-300">Total Semua Pembayaran</th>
-                      <th className="py-3.5 px-3 text-center w-28 text-[11px] font-bold uppercase tracking-wider text-slate-300">Aksi</th>
+                      <th className={`${kkViewFit ? 'py-1.5 px-2' : 'py-3.5 px-3'} text-center w-10 text-[10px] font-bold uppercase tracking-wider text-slate-300`}>No</th>
+                      <th className={`${kkViewFit ? 'py-1.5 px-2' : 'py-3.5 px-3'} text-center w-24 text-[10px] font-bold uppercase tracking-wider text-slate-300`}>No Blok</th>
+                      <th className={`${kkViewFit ? 'py-1.5 px-3' : 'py-3.5 px-4'} min-w-[170px] text-left text-[10px] font-bold uppercase tracking-wider text-slate-300`}>Nama Kepala Keluarga</th>
+                      <th className={`${kkViewFit ? 'py-1.5 px-2' : 'py-3.5 px-3'} text-center w-24 text-[10px] font-bold uppercase tracking-wider text-slate-300`}>Periode Iuran</th>
+                      <th className={`${kkViewFit ? 'py-1.5 px-3' : 'py-3.5 px-4'} text-right min-w-[130px] text-[10px] font-bold uppercase tracking-wider text-slate-300`}>Iuran Bulanan</th>
+                      <th className={`${kkViewFit ? 'py-1.5 px-3' : 'py-3.5 px-4'} text-right min-w-[140px] text-[10px] font-bold uppercase tracking-wider text-slate-300`}>Denda Baksos</th>
+                      <th className={`${kkViewFit ? 'py-1.5 px-3' : 'py-3.5 px-4'} text-right min-w-[130px] text-[10px] font-bold uppercase tracking-wider text-slate-300`}>Tunggakan</th>
+                      <th className={`${kkViewFit ? 'py-1.5 px-2' : 'py-3.5 px-3'} text-center min-w-[110px] text-[10px] font-bold uppercase tracking-wider text-slate-300`}>Tgl Bayar</th>
+                      <th className={`${kkViewFit ? 'py-1.5 px-3' : 'py-3.5 px-4'} text-right min-w-[150px] text-[10px] font-bold uppercase tracking-wider text-slate-300`}>Total Semua Pembayaran</th>
+                      <th className={`${kkViewFit ? 'py-1.5 px-2' : 'py-3.5 px-3'} text-center w-24 text-[10px] font-bold uppercase tracking-wider text-slate-300`}>Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200/80">
@@ -4804,7 +4902,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         return (
                           <tr
                             key={house.id}
-                            className={`transition-colors border-b ${
+                            className={`transition-colors border-b group ${
                               isRumahKosongHitam
                                 ? '!bg-black !text-white border-neutral-800 hover:!bg-neutral-900'
                                 : isNeutralKosong
@@ -4819,20 +4917,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             }`}
                           >
                             {/* 1. No */}
-                            <td className={`py-2.5 px-3 text-center font-mono tabular-nums text-xs border-r border-slate-200/60 ${isRumahKosongHitam ? 'text-slate-300' : 'text-slate-600'}`}>
+                            <td className={`${kkViewFit ? 'py-1 px-2 text-[11px]' : 'py-3 px-3 text-xs'} text-center font-mono tabular-nums border-r border-slate-200/60 ${isRumahKosongHitam ? 'text-slate-300' : 'text-slate-600 font-semibold'}`}>
                               {idx + 1}
                             </td>
 
                             {/* 2. No Blok */}
-                            <td className="py-2.5 px-3 text-center border-r border-slate-200/60">
+                            <td className={`${kkViewFit ? 'py-1 px-2' : 'py-3 px-3'} text-center border-r border-slate-200/60`}>
                               <span
-                                className={`inline-block font-mono text-xs font-bold px-2.5 py-1 rounded-lg border shadow-2xs ${
+                                className={`inline-block font-mono font-black rounded-lg border shadow-2xs ${
+                                  kkViewFit ? 'text-[10px] px-2 py-0.5' : 'text-xs px-2.5 py-1'
+                                } ${
                                   isRumahKosongHitam
                                     ? 'bg-neutral-900 text-white border-neutral-700'
                                     : isNeutralKosong
                                     ? 'bg-slate-200 text-slate-800 border-slate-300'
                                     : isBayarLebih
-                                    ? 'bg-sky-100 text-sky-950 border-sky-300'
+                                    ? 'bg-sky-100 text-sky-950 border-sky-300 ring-1 ring-sky-300/60'
                                     : isAdvanceSubsequent
                                     ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
                                     : isSudahBayar
@@ -4845,12 +4945,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             </td>
 
                             {/* 3. Nama Kepala Keluarga */}
-                            <td className="py-2.5 px-4 border-r border-slate-200/60">
+                            <td className={`${kkViewFit ? 'py-1 px-2.5' : 'py-3 px-4'} border-r border-slate-200/60`}>
                               <div className="flex items-center justify-between gap-2">
                                 {payerName ? (
                                   <div className="flex flex-col">
                                     <span
-                                      className={`font-bold text-xs ${
+                                      className={`font-black ${kkViewFit ? 'text-[11px]' : 'text-xs'} ${
                                         isRumahKosongHitam
                                           ? 'text-white'
                                           : isNeutralKosong
@@ -4858,19 +4958,19 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                           : isBayarLebih
                                           ? 'text-sky-950 font-black'
                                           : isAdvanceSubsequent || isSudahBayar
-                                          ? 'text-emerald-950 font-bold'
+                                          ? 'text-emerald-950'
                                           : 'text-rose-950'
                                       }`}
                                     >
                                       {payerName}
                                     </span>
                                     {isBayarLebih && (
-                                      <span className="text-[11px] font-semibold text-sky-800 mt-0.5">
-                                        Bayar Lebih ({paidMonthsCount} Bulan: {coveredMonthsList.map((m) => m.split(' ')[0]).join(', ')})
+                                      <span className={`${kkViewFit ? 'text-[9px]' : 'text-[11px]'} font-semibold text-sky-800 mt-0.5`}>
+                                        Bayar Lebih ({paidMonthsCount} Bln: {coveredMonthsList.map((m) => m.split(' ')[0]).join(', ')})
                                       </span>
                                     )}
                                     {isAdvanceSubsequent && (
-                                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 mt-0.5">
+                                      <span className={`inline-flex items-center gap-1 ${kkViewFit ? 'text-[9px]' : 'text-[11px]'} font-semibold text-emerald-800 mt-0.5`}>
                                         <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                                         <span>Lunas via Pembayaran di Bulan {basePaymentMonth}</span>
                                       </span>
@@ -4889,30 +4989,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     {isAdmin ? '+ Input Nama KK' : '-'}
                                   </span>
                                 )}
-                                {isAdmin && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEditHouseDues(house, isBayarLebih)}
-                                    className="p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/70 transition-colors cursor-pointer shrink-0"
-                                    title="Edit Nama KK / Data Iuran Ini"
-                                  >
-                                    <Edit2 className="w-3.5 h-3.5" />
-                                  </button>
-                                )}
                               </div>
                             </td>
 
                             {/* 4. Periode Iuran */}
-                            <td className="py-2.5 px-3 text-center border-r border-slate-200/60">
+                            <td className={`${kkViewFit ? 'py-1 px-2' : 'py-3 px-3'} text-center border-r border-slate-200/60`}>
                               <div className="flex flex-col items-center">
-                                <span className="font-bold text-xs">{periodStr}</span>
+                                <span className={`font-extrabold ${kkViewFit ? 'text-[11px]' : 'text-xs'}`}>{periodStr}</span>
                                 {isBayarLebih && (
-                                  <span className="text-[10px] text-sky-800 font-semibold mt-0.5">
+                                  <span className="text-[9px] text-sky-800 font-semibold mt-0.5">
                                     Tercakup {paidMonthsCount} Bln (s/d {lastCoveredMonth})
                                   </span>
                                 )}
                                 {isAdvanceSubsequent && (
-                                  <span className="text-[10px] text-emerald-800 font-semibold mt-0.5">
+                                  <span className="text-[9px] text-emerald-800 font-semibold mt-0.5">
                                     Lunas di {basePaymentMonth}
                                   </span>
                                 )}
@@ -4922,70 +5012,45 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             {/* 5. Iuran Bulanan */}
                             <td
                               onClick={() => isAdmin && handleOpenEditHouseDues(house, isBayarLebih, 'iuran')}
-                              className={`py-2.5 px-4 text-right font-mono tabular-nums border-r border-slate-200/60 ${
-                                isAdmin ? 'cursor-pointer hover:bg-black/5 transition-colors' : ''
+                              className={`${kkViewFit ? 'py-1 px-2.5' : 'py-3 px-4'} text-right font-mono tabular-nums border-r border-slate-200/60 ${
+                                isAdmin ? 'cursor-pointer hover:bg-emerald-100/40 transition-colors' : ''
                               }`}
-                              title={isAdmin ? (isAdvanceSubsequent ? `Iuran periode ini sudah lunas dibayar di muka pada bulan ${basePaymentMonth}` : 'Klik untuk edit Iuran Bulanan KK ini') : ''}
+                              title={isAdmin ? (isAdvanceSubsequent ? `Iuran periode ini lunas dibayar di muka pada bulan ${basePaymentMonth}. Klik untuk edit.` : 'Klik untuk edit Iuran Bulanan KK ini') : ''}
                             >
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex items-center justify-end">
                                 {isNeutralKosong ? (
-                                  <span className="text-slate-400 font-normal italic text-[11px]">Bebas (Kosong)</span>
+                                  <span className="text-slate-400 font-normal italic text-[10px]">Bebas (Kosong)</span>
                                 ) : isAdvanceSubsequent ? (
                                   <div className="flex flex-col items-end">
-                                    <span className="inline-flex items-center gap-1.5 text-xs font-sans font-bold text-emerald-950 bg-emerald-100/90 px-2.5 py-1 rounded-md border border-emerald-300 shadow-2xs whitespace-nowrap">
-                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    <span className={`inline-flex items-center gap-1 font-sans font-bold text-emerald-950 bg-emerald-100/90 rounded-md border border-emerald-300 shadow-2xs whitespace-nowrap ${
+                                      kkViewFit ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2.5 py-1'
+                                    }`}>
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                                       <span>Lunas di Bulan {basePaymentMonth}</span>
                                     </span>
-                                    <span className="text-[10px] text-emerald-800 font-medium mt-0.5 whitespace-nowrap">
+                                    <span className="text-[9px] text-emerald-800 font-medium mt-0.5 whitespace-nowrap">
                                       (Bayar &gt;1 Bln di {basePaymentMonth})
                                     </span>
                                   </div>
                                 ) : isBayarLebih ? (
                                   <div className="flex flex-col items-end">
-                                    <span className="font-mono font-bold text-sky-950 text-xs sm:text-sm">
+                                    <span className={`font-mono font-black text-sky-950 ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
                                       +{formatRupiah(iuranPaid)}
                                     </span>
-                                    <span className="text-[10px] text-sky-800 font-medium whitespace-nowrap mt-0.5">
+                                    <span className="text-[9px] text-sky-800 font-medium whitespace-nowrap mt-0.5">
                                       {paidMonthsCount} Bln x {formatRupiah(nominal)}
                                     </span>
                                   </div>
                                 ) : iuranPaid > 0 ? (
-                                  <span className={`font-mono font-bold text-xs sm:text-sm ${isRumahKosongHitam ? 'text-emerald-400' : 'text-emerald-800'}`}>
+                                  <span className={`font-mono font-bold ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'} ${isRumahKosongHitam ? 'text-emerald-400' : 'text-emerald-800'}`}>
                                     +{formatRupiah(iuranPaid)}
                                   </span>
                                 ) : isRumahKosongHitam ? (
-                                  <span className="text-slate-400 italic text-[11px]">Bebas (Rp 0)</span>
+                                  <span className="text-slate-400 italic text-[10px]">Bebas (Rp 0)</span>
                                 ) : (
-                                  <span className="text-rose-700 font-bold text-xs">Rp 0 <span className="font-normal text-[10px] text-rose-600">(Belum Bayar)</span></span>
-                                )}
-                                {isAdmin && (
-                                  <div className="flex items-center gap-0.5 ml-1">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenEditHouseDues(house, isBayarLebih, 'iuran');
-                                      }}
-                                      className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer shrink-0"
-                                      title="Edit Iuran Bulanan KK ini"
-                                    >
-                                      <Edit2 className="w-3 h-3" />
-                                    </button>
-                                    {(isSudahBayar || isBayarLebih || isAdvanceSubsequent || iuranPaid > 0) && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDeleteTargetComponent('iuran');
-                                          setDeletingSingleHouse({ house, period: periodStr, componentType: 'iuran' });
-                                        }}
-                                        className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
-                                        title="Hapus Pembayaran Iuran KK Ini"
-                                      >
-                                        <Trash2 className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                  </div>
+                                  <span className="text-rose-700 font-bold text-[11px]">
+                                    Rp 0 <span className="font-normal text-[9px] text-rose-600">(Belum)</span>
+                                  </span>
                                 )}
                               </div>
                             </td>
@@ -4993,70 +5058,43 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             {/* 6. Pembayaran Denda Baksos */}
                             <td
                               onClick={() => isAdmin && handleOpenEditHouseDues(house, isBayarLebih, 'baksos')}
-                              className={`py-2.5 px-3 text-center border-r border-slate-200/60 ${
-                                isAdmin ? 'cursor-pointer hover:bg-black/5 transition-colors' : ''
+                              className={`${kkViewFit ? 'py-1 px-2.5' : 'py-3 px-4'} text-right border-r border-slate-200/60 ${
+                                isAdmin ? 'cursor-pointer hover:bg-emerald-100/40 transition-colors' : ''
                               }`}
                               title={isAdmin ? 'Klik untuk edit Pembayaran Denda Baksos KK ini' : ''}
                             >
-                              <div className="flex items-center justify-center gap-1.5">
+                              <div className="flex items-center justify-end">
                                 {dendaPaid > 0 ? (
-                                  <div className="flex flex-col items-center">
-                                    <span className="font-mono font-bold text-emerald-800 text-xs tabular-nums">
+                                  <div className="flex flex-col items-end">
+                                    <span className={`font-mono font-bold text-emerald-800 tabular-nums ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
                                       +{formatRupiah(dendaPaid)}
                                     </span>
-                                    <span className="text-[10px] text-emerald-700 font-medium mt-0.5">
+                                    <span className="text-[9px] text-emerald-700 font-medium mt-0.5">
                                       ✓ Denda Lunas
                                     </span>
                                   </div>
                                 ) : baksosInfo.dendaUnpaid > 0 ? (
-                                  <div className="flex flex-col items-center">
-                                    <span className="font-mono font-semibold text-rose-700 text-xs tabular-nums">
+                                  <div className="flex flex-col items-end">
+                                    <span className="font-mono font-semibold text-rose-700 text-[11px] tabular-nums">
                                       Rp 0
                                     </span>
-                                    <span className="text-[10px] text-rose-700 font-medium mt-0.5">
+                                    <span className="text-[9px] text-rose-700 font-medium mt-0.5">
                                       Denda {formatRupiah(baksosInfo.dendaUnpaid)}
                                     </span>
                                   </div>
                                 ) : baksosInfo.hadHadir ? (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span className={`inline-flex items-center gap-1 font-semibold text-emerald-800 bg-emerald-50 rounded-md border border-emerald-200 ${
+                                    kkViewFit ? 'text-[10px] px-1.5 py-0.5' : 'text-[11px] px-2 py-0.5'
+                                  }`}>
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                     <span>Hadir</span>
                                   </span>
                                 ) : baksosInfo.hadTidakWajib ? (
-                                  <span className="text-[11px] text-slate-500">Tidak Wajib</span>
+                                  <span className="text-[10px] text-slate-500 font-medium">Tidak Wajib</span>
                                 ) : isRumahKosongHitam || isNeutralKosong ? (
-                                  <span className="text-[11px] text-slate-400 italic">Bebas</span>
+                                  <span className="text-[10px] text-slate-400 italic">Bebas</span>
                                 ) : (
-                                  <span className="text-slate-400 font-mono">-</span>
-                                )}
-                                {isAdmin && (
-                                  <div className="flex items-center gap-0.5 ml-1">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenEditHouseDues(house, isBayarLebih, 'baksos');
-                                      }}
-                                      className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer shrink-0"
-                                      title="Edit Pembayaran Denda Baksos KK ini"
-                                    >
-                                      <Edit2 className="w-3 h-3" />
-                                    </button>
-                                    {(dendaPaid > 0 || baksosInfo.dendaUnpaid > 0) && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDeleteTargetComponent('baksos');
-                                          setDeletingSingleHouse({ house, period: periodStr, componentType: 'baksos' });
-                                        }}
-                                        className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
-                                        title="Hapus / Batalkan Denda Baksos KK Ini"
-                                      >
-                                        <Trash2 className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                  </div>
+                                  <span className="text-slate-400 font-mono text-[11px]">-</span>
                                 )}
                               </div>
                             </td>
@@ -5064,180 +5102,126 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             {/* 7. Pembayaran Tunggakan */}
                             <td
                               onClick={() => isAdmin && handleOpenEditHouseDues(house, isBayarLebih, 'tunggakan')}
-                              className={`py-2.5 px-4 text-right font-mono tabular-nums border-r border-slate-200/60 ${
-                                isAdmin ? 'cursor-pointer hover:bg-black/5 transition-colors' : ''
+                              className={`${kkViewFit ? 'py-1 px-2.5' : 'py-3 px-4'} text-right font-mono tabular-nums border-r border-slate-200/60 ${
+                                isAdmin ? 'cursor-pointer hover:bg-amber-100/40 transition-colors' : ''
                               }`}
                               title={isAdmin ? 'Klik untuk edit Pembayaran Tunggakan KK ini' : ''}
                             >
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex items-center justify-end">
                                 {tunggakanPaid > 0 ? (
-                                  <span className="text-amber-800 font-bold text-xs sm:text-sm">+{formatRupiah(tunggakanPaid)}</span>
+                                  <span className={`text-amber-800 font-bold tabular-nums ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>+{formatRupiah(tunggakanPaid)}</span>
                                 ) : (
-                                  <span className="text-slate-400 font-mono">-</span>
-                                )}
-                                {isAdmin && (
-                                  <div className="flex items-center gap-0.5 ml-1">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenEditHouseDues(house, isBayarLebih, 'tunggakan');
-                                      }}
-                                      className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer shrink-0"
-                                      title="Edit Pembayaran Tunggakan KK ini"
-                                    >
-                                      <Edit2 className="w-3 h-3" />
-                                    </button>
-                                    {(tunggakanPaid > 0 || (house.previousArrears || 0) > 0) && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDeleteTargetComponent('tunggakan');
-                                          setDeletingSingleHouse({ house, period: periodStr, componentType: 'tunggakan' });
-                                        }}
-                                        className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
-                                        title="Hapus Pembayaran / Saldo Tunggakan KK Ini"
-                                      >
-                                        <Trash2 className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                  </div>
+                                  <span className="text-slate-400 font-mono text-[11px]">-</span>
                                 )}
                               </div>
                             </td>
 
                             {/* 8. Tanggal Pembayaran */}
-                            <td className="py-2.5 px-3 text-center font-mono text-xs border-r border-slate-200/60">
+                            <td className={`${kkViewFit ? 'py-1 px-2' : 'py-3 px-3'} text-center font-mono border-r border-slate-200/60`}>
                               {paidDate ? (
-                                <span className="font-semibold text-slate-800 tabular-nums">{formatDateDDMMYYYY(paidDate)}</span>
+                                <span className={`font-bold text-slate-800 tabular-nums ${kkViewFit ? 'text-[10px]' : 'text-xs'}`}>{formatDateDDMMYYYY(paidDate)}</span>
                               ) : isAdvanceSubsequent ? (
-                                <span className="text-[11px] font-medium text-emerald-800">
+                                <span className="text-[10px] font-semibold text-emerald-800">
                                   Lunas di {basePaymentMonth}
                                 </span>
                               ) : (
-                                <span className="text-slate-400 font-mono">-</span>
+                                <span className="text-slate-400 font-mono text-[11px]">-</span>
                               )}
                             </td>
 
                             {/* 9. Total Semua Pembayaran */}
                             <td
                               onClick={() => isAdmin && handleOpenEditHouseDues(house, isBayarLebih, 'all')}
-                              className={`py-2.5 px-4 text-right font-mono tabular-nums border-r border-slate-200/60 ${
-                                isAdmin ? 'cursor-pointer hover:bg-black/5 transition-colors' : ''
+                              className={`${kkViewFit ? 'py-1 px-2.5' : 'py-3 px-4'} text-right font-mono tabular-nums border-r border-slate-200/60 ${
+                                isAdmin ? 'cursor-pointer hover:bg-indigo-100/40 transition-colors' : ''
                               }`}
                               title={isAdmin ? 'Klik untuk kelola & edit Total Semua Pembayaran KK ini' : ''}
                             >
-                              <div className="flex items-center justify-end gap-1.5">
+                              <div className="flex items-center justify-end">
                                 <div className="flex flex-col items-end">
                                   {isRumahKosongHitam ? (
                                     <>
-                                      <span className="font-mono font-bold text-white text-xs sm:text-sm">
+                                      <span className={`font-mono font-bold text-white ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
                                         {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
                                       </span>
-                                      <span className="text-[10px] font-sans text-slate-400">
+                                      <span className="text-[9px] font-sans text-slate-400">
                                         Rumah Kosong (Bebas)
                                       </span>
                                     </>
                                   ) : isNeutralKosong ? (
                                     <>
-                                      <span className="font-mono text-slate-600 text-xs sm:text-sm">
+                                      <span className={`font-mono text-slate-600 ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
                                         {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
                                       </span>
-                                      <span className="text-[10px] font-sans text-slate-400 italic">
+                                      <span className="text-[9px] font-sans text-slate-400 italic">
                                         Rumah Kosong (Bebas)
                                       </span>
                                     </>
                                   ) : isAdvanceSubsequent ? (
                                     totalSemua > 0 ? (
                                       <>
-                                        <span className="font-mono font-bold text-emerald-950 text-xs sm:text-sm">
+                                        <span className={`font-mono font-black text-emerald-950 ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
                                           +{formatRupiah(totalSemua)}
                                         </span>
-                                        <span className="text-[10px] font-sans text-emerald-800 font-semibold mt-0.5 whitespace-nowrap">
-                                          (Denda/Tunggakan - Iuran Lunas di {basePaymentMonth})
+                                        <span className="text-[9px] font-sans text-emerald-800 font-semibold mt-0.5 whitespace-nowrap">
+                                          (Denda/Tunggakan - Lunas di {basePaymentMonth})
                                         </span>
                                       </>
                                     ) : (
                                       <div className="flex flex-col items-end">
-                                        <span className="inline-flex items-center gap-1.5 text-xs font-sans font-bold text-emerald-950 bg-emerald-100/90 px-2.5 py-1 rounded-md border border-emerald-300 shadow-2xs whitespace-nowrap">
-                                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                        <span className={`inline-flex items-center gap-1 font-sans font-bold text-emerald-950 bg-emerald-100/90 rounded-md border border-emerald-300 shadow-2xs whitespace-nowrap ${
+                                          kkViewFit ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2.5 py-1'
+                                        }`}>
+                                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                                           <span>Lunas di Bulan {basePaymentMonth}</span>
                                         </span>
-                                        <span className="text-[10px] text-emerald-800 font-medium mt-0.5 whitespace-nowrap">
+                                        <span className="text-[9px] text-emerald-800 font-medium mt-0.5 whitespace-nowrap">
                                           (Bayar &gt;1 Bln di {basePaymentMonth})
                                         </span>
                                       </div>
                                     )
                                   ) : isBayarLebih ? (
                                     <>
-                                      <span className="font-mono font-black text-sky-950 text-xs sm:text-sm">
+                                      <span className={`font-mono font-black text-sky-950 ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
                                         +{formatRupiah(totalSemua)}
                                       </span>
-                                      <span className="text-[10px] font-sans font-bold text-sky-800 mt-0.5 whitespace-nowrap">
+                                      <span className="text-[9px] font-sans font-bold text-sky-800 mt-0.5 whitespace-nowrap">
                                         Lunas {paidMonthsCount} Bln (s/d {lastCoveredMonth})
                                       </span>
                                     </>
                                   ) : isSudahBayar ? (
                                     <>
-                                      <span className="font-mono font-bold text-emerald-950 text-xs sm:text-sm">
+                                      <span className={`font-mono font-black text-emerald-950 ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
                                         +{formatRupiah(totalSemua)}
                                       </span>
-                                      <span className="text-[10px] font-sans font-medium text-emerald-700 mt-0.5">
+                                      <span className="text-[9px] font-sans font-medium text-emerald-700 mt-0.5">
                                         Lunas
                                       </span>
                                     </>
                                   ) : (
                                     <>
-                                      <span className="font-mono font-semibold text-rose-800 text-xs sm:text-sm">
+                                      <span className={`font-mono font-semibold text-rose-800 ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
                                         {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
                                       </span>
-                                      <span className="text-[10px] font-sans font-medium text-rose-600 mt-0.5">
+                                      <span className="text-[9px] font-sans font-medium text-rose-600 mt-0.5">
                                         Belum Bayar
                                       </span>
                                     </>
                                   )}
                                 </div>
-                                {isAdmin && (
-                                  <div className="flex items-center gap-0.5 ml-1">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenEditHouseDues(house, isBayarLebih, 'all');
-                                      }}
-                                      className="p-1 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer shrink-0"
-                                      title="Edit Total Semua Pembayaran KK ini"
-                                    >
-                                      <Edit2 className="w-3 h-3" />
-                                    </button>
-                                    {(totalSemua > 0 || isSudahBayar || isBayarLebih || isAdvanceSubsequent) && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDeleteTargetComponent('iuran');
-                                          setDeletingSingleHouse({ house, period: periodStr, componentType: 'iuran' });
-                                        }}
-                                        className="p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer shrink-0"
-                                        title="Hapus Pembayaran Iuran KK Ini"
-                                      >
-                                        <Trash2 className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
                               </div>
                             </td>
 
                             {/* 10. Aksi Edit & Hapus Pembayaran */}
-                            <td className="py-2.5 px-3 text-center">
+                            <td className={`${kkViewFit ? 'py-1 px-2' : 'py-3 px-3'} text-center`}>
                               {isAdmin ? (
-                                <div className="flex items-center justify-center gap-1.5">
+                                <div className="flex items-center justify-center gap-1">
                                   <button
                                     type="button"
                                     onClick={() => handleOpenEditHouseDues(house, isBayarLebih)}
-                                    className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors flex items-center gap-1 cursor-pointer"
+                                    className={`${
+                                      kkViewFit ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1.5 text-xs'
+                                    } font-bold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all flex items-center gap-1 cursor-pointer shadow-2xs hover:shadow-xs active:scale-95`}
                                     title={
                                       isBayarLebih
                                         ? "Edit Rincian Bayar Lebih (>1 Bulan) KK Ini"
@@ -5255,10 +5239,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       setDeleteTargetComponent('iuran');
                                       setDeletingSingleHouse({ house, period: periodStr, componentType: 'iuran' });
                                     }}
-                                    className="p-1.5 text-xs rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors cursor-pointer"
+                                    className={`${
+                                      kkViewFit ? 'p-1 text-[10px]' : 'p-1.5 text-xs'
+                                    } rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95`}
                                     title="Pilihan Hapus Pembayaran KK Ini"
                                   >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-3 h-3" />
                                   </button>
                                 </div>
                               ) : (
@@ -5270,27 +5256,27 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       })
                     )}
                   </tbody>
-                  <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900">
+                  <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-bold text-slate-900 sticky bottom-0 z-10 shadow-xs">
                     <tr>
-                      <td colSpan={4} className="py-3.5 px-4 text-left font-black text-xs uppercase tracking-wider text-slate-900 border-r border-slate-200/60">
+                      <td colSpan={4} className={`${kkViewFit ? 'py-1.5 px-2.5 text-[11px]' : 'py-3.5 px-4 text-xs'} text-left font-black uppercase tracking-wider text-slate-900 border-r border-slate-200/60`}>
                         TOTAL SEMUA ({filteredPerKKList.length} KK)
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-black text-emerald-800 text-xs sm:text-sm tabular-nums border-r border-slate-200/60">
+                      <td className={`${kkViewFit ? 'py-1.5 px-2.5 text-[11px]' : 'py-3.5 px-4 text-xs sm:text-sm'} text-right font-mono font-black text-emerald-800 tabular-nums border-r border-slate-200/60`}>
                         +{formatRupiah(recapTotals.sumIuran)}
                       </td>
-                      <td className="py-3.5 px-3 text-center font-mono font-black text-emerald-800 text-xs sm:text-sm tabular-nums border-r border-slate-200/60">
+                      <td className={`${kkViewFit ? 'py-1.5 px-2.5 text-[11px]' : 'py-3.5 px-4 text-xs sm:text-sm'} text-right font-mono font-black text-emerald-800 tabular-nums border-r border-slate-200/60`}>
                         {recapTotals.sumDenda > 0 ? `+${formatRupiah(recapTotals.sumDenda)}` : 'Rp 0'}
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-black text-amber-800 text-xs sm:text-sm tabular-nums border-r border-slate-200/60">
+                      <td className={`${kkViewFit ? 'py-1.5 px-2.5 text-[11px]' : 'py-3.5 px-4 text-xs sm:text-sm'} text-right font-mono font-black text-amber-800 tabular-nums border-r border-slate-200/60`}>
                         +{formatRupiah(recapTotals.sumTunggakan)}
                       </td>
-                      <td className="py-3.5 px-3 text-center text-slate-400 font-mono border-r border-slate-200/60">
+                      <td className={`${kkViewFit ? 'py-1.5 px-2 text-[10px]' : 'py-3.5 px-3 text-xs'} text-center text-slate-400 font-mono border-r border-slate-200/60`}>
                         -
                       </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-black text-slate-950 text-xs sm:text-sm tabular-nums border-r border-slate-200/60">
+                      <td className={`${kkViewFit ? 'py-1.5 px-2.5 text-[11px]' : 'py-3.5 px-4 text-xs sm:text-sm'} text-right font-mono font-black text-slate-950 tabular-nums border-r border-slate-200/60`}>
                         +{formatRupiah(recapTotals.sumTotal)}
                       </td>
-                      <td className="py-3.5 px-3 text-center text-slate-400">
+                      <td className={`${kkViewFit ? 'py-1.5 px-2' : 'py-3.5 px-3'} text-center text-slate-400`}>
                         -
                       </td>
                     </tr>
@@ -5299,34 +5285,36 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               </div>
 
               {/* STATUS PENCOCOKAN BUKU KAS & REKAP IURAN PER KK */}
-              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50/80 to-emerald-50 border-2 border-emerald-300 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
-                    <CheckCircle2 className="w-5 h-5 text-white" />
+              <div className={`rounded-xl border-2 border-emerald-300 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-2 bg-gradient-to-r from-emerald-50 via-teal-50/80 to-emerald-50 transition-all ${
+                kkViewFit ? 'p-2 px-3 text-[11px]' : 'p-3.5 text-xs'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <div className={`${kkViewFit ? 'w-6 h-6 rounded-lg' : 'w-9 h-9 rounded-xl'} bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0`}>
+                    <CheckCircle2 className={`${kkViewFit ? 'w-3.5 h-3.5' : 'w-5 h-5'} text-white`} />
                   </div>
                   <div>
-                    <div className="font-extrabold text-emerald-950 flex items-center gap-2 text-sm">
-                      <span>Pencocokan Buku Kas & Rekap Iuran Per KK: 100% Cocok</span>
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-black uppercase tracking-wider">
+                    <div className="font-extrabold text-emerald-950 flex items-center gap-1.5 text-xs sm:text-sm">
+                      <span>Pencocokan Buku Kas & Rekap Iuran: 100% Cocok</span>
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-600 text-white text-[9px] font-black uppercase">
                         Sinkron
                       </span>
                     </div>
-                    <div className="text-slate-600 text-[11px] mt-0.5 flex items-center gap-2 flex-wrap">
+                    <div className="text-slate-600 text-[10px] sm:text-[11px] flex items-center gap-1.5 flex-wrap">
                       <span>Periode: <strong className="text-slate-900">{selectedKKPeriod}</strong></span>
                       <span>•</span>
-                      <span>Iuran Rutin: <strong className="text-emerald-800">{formatRupiah(recapTotals.sumIuran)}</strong></span>
+                      <span>Iuran: <strong className="text-emerald-800">{formatRupiah(recapTotals.sumIuran)}</strong></span>
                       <span>•</span>
-                      <span>Denda Baksos: <strong className="text-emerald-800">{formatRupiah(recapTotals.sumDenda)}</strong></span>
+                      <span>Denda: <strong className="text-emerald-800">{formatRupiah(recapTotals.sumDenda)}</strong></span>
                       <span>•</span>
                       <span>Tunggakan: <strong className="text-rose-700">{formatRupiah(recapTotals.sumTunggakan)}</strong></span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0 bg-white/90 px-3.5 py-1.5 rounded-xl border border-emerald-200">
+                <div className="flex items-center gap-2 shrink-0 bg-white/90 px-3 py-1 rounded-lg border border-emerald-200">
                   <div className="text-right">
-                    <div className="text-[10px] text-slate-500 font-semibold uppercase">Total Penerimaan Kas</div>
-                    <div className="font-mono text-base font-black text-emerald-800">
+                    <div className="text-[9px] text-slate-500 font-bold uppercase">Total Penerimaan Kas</div>
+                    <div className="font-mono text-sm sm:text-base font-black text-emerald-800">
                       +{formatRupiah(recapTotals.sumTotal)}
                     </div>
                   </div>

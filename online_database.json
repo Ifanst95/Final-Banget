@@ -1,10 +1,10 @@
 {
   "version": 5,
-  "revision": 2497,
+  "revision": 2562,
   "isDefaultSeed": false,
-  "updatedAt": "2026-11-02T00:58:34.027Z",
+  "updatedAt": "2026-11-02T10:23:35.735Z",
   "updatedBy": "Pengurus Gang Mandor (Online)",
-  "clientId": "system-cleanup-001",
+  "clientId": "client-fdooy7ni-mvz3zftr",
   "siteConfig": {
     "brandName": "GANG MANDOR PRO",
     "title": "GANG MANDOR PRO",
@@ -170,13 +170,13 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Tidak Pasang",
       "wifiProvider": "-",
-      "duesStatus": "Bayar Lebih",
+      "duesStatus": "Belum Bayar",
       "customDuesAmount": 15000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 6,
-      "duesPrepaidBalance": 75000,
-      "duesPaidDate": "2026-07-06",
-      "duesMonthNote": "Juli 2026, Agustus 2026, September 2026, Oktober 2026, November 2026, Desember 2026",
+      "duesPaidMonths": 0,
+      "duesPrepaidBalance": 0,
+      "duesPaidDate": "",
+      "duesMonthNote": "Mei 2026, Juni 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "members": [
@@ -191,7 +191,55 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-30T12:47:39.515Z"
+      "updatedAt": "2026-11-02T10:23:35.735Z",
+      "occupancyHistory": {
+        "2026-05": "Belum Ditempati",
+        "Mei 2026": "Belum Ditempati",
+        "2026-06": "Belum Ditempati",
+        "Juni 2026": "Belum Ditempati"
+      },
+      "periodHistory": {
+        "2026-05": {
+          "occupancy": "Belum Ditempati",
+          "headName": "Ibnu Fauzi",
+          "duesHeadNameOverride": "Ibnu Fauzi",
+          "duesStatus": "Bayar Lebih",
+          "customDuesAmount": 15000,
+          "paidAmount": 30000,
+          "paidDate": "2026-05-02",
+          "updatedAt": "2026-11-02T10:23:35.732Z"
+        },
+        "Mei 2026": {
+          "occupancy": "Belum Ditempati",
+          "headName": "Ibnu Fauzi",
+          "duesHeadNameOverride": "Ibnu Fauzi",
+          "duesStatus": "Bayar Lebih",
+          "customDuesAmount": 15000,
+          "paidAmount": 30000,
+          "paidDate": "2026-05-02",
+          "updatedAt": "2026-11-02T10:23:35.732Z"
+        },
+        "2026-06": {
+          "occupancy": "Belum Ditempati",
+          "headName": "Ibnu Fauzi",
+          "duesHeadNameOverride": "Ibnu Fauzi",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 15000,
+          "paidAmount": 15000,
+          "paidDate": "2026-05-02",
+          "updatedAt": "2026-11-02T10:23:35.732Z"
+        },
+        "Juni 2026": {
+          "occupancy": "Belum Ditempati",
+          "headName": "Ibnu Fauzi",
+          "duesHeadNameOverride": "Ibnu Fauzi",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 15000,
+          "paidAmount": 15000,
+          "paidDate": "2026-05-02",
+          "updatedAt": "2026-11-02T10:23:35.732Z"
+        }
+      }
     },
     {
       "id": "warga-k2-27",
@@ -526,7 +574,7 @@
       "duesStatus": "Belum Bayar",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 1,
+      "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
       "duesMonthNote": "September 2026",
@@ -575,21 +623,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T00:32:36.466Z",
-      "periodHistory": {
-        "2026-05": {
-          "duesStatus": "Belum Bayar",
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T00:32:36.464Z"
-        },
-        "Mei 2026": {
-          "duesStatus": "Belum Bayar",
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T00:32:36.464Z"
-        }
-      }
+      "updatedAt": "2026-10-31T01:23:13.075Z"
     },
     {
       "id": "warga-k2-34",
@@ -1049,33 +1083,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T00:34:09.012Z",
-      "occupancyHistory": {
-        "2026-05": "Kosong",
-        "Mei 2026": "Kosong"
-      },
-      "periodHistory": {
-        "2026-05": {
-          "occupancy": "Kosong",
-          "headName": "Rumah Kosong",
-          "duesHeadNameOverride": "Rumah Kosong",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 0,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T00:34:09.008Z"
-        },
-        "Mei 2026": {
-          "occupancy": "Kosong",
-          "headName": "Rumah Kosong",
-          "duesHeadNameOverride": "Rumah Kosong",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 0,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T00:34:09.008Z"
-        }
-      }
+      "updatedAt": "2026-11-01T00:22:13.699Z"
     },
     {
       "id": "warga-k2-42",
@@ -1149,7 +1157,7 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "",
+      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "Maret, April, Mei, Juni, Juli, Agustus",
       "customBaksosFineAmount": 0,
@@ -1205,33 +1213,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T00:35:33.579Z",
-      "occupancyHistory": {
-        "2026-05": "Belum Ditempati",
-        "Mei 2026": "Belum Ditempati"
-      },
-      "periodHistory": {
-        "2026-05": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Aditya Maulana",
-          "duesHeadNameOverride": "Aditya Maulana",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T00:35:33.577Z"
-        },
-        "Mei 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Aditya Maulana",
-          "duesHeadNameOverride": "Aditya Maulana",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T00:35:33.578Z"
-        }
-      }
+      "updatedAt": "2026-11-01T03:44:14.550Z"
     },
     {
       "id": "warga-k2-44",
@@ -2623,6 +2605,15 @@
   ],
   "transactions": [
     {
+      "date": "2026-05-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Kas Warga Bayar Lebih (Mei 2026, Juni 2026) Warga Blok K2/26 (Ibnu Fauzi)",
+      "amount": 30000,
+      "id": "tx-dues-sync-1793615015735-0-4aj8"
+    },
+    {
       "id": "tx-dues-sync-1793492474949-0-22uv",
       "date": "2026-09-18",
       "type": "masuk",
@@ -3080,15 +3071,6 @@
       "category": "Iuran Warga",
       "description": "Iuran Kas Warga Bayar Lebih (Juli 2026, Agustus 2026, September 2026, Oktober 2026, November 2026, Desember 2026) Warga Blok K2/26 (Ibnu Fauzi)",
       "amount": 90000
-    },
-    {
-      "id": "tx-dues-sync-1793364367028-0-eizi",
-      "date": "2026-05-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Kas Warga Bayar Lebih (Mei 2026, Juni 2026) Warga Blok K2/26 (Ibnu Fauzi)",
-      "amount": 30000
     },
     {
       "id": "tx-1793356102300-xu3i",
