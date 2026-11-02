@@ -1846,11 +1846,29 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       });
     }
 
-    // Total Penerimaan Kas di Tabel Buku Keluar Masuk Kas 100% mengikuti inputan dari Total Semua Pembayaran dari Tabel Rekap Pembayaran Iuran Per KK
-    const effectiveTotalIuran = recapSumIuran;
-    const effectiveTotalDenda = recapSumDenda;
-    const effectiveTotalTunggakan = recapSumTunggakan;
-    const effectiveTotalPenerimaanKas = recapSumTotalSemua;
+    // Total Penerimaan Kas di Tabel Buku Keluar Masuk Kas
+    const txIuranTotal = iuranTxsInPeriod.reduce((s, t) => s + t.amount, 0);
+    const txDendaTotal = dendaTxsInPeriod.reduce((s, t) => s + t.amount, 0);
+    const txTunggakanTotal = tunggakanTxsInPeriod.reduce((s, t) => s + t.amount, 0);
+    const hasRecordedTransactions =
+      iuranTxsInPeriod.length > 0 ||
+      dendaTxsInPeriod.length > 0 ||
+      tunggakanTxsInPeriod.length > 0;
+
+    const effectiveTotalIuran = hasRecordedTransactions ? txIuranTotal : recapSumIuran;
+    const effectiveTotalDenda = hasRecordedTransactions ? txDendaTotal : recapSumDenda;
+    const effectiveTotalTunggakan = hasRecordedTransactions ? txTunggakanTotal : recapSumTunggakan;
+    const effectiveTotalPenerimaanKas = effectiveTotalIuran + effectiveTotalDenda + effectiveTotalTunggakan;
+
+    if (hasRecordedTransactions) {
+      const housesPaidInPeriod = residents.filter((h) => {
+        const blockRegex = new RegExp(`\\b${h.blockNumber.replace('/', '\\/')}\\b`, 'i');
+        return iuranTxsInPeriod.some((t) => blockRegex.test(t.description));
+      }).length;
+      if (housesPaidInPeriod > 0) {
+        lunasCount = housesPaidInPeriod;
+      }
+    }
 
     // 3. Uraian Pengeluaran Kas Gang (nota/biaya operasional gang)
     const pengeluaranGangTxs = filteredTransactions.filter((tx) => {
@@ -1885,8 +1903,17 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       return true;
     });
 
-    // Hitung Saldo Berjalan berurutan secara transparan
-    let running = saldoAwalTotal;
+    // Hitung Saldo Berjalan berurutan secara transparan sesuai filter pos kas
+    const initialRunningBalance =
+      filterPool === 'Kas Utama'
+        ? saldoAwalKasUtama
+        : filterPool === 'Cashback WiFi'
+        ? saldoAwalWifi
+        : filterPool === 'Cashback Sampah'
+        ? saldoAwalSampah
+        : saldoAwalTotal;
+
+    let running = initialRunningBalance;
 
     const saldoAwalRow = {
       id: 'row-saldo-awal',
@@ -4117,7 +4144,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <td className="py-2.5 px-3 text-center font-mono text-slate-400 border border-slate-300">-</td>
                   <td className="py-2.5 px-3 text-center font-mono text-slate-400 border border-slate-300">-</td>
                   <td className="py-2.5 px-3 text-center font-mono font-extrabold text-amber-950 border border-slate-300">
-                    {formatRupiah(prevMonthSummary.total)}
+                    {formatRupiah(
+                      filterPool === 'Kas Utama'
+                        ? prevMonthSummary.kasUtama
+                        : filterPool === 'Cashback WiFi'
+                        ? prevMonthSummary.wifiCashback
+                        : filterPool === 'Cashback Sampah'
+                        ? prevMonthSummary.sampahCashback
+                        : prevMonthSummary.total
+                    )}
                   </td>
                   <td className="py-2.5 px-2 text-center text-slate-400 font-mono text-[10px] border border-slate-300">-</td>
                 </tr>
@@ -4316,13 +4351,37 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     TOTAL PEMASUKAN, PENGELUARAN & SALDO AKHIR
                   </td>
                   <td className="py-3 px-3 text-center font-mono font-black text-emerald-800 text-xs sm:text-sm border border-slate-300">
-                    +{formatRupiah(tableTotals.sumMasukKasUtama + tableTotals.sumMasukCashback)}
+                    +{formatRupiah(
+                      filterPool === 'Kas Utama'
+                        ? tableTotals.sumMasukKasUtama
+                        : filterPool === 'Cashback WiFi'
+                        ? tableTotals.sumMasukWifi
+                        : filterPool === 'Cashback Sampah'
+                        ? tableTotals.sumMasukSampah
+                        : tableTotals.sumMasukKasUtama + tableTotals.sumMasukCashback
+                    )}
                   </td>
                   <td className="py-3 px-3 text-center font-mono font-black text-rose-700 text-xs sm:text-sm border border-slate-300">
-                    -{formatRupiah(tableTotals.sumKeluarKasUtama + tableTotals.sumKeluarCashback)}
+                    -{formatRupiah(
+                      filterPool === 'Kas Utama'
+                        ? tableTotals.sumKeluarKasUtama
+                        : filterPool === 'Cashback WiFi'
+                        ? tableTotals.sumKeluarWifi
+                        : filterPool === 'Cashback Sampah'
+                        ? tableTotals.sumKeluarSampah
+                        : tableTotals.sumKeluarKasUtama + tableTotals.sumKeluarCashback
+                    )}
                   </td>
                   <td className="py-3 px-3 text-center font-mono font-black text-emerald-950 text-sm sm:text-base border border-slate-300">
-                    {formatRupiah(tableTotals.finalSaldo)}
+                    {formatRupiah(
+                      filterPool === 'Kas Utama'
+                        ? tableTotals.finalKasUtama
+                        : filterPool === 'Cashback WiFi'
+                        ? tableTotals.finalWifi
+                        : filterPool === 'Cashback Sampah'
+                        ? tableTotals.finalSampah
+                        : tableTotals.finalSaldo
+                    )}
                   </td>
                   <td className="py-3 px-2 text-center text-slate-400 font-mono text-[10px] border border-slate-300">-</td>
                 </tr>

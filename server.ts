@@ -557,6 +557,16 @@ async function startServer() {
       clearInterval(heartbeat);
       sseClients.delete(res);
     });
+
+    req.on('error', () => {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    });
+
+    res.on('error', () => {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    });
   });
 
   // GET /api/database/meta - Lightweight metadata check for smart background sync

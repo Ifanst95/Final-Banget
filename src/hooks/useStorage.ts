@@ -39,6 +39,7 @@ const STORAGE_KEYS = {
   ADMIN_PASS: 'mandor_admin_secret_key_v5',
   ADMIN_SESSION: 'mandor_admin_session_v5',
   ONLINE_AUTO_SYNC: 'mandor_online_autosync_v1',
+  PENDING_PUSH: 'mandor_pending_push_v1',
 };
 
 const IDB_NAME = 'MandorPortalPersistentDB';
@@ -411,7 +412,9 @@ export function useStorage() {
   });
 
   // Guards to prevent incoming pulls from overwriting pending/in-flight local edits
-  const hasPendingPushRef = useRef<boolean>(false);
+  const hasPendingPushRef = useRef<boolean>(
+    typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.PENDING_PUSH) === 'true' : false
+  );
   const isPushingMutationRef = useRef<boolean>(false);
   const pushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPushedRevRef = useRef<number>(-1);
@@ -529,6 +532,9 @@ export function useStorage() {
               dbStateRef.current = updatedSnap;
               persistSnapshotLocally(updatedSnap);
               hasPendingPushRef.current = false;
+              try {
+                localStorage.removeItem(STORAGE_KEYS.PENDING_PUSH);
+              } catch {}
             }
 
             setOnlineRevision(confirmedRev);
@@ -560,6 +566,9 @@ export function useStorage() {
         const firestoreSuccess = await saveStateToFirestoreDirect(payloadToSend);
         if (firestoreSuccess) {
           hasPendingPushRef.current = false;
+          try {
+            localStorage.removeItem(STORAGE_KEYS.PENDING_PUSH);
+          } catch {}
           setIsOnlineConnected(true);
           isPushingMutationRef.current = false;
           setIsOnlineSyncing(false);
@@ -600,6 +609,9 @@ export function useStorage() {
 
       // 1. Block any incoming stale fetch from overwriting our new mutation
       hasPendingPushRef.current = true;
+      try {
+        localStorage.setItem(STORAGE_KEYS.PENDING_PUSH, 'true');
+      } catch {}
       dbStateRef.current = nextSnapshot;
 
       // 2. Persist synchronously to localStorage & IndexedDB (0ms delay)
@@ -782,15 +794,20 @@ export function useStorage() {
         if (isMounted && cloudSnap && !hasPendingPushRef.current) {
           const cloudRev = Number(cloudSnap.revision) || 0;
           const curRev = Number(dbStateRef.current.revision) || 0;
-          if (!cloudSnap.isDefaultSeed && (dbStateRef.current.isDefaultSeed || cloudRev >= curRev)) {
+          if (!cloudSnap.isDefaultSeed && (dbStateRef.current.isDefaultSeed || cloudRev > curRev)) {
             applySnapshotToStateAndStorage(cloudSnap);
           }
         }
       } catch {}
 
+      // If this device made offline mutations while closed, push them now to sync with the server
+      if (hasPendingPushRef.current) {
+        pushSnapshotToServer(dbStateRef.current).catch(() => {});
+      }
+
       if (isMounted) {
-        // Automatically pull latest input data from the database server on startup
-        await fetchLatestFromServer(true);
+        // Resiliently check and pull latest database state from server
+        await fetchLatestFromServer(false);
       }
     };
 
@@ -843,6 +860,20 @@ export function useStorage() {
         eventSource.onopen = () => {
           if (isMounted) setIsOnlineConnected(true);
         };
+
+        // Instant revision check on connect / reconnect
+        eventSource.addEventListener('connected', (event: MessageEvent) => {
+          if (!isMounted || !isAutoSyncEnabled) return;
+          if (hasPendingPushRef.current || isPushingMutationRef.current) return;
+          try {
+            const raw = JSON.parse(event.data);
+            const remoteRev = Number(raw.revision) || 0;
+            const curRev = Number(dbStateRef.current.revision) || 0;
+            if (remoteRev > curRev || (dbStateRef.current.isDefaultSeed && !raw.isDefaultSeed)) {
+              fetchLatestFromServer(false);
+            }
+          } catch {}
+        });
 
         eventSource.onmessage = (event) => {
           if (!isMounted || !isAutoSyncEnabled) return;
@@ -1046,18 +1077,12 @@ export function useStorage() {
       const isWifi =
         cat === 'Cashback WiFi' ||
         cat === 'Pengeluaran Cashback WiFi' ||
-        (tx.pool === 'Cashback WiFi' &&
-          cat !== 'Pengeluaran Gang' &&
-          cat !== 'Pengeluaran Lingkungan' &&
-          cat !== 'Kas Utama');
+        tx.pool === 'Cashback WiFi';
 
       const isSampah =
         cat === 'Cashback Sampah' ||
         cat === 'Pengeluaran Cashback Sampah' ||
-        (tx.pool === 'Cashback Sampah' &&
-          cat !== 'Pengeluaran Gang' &&
-          cat !== 'Pengeluaran Lingkungan' &&
-          cat !== 'Kas Utama');
+        tx.pool === 'Cashback Sampah';
 
       if (isWifi) {
         acc.wifiCashback += val;

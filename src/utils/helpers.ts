@@ -1048,18 +1048,12 @@ export function calculatePreviousMonthBalanceSummary(
       const isWifi =
         cat === 'Cashback WiFi' ||
         cat === 'Pengeluaran Cashback WiFi' ||
-        (tx.pool === 'Cashback WiFi' &&
-          cat !== 'Pengeluaran Gang' &&
-          cat !== 'Pengeluaran Lingkungan' &&
-          cat !== 'Kas Utama');
+        tx.pool === 'Cashback WiFi';
 
       const isSampah =
         cat === 'Cashback Sampah' ||
         cat === 'Pengeluaran Cashback Sampah' ||
-        (tx.pool === 'Cashback Sampah' &&
-          cat !== 'Pengeluaran Gang' &&
-          cat !== 'Pengeluaran Lingkungan' &&
-          cat !== 'Kas Utama');
+        tx.pool === 'Cashback Sampah';
 
       const signedVal = tx.type === 'masuk' ? tx.amount : -tx.amount;
       if (isWifi) closingWifi += signedVal;
@@ -1129,18 +1123,12 @@ export function calculatePreviousMonthBalanceSummary(
     const isWifi =
       cat === 'Cashback WiFi' ||
       cat === 'Pengeluaran Cashback WiFi' ||
-      (tx.pool === 'Cashback WiFi' &&
-        cat !== 'Pengeluaran Gang' &&
-        cat !== 'Pengeluaran Lingkungan' &&
-        cat !== 'Kas Utama');
+      tx.pool === 'Cashback WiFi';
 
     const isSampah =
       cat === 'Cashback Sampah' ||
       cat === 'Pengeluaran Cashback Sampah' ||
-      (tx.pool === 'Cashback Sampah' &&
-        cat !== 'Pengeluaran Gang' &&
-        cat !== 'Pengeluaran Lingkungan' &&
-        cat !== 'Kas Utama');
+      tx.pool === 'Cashback Sampah';
 
     const signedVal = tx.type === 'masuk' ? tx.amount : -tx.amount;
 
