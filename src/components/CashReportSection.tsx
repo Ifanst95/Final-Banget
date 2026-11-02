@@ -4302,21 +4302,27 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <span>KAS UTAMA PERIODE INI</span>
                 </div>
                 <div className="mt-3 space-y-1.5 text-xs font-mono text-center">
-                  {/* 1. Total Penerimaan Kas */}
+                  {/* 1. Sisa Saldo Bulan Sebelumnya */}
+                  <div className="flex justify-between items-center text-slate-800 px-2.5 py-1.5 rounded-xl bg-white/90 border border-amber-200/80 shadow-2xs">
+                    <span className="font-sans text-[11px] font-bold text-amber-900">1. Sisa Saldo Bulan Sebelumnya:</span>
+                    <span className="font-bold text-emerald-800 tabular-nums">{formatRupiah(prevMonthSummary.kasUtama)}</span>
+                  </div>
+
+                  {/* 2. Total Penerimaan Kas */}
                   <div className="flex justify-between items-center text-emerald-950 px-2.5 py-1.5 rounded-xl bg-white/95 border-2 border-emerald-200 shadow-2xs">
-                    <span className="font-sans text-[11px] font-bold text-emerald-900">1. Total Penerimaan Kas (+):</span>
+                    <span className="font-sans text-[11px] font-bold text-emerald-900">2. Total Penerimaan Kas (+):</span>
                     <span className="font-bold text-emerald-700 tabular-nums">+{formatRupiah(tableTotals.sumMasukKasUtama)}</span>
                   </div>
 
-                  {/* 2. Pengeluaran Kas */}
+                  {/* 3. Pengeluaran Kas */}
                   <div className="flex justify-between items-center text-slate-800 px-2.5 py-1.5 rounded-xl bg-white/90 border border-amber-200 shadow-2xs">
-                    <span className="font-sans text-[11px] font-bold text-slate-800">2. Pengeluaran Kas (-):</span>
+                    <span className="font-sans text-[11px] font-bold text-slate-800">3. Pengeluaran Kas (-):</span>
                     <span className="font-bold text-rose-600 tabular-nums">-{formatRupiah(tableTotals.sumKeluarKasUtama)}</span>
                   </div>
 
-                  {/* 3. Arus Kas Bersih */}
+                  {/* 4. Arus Kas Bersih */}
                   <div className="flex justify-between items-center px-2.5 py-1.5 rounded-xl bg-teal-100/90 border border-teal-300 font-bold shadow-2xs">
-                    <span className="font-sans text-[11px] text-teal-950">3. Arus Kas Bersih:</span>
+                    <span className="font-sans text-[11px] text-teal-950">4. Arus Kas Bersih:</span>
                     <span className={`tabular-nums ${tableTotals.netKasUtama >= 0 ? 'text-teal-900' : 'text-rose-700'}`}>
                       {tableTotals.netKasUtama >= 0 ? '+' : ''}{formatRupiah(tableTotals.netKasUtama)}
                     </span>
@@ -4342,11 +4348,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   <span>SALDO CASHBACK (WIFI & SAMPAH)</span>
                 </div>
                 <div className="mt-3 space-y-2 text-xs font-mono text-center">
-                  {/* Pos Cashback WiFi */}
+                  {/* Pos Cashback WiFi: diisikan sisa saldo bulan sebelumnya */}
                   <div className="p-2.5 rounded-xl bg-white/95 border-2 border-blue-200 shadow-2xs space-y-1">
                     <div className="text-[11px] font-bold text-blue-950 flex justify-between items-center">
                       <span className="font-sans font-bold text-blue-900">1. Saldo Cashback WiFi:</span>
-                      <span className="font-mono font-black text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 tabular-nums">{formatRupiah(tableTotals.finalWifi)}</span>
+                      <span className="font-mono font-black text-blue-800 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 tabular-nums">
+                        {formatRupiah(prevMonthSummary.wifiCashback)}
+                      </span>
                     </div>
                     <div className="flex justify-between text-[10px]">
                       <span className="text-slate-600 font-sans">Masuk:</span>
@@ -4358,11 +4366,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     </div>
                   </div>
 
-                  {/* Pos Cashback Sampah */}
+                  {/* Pos Cashback Sampah: diisikan sisa saldo bulan sebelumnya */}
                   <div className="p-2.5 rounded-xl bg-white/95 border-2 border-teal-200 shadow-2xs space-y-1">
                     <div className="text-[11px] font-bold text-teal-950 flex justify-between items-center">
                       <span className="font-sans font-bold text-teal-900">2. Saldo Cashback Sampah:</span>
-                      <span className="font-mono font-black text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200 tabular-nums">{formatRupiah(tableTotals.finalSampah)}</span>
+                      <span className="font-mono font-black text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-200 tabular-nums">
+                        {formatRupiah(prevMonthSummary.sampahCashback)}
+                      </span>
                     </div>
                     <div className="flex justify-between text-[10px]">
                       <span className="text-slate-600 font-sans">Masuk:</span>
@@ -5068,65 +5078,110 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             </td>
 
                             {/* 9. Total Semua Pembayaran */}
-                            <td className={`py-2.5 px-4 text-right font-mono tabular-nums border ${rowCellClass}`}>
-                              <div className="flex flex-col items-end">
-                                {isRumahKosongHitam ? (
-                                  <>
-                                    <span className="font-mono font-bold text-white">
-                                      {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
-                                    </span>
-                                    <span className="text-[10px] font-sans font-bold text-slate-400">
-                                      Rumah Kosong (Bebas)
-                                    </span>
-                                  </>
-                                ) : isNeutralKosong ? (
-                                  <>
-                                    <span className="font-mono font-medium text-slate-600">
-                                      {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
-                                    </span>
-                                    <span className="text-[10px] font-sans font-bold text-slate-500">
-                                      Rumah Kosong (Bebas)
-                                    </span>
-                                  </>
-                                ) : isAdvanceSubsequent ? (
-                                  <>
-                                    <span className="font-mono font-black text-sky-950">
-                                      {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
-                                    </span>
-                                    <span className="text-[10px] font-sans font-extrabold text-sky-900 bg-sky-100 px-2 py-0.5 rounded-md border border-sky-300 mt-0.5 shadow-2xs whitespace-nowrap">
-                                      ✓ Lunas Bulan {basePaymentMonth}
-                                    </span>
-                                    <span className="text-[9px] text-sky-700 font-semibold whitespace-nowrap">
-                                      (Bayar &gt;1 Bulan)
-                                    </span>
-                                  </>
-                                ) : isBayarLebih ? (
-                                  <>
-                                    <span className="font-mono font-black text-sky-950 text-sm">
-                                      +{formatRupiah(totalSemua)}
-                                    </span>
-                                    <span className="text-[10px] font-sans font-black text-sky-950 bg-sky-200/90 px-2 py-0.5 rounded-md border border-sky-400 mt-0.5 shadow-2xs whitespace-nowrap">
-                                      ✓ Bayar Lebih {paidMonthsCount} Bulan (Lunas s/d {lastCoveredMonth})
-                                    </span>
-                                  </>
-                                ) : isSudahBayar ? (
-                                  <>
-                                    <span className="font-mono font-black text-emerald-950">
-                                      +{formatRupiah(totalSemua)}
-                                    </span>
-                                    <span className="text-[10px] font-sans font-extrabold text-emerald-800">
-                                      Sudah Bayar (Lunas)
-                                    </span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="font-mono font-black text-rose-950">
-                                      {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
-                                    </span>
-                                    <span className="text-[10px] font-sans font-extrabold text-rose-800">
-                                      Menunggak
-                                    </span>
-                                  </>
+                            <td
+                              onClick={() => isAdmin && handleOpenEditHouseDues(house, isBayarLebih, 'all')}
+                              className={`py-2.5 px-4 text-right font-mono tabular-nums border ${rowCellClass} ${
+                                isAdmin
+                                  ? 'cursor-pointer hover:ring-2 hover:ring-indigo-400/80 hover:bg-indigo-100/40 transition-all'
+                                  : ''
+                              }`}
+                              title={isAdmin ? 'Klik untuk kelola & edit Total Semua Pembayaran KK ini (masuk ke Buku Kas)' : ''}
+                            >
+                              <div className="flex items-center justify-end gap-1.5">
+                                <div className="flex flex-col items-end">
+                                  {isRumahKosongHitam ? (
+                                    <>
+                                      <span className="font-mono font-bold text-white">
+                                        {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
+                                      </span>
+                                      <span className="text-[10px] font-sans font-bold text-slate-400">
+                                        Rumah Kosong (Bebas)
+                                      </span>
+                                    </>
+                                  ) : isNeutralKosong ? (
+                                    <>
+                                      <span className="font-mono font-medium text-slate-600">
+                                        {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
+                                      </span>
+                                      <span className="text-[10px] font-sans font-bold text-slate-500">
+                                        Rumah Kosong (Bebas)
+                                      </span>
+                                    </>
+                                  ) : isAdvanceSubsequent ? (
+                                    <>
+                                      <span className="font-mono font-black text-sky-950">
+                                        {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
+                                      </span>
+                                      <span className="text-[10px] font-sans font-extrabold text-sky-900 bg-sky-100 px-2 py-0.5 rounded-md border border-sky-300 mt-0.5 shadow-2xs whitespace-nowrap">
+                                        ✓ Lunas Bulan {basePaymentMonth}
+                                      </span>
+                                      <span className="text-[9px] text-sky-700 font-semibold whitespace-nowrap">
+                                        (Bayar &gt;1 Bulan)
+                                      </span>
+                                    </>
+                                  ) : isBayarLebih ? (
+                                    <>
+                                      <span className="font-mono font-black text-sky-950 text-sm">
+                                        +{formatRupiah(totalSemua)}
+                                      </span>
+                                      <span className="text-[10px] font-sans font-black text-sky-950 bg-sky-200/90 px-2 py-0.5 rounded-md border border-sky-400 mt-0.5 shadow-2xs whitespace-nowrap">
+                                        ✓ Bayar Lebih {paidMonthsCount} Bulan (Lunas s/d {lastCoveredMonth})
+                                      </span>
+                                    </>
+                                  ) : isSudahBayar ? (
+                                    <>
+                                      <span className="font-mono font-black text-emerald-950">
+                                        +{formatRupiah(totalSemua)}
+                                      </span>
+                                      <span className="text-[10px] font-sans font-extrabold text-emerald-800">
+                                        Sudah Bayar (Lunas)
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="font-mono font-black text-rose-950">
+                                        {totalSemua > 0 ? `+${formatRupiah(totalSemua)}` : 'Rp 0'}
+                                      </span>
+                                      <span className="text-[10px] font-sans font-extrabold text-rose-800">
+                                        Menunggak
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                                {isAdmin && (
+                                  <div className="flex items-center gap-0.5">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleOpenEditHouseDues(house, isBayarLebih, 'all');
+                                      }}
+                                      className={`p-1 rounded-md transition-colors cursor-pointer shrink-0 ${
+                                        isRumahKosongHitam
+                                          ? 'text-slate-400 hover:text-white hover:bg-neutral-800'
+                                          : isBayarLebih || isAdvanceSubsequent
+                                          ? 'text-sky-700 hover:text-sky-950 hover:bg-sky-200/70'
+                                          : 'text-slate-400 hover:text-indigo-700 hover:bg-indigo-100/70'
+                                      }`}
+                                      title="Edit Total Semua Pembayaran KK ini (masuk ke Buku Kas)"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+                                    {(totalSemua > 0 || isSudahBayar || isBayarLebih || isAdvanceSubsequent) && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeleteTargetComponent('all');
+                                          setDeletingSingleHouse({ house, period: periodStr, componentType: 'all' });
+                                        }}
+                                        className="p-1 rounded-md text-rose-500 hover:text-rose-700 hover:bg-rose-100/80 transition-colors cursor-pointer shrink-0"
+                                        title="Hapus Total Semua Pembayaran KK Ini (Kembali Rp 0 & Otomatis Bersihkan dari Buku Kas)"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </td>

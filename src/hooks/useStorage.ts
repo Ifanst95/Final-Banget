@@ -1508,7 +1508,11 @@ export function useStorage() {
       }
 
       // Cari rumah yang bersangkutan dengan transaksi ini
-      const targetHouse = cur.residents.find((h) => isTransactionForHouse(txToDelete, h));
+      const targetHouse = cur.residents.find((h) => {
+        if (isTransactionForHouse(txToDelete, h)) return true;
+        const blockRegex = new RegExp(`\\b${h.blockNumber.replace('/', '\\/')}\\b`, 'i');
+        return blockRegex.test(txToDelete.description || '');
+      });
       if (!targetHouse) {
         return { transactions: remainingTxs };
       }

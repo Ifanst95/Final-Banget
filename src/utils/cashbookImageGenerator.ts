@@ -138,7 +138,7 @@ export async function generateCashbookImage(
   const itemRowH = 50;
   const tfRowH = 54;
   const cardsGap = 20;
-  const cardsH = 220;
+  const cardsH = 255;
   const grandBannerH = 125;
   const footerH = 65;
 
@@ -572,14 +572,14 @@ export async function generateCashbookImage(
 
   // Total bottom strip
   ctx.fillStyle = '#d97706'; // amber-600
-  roundRect(ctx, c1X + 12, curY + 160, cardW - 24, 46, 10);
+  roundRect(ctx, c1X + 12, curY + 195, cardW - 24, 48, 10);
   ctx.fill();
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 10px "Plus Jakarta Sans", system-ui, sans-serif';
-  ctx.fillText('TOTAL SALDO AWAL BULAN', c1X + cardW / 2, curY + 178);
+  ctx.fillText('TOTAL SALDO AWAL BULAN', c1X + cardW / 2, curY + 213);
   ctx.font = 'bold 14px "JetBrains Mono", monospace';
   ctx.fillStyle = '#fef3c7';
-  ctx.fillText(formatRupiah(prevMonthSummary.total), c1X + cardW / 2, curY + 196);
+  ctx.fillText(formatRupiah(prevMonthSummary.total), c1X + cardW / 2, curY + 233);
   ctx.restore();
 
   // ------------------------------------------
@@ -601,13 +601,14 @@ export async function generateCashbookImage(
   ctx.font = '500 10.5px "Plus Jakarta Sans", system-ui, sans-serif';
   ctx.fillText('Penerimaan & Pengeluaran Gang', c2X + cardW / 2, curY + 44);
 
-  drawKvRow('Penerimaan Kas (+):', `+${formatRupiah(tableTotals.sumMasukKasUtama)}`, c2X + 12, curY + 54, cardW - 24, '#047857');
-  drawKvRow('Pengeluaran Kas (-):', `-${formatRupiah(tableTotals.sumKeluarKasUtama)}`, c2X + 12, curY + 88, cardW - 24, '#be123c');
+  drawKvRow('1. Sisa Saldo Bulan Sebelumnya:', formatRupiah(prevMonthSummary.kasUtama), c2X + 12, curY + 54, cardW - 24, '#047857');
+  drawKvRow('2. Total Penerimaan Kas (+):', `+${formatRupiah(tableTotals.sumMasukKasUtama)}`, c2X + 12, curY + 88, cardW - 24, '#047857');
+  drawKvRow('3. Pengeluaran Kas (-):', `-${formatRupiah(tableTotals.sumKeluarKasUtama)}`, c2X + 12, curY + 122, cardW - 24, '#be123c');
   drawKvRow(
-    'Arus Kas Bersih:',
+    '4. Arus Kas Bersih:',
     `${tableTotals.netKasUtama >= 0 ? '+' : ''}${formatRupiah(tableTotals.netKasUtama)}`,
     c2X + 12,
-    curY + 122,
+    curY + 156,
     cardW - 24,
     tableTotals.netKasUtama >= 0 ? '#047857' : '#be123c',
     '#f0fdf4'
@@ -615,14 +616,14 @@ export async function generateCashbookImage(
 
   // Total bottom strip
   ctx.fillStyle = '#059669'; // emerald-600
-  roundRect(ctx, c2X + 12, curY + 160, cardW - 24, 46, 10);
+  roundRect(ctx, c2X + 12, curY + 195, cardW - 24, 48, 10);
   ctx.fill();
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 10px "Plus Jakarta Sans", system-ui, sans-serif';
-  ctx.fillText('SISA SALDO KAS UTAMA', c2X + cardW / 2, curY + 178);
+  ctx.fillText('SISA SALDO KAS UTAMA', c2X + cardW / 2, curY + 213);
   ctx.font = 'bold 14px "JetBrains Mono", monospace';
   ctx.fillStyle = '#fef08a';
-  ctx.fillText(formatRupiah(tableTotals.finalKasUtama), c2X + cardW / 2, curY + 196);
+  ctx.fillText(formatRupiah(tableTotals.finalKasUtama), c2X + cardW / 2, curY + 233);
   ctx.restore();
 
   // ------------------------------------------
@@ -644,8 +645,8 @@ export async function generateCashbookImage(
   ctx.font = '500 10.5px "Plus Jakarta Sans", system-ui, sans-serif';
   ctx.fillText('Akumulasi & Sisa Saldo', c3X + cardW / 2, curY + 44);
 
-  drawKvRow('Sisa Akhir WiFi:', formatRupiah(tableTotals.finalWifi), c3X + 12, curY + 54, cardW - 24, '#1d4ed8');
-  drawKvRow('Sisa Akhir Sampah:', formatRupiah(tableTotals.finalSampah), c3X + 12, curY + 88, cardW - 24, '#0f766e');
+  drawKvRow('1. Saldo Cashback WiFi:', formatRupiah(prevMonthSummary.wifiCashback), c3X + 12, curY + 54, cardW - 24, '#1d4ed8');
+  drawKvRow('2. Saldo Cashback Sampah:', formatRupiah(prevMonthSummary.sampahCashback), c3X + 12, curY + 88, cardW - 24, '#0f766e');
   drawKvRow(
     'Mutasi Masuk/Keluar:',
     `+${formatRupiah(tableTotals.sumMasukCashback)} / -${formatRupiah(tableTotals.sumKeluarCashback)}`,
@@ -654,17 +655,26 @@ export async function generateCashbookImage(
     cardW - 24,
     '#475569'
   );
+  drawKvRow(
+    'Sisa Akhir (WiFi & Sampah):',
+    formatRupiah(tableTotals.finalCashback),
+    c3X + 12,
+    curY + 156,
+    cardW - 24,
+    '#0369a1',
+    '#e0f2fe'
+  );
 
   // Total bottom strip
   ctx.fillStyle = '#0284c7'; // sky-600
-  roundRect(ctx, c3X + 12, curY + 160, cardW - 24, 46, 10);
+  roundRect(ctx, c3X + 12, curY + 195, cardW - 24, 48, 10);
   ctx.fill();
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 10px "Plus Jakarta Sans", system-ui, sans-serif';
-  ctx.fillText('TOTAL SALDO CASHBACK', c3X + cardW / 2, curY + 178);
+  ctx.fillText('TOTAL SALDO CASHBACK', c3X + cardW / 2, curY + 213);
   ctx.font = 'bold 14px "JetBrains Mono", monospace';
   ctx.fillStyle = '#fef08a';
-  ctx.fillText(formatRupiah(tableTotals.finalCashback), c3X + cardW / 2, curY + 196);
+  ctx.fillText(formatRupiah(tableTotals.finalCashback), c3X + cardW / 2, curY + 233);
   ctx.restore();
 
   curY += cardsH + cardsGap;
