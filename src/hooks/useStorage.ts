@@ -19,7 +19,7 @@ import {
   INITIAL_SITE_CONFIG,
   INITIAL_TRANSACTIONS,
 } from '../data/initialData';
-import { formatMonthYearFromDate, formatMonthYearFromKey, formatRupiah, getHouseOccupancyForPeriod, getHouseHeadNameForPeriod, getHouseDuesNominalForPeriod, getMonthKeyFromDate, parseIndonesianMonthYearToKey, INDONESIAN_MONTHS, isHouseVacant, isTransactionForHouse, isPureIuranTx, isTunggakanTx } from '../utils/helpers';
+import { formatMonthYearFromDate, formatMonthYearFromKey, formatRupiah, getHouseOccupancyForPeriod, getHouseHeadNameForPeriod, getHouseDuesNominalForPeriod, getMonthKeyFromDate, parseIndonesianMonthYearToKey, INDONESIAN_MONTHS, isHouseVacant, isTransactionForHouse, isPureIuranTx, isTunggakanTx, isPeriodCoveredInDuesNote } from '../utils/helpers';
 import { parseAndNormalizeBackupJson } from '../utils/backupRestoreHelper';
 import {
   getIsFirestoreQuotaExceeded,
@@ -1155,13 +1155,23 @@ export function useStorage() {
         existingPeriodDues[trimmed] = cur.siteConfig.duesAmountPerMonth;
       }
 
-      const shouldSetActive = options?.setActiveCurrentMonth !== false;
+      const shouldSetActive = options?.setActiveCurrentMonth === true;
+      const shouldResetDues = options?.resetNonAdvanceDues === true;
+
       const updatedConfig = {
         ...cur.siteConfig,
         duesAvailablePeriods: updatedPeriods,
         periodDuesAmounts: existingPeriodDues,
         ...(shouldSetActive ? { duesCurrentMonth: trimmed } : {}),
       };
+
+      // Jika TIDAK diminta untuk mengaktifkan periode baru dan TIDAK reset dues (misal: auto-create dari pembayaran di muka / tambah periode pasif):
+      // JANGAN PERNAH mereset atau mengubah status pembayaran warga sama sekali!
+      if (!shouldSetActive && !shouldResetDues) {
+        return {
+          siteConfig: updatedConfig,
+        };
+      }
 
       const prevMonth = cur.siteConfig.duesCurrentMonth || (existing && existing[0]) || 'Oktober 2026';
       const prevMonthKey = parseIndonesianMonthYearToKey(prevMonth) || prevMonth;
@@ -1230,6 +1240,43 @@ export function useStorage() {
             duesPrepaidBalance: 0,
             duesPaidDate: '',
             duesMonthNote: trimmed,
+            occupancyHistory: newOccHistory,
+            periodHistory: newPeriodHist,
+            updatedAt: new Date().toISOString(),
+          };
+        }
+
+        // Cek apakah warga ini sudah bayar lebih / di muka yang mencakup periode baru ini:
+        const hasAdvanceCoverage =
+          !isVacant &&
+          (r.duesStatus === 'Bayar Lebih' ||
+            (r.duesPaidMonths || 0) > 1 ||
+            Boolean(r.duesMonthNote && isPeriodCoveredInDuesNote(r.duesMonthNote, trimmed)) ||
+            r.periodHistory?.[newPeriodKey]?.duesStatus === 'Lunas' ||
+            r.periodHistory?.[trimmed]?.duesStatus === 'Lunas');
+
+        if (hasAdvanceCoverage) {
+          newPeriodHist[newPeriodKey] = {
+            occupancy: prevOccupancy,
+            headName: prevHeadName,
+            duesHeadNameOverride: prevDuesHeadName,
+            duesStatus: 'Lunas',
+            customDuesAmount: prevDuesAmount,
+            paidAmount: prevDuesAmount,
+            paidDate: r.duesPaidDate || '',
+            updatedAt: new Date().toISOString(),
+          };
+
+          return {
+            ...r,
+            headName: prevHeadName,
+            duesHeadNameOverride: prevDuesHeadName,
+            occupancy: prevOccupancy,
+            customDuesAmount: prevDuesAmount,
+            duesStatus: 'Lunas' as const,
+            duesPaidAmount: prevDuesAmount,
+            duesPaidDate: r.duesPaidDate || '',
+            duesMonthNote: r.duesMonthNote || trimmed,
             occupancyHistory: newOccHistory,
             periodHistory: newPeriodHist,
             updatedAt: new Date().toISOString(),
@@ -1619,7 +1666,38 @@ export function useStorage() {
 
       const baseAgendas = updatedBaksosAgendas || cur.baksosAgendas;
 
+      // Pastikan setiap periode yang tertera pada duesMonthNote masuk ke duesAvailablePeriods tanpa me-reset warga lain
+      let updatedSiteConfig = cur.siteConfig;
+      if (stamped.duesMonthNote) {
+        const noteParts = stamped.duesMonthNote.split(/[,;/+]+/).map((s) => s.trim()).filter((s) => s.length >= 4);
+        const existingPeriods = cur.siteConfig.duesAvailablePeriods || [
+          cur.siteConfig.duesCurrentMonth || 'Oktober 2026',
+        ];
+        const newPeriods = noteParts.filter(
+          (p) => !existingPeriods.some((ep) => ep.toLowerCase() === p.toLowerCase())
+        );
+        if (newPeriods.length > 0) {
+          const mergedPeriods = Array.from(new Set([...newPeriods, ...existingPeriods]));
+          const mergedPeriodDues = { ...(cur.siteConfig.periodDuesAmounts || {}) };
+          newPeriods.forEach((np) => {
+            const pKey = parseIndonesianMonthYearToKey(np) || np;
+            if (mergedPeriodDues[pKey] === undefined) {
+              mergedPeriodDues[pKey] = cur.siteConfig.duesAmountPerMonth || 50000;
+            }
+            if (mergedPeriodDues[np] === undefined) {
+              mergedPeriodDues[np] = cur.siteConfig.duesAmountPerMonth || 50000;
+            }
+          });
+          updatedSiteConfig = {
+            ...cur.siteConfig,
+            duesAvailablePeriods: mergedPeriods,
+            periodDuesAmounts: mergedPeriodDues,
+          };
+        }
+      }
+
       return {
+        siteConfig: updatedSiteConfig,
         residents: cur.residents.map((h) => (h.id === stamped.id ? stamped : h)),
         transactions: [...preparedNewTxs, ...filteredTxs],
         baksosAgendas: computeSyncedBaksosAgendas(baseAgendas, stamped),

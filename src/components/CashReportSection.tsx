@@ -235,11 +235,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [deletingSingleHouse, setDeletingSingleHouse] = useState<{
     house: ResidentHouse;
     period: string;
-    componentType?: 'all' | 'iuran' | 'baksos' | 'tunggakan' | 'reset_pokok_tunggakan';
+    componentType?: 'iuran' | 'baksos' | 'tunggakan' | 'reset_pokok_tunggakan';
   } | null>(null);
   const [deleteTargetComponent, setDeleteTargetComponent] = useState<
-    'all' | 'iuran' | 'baksos' | 'tunggakan' | 'reset_pokok_tunggakan'
-  >('all');
+    'iuran' | 'baksos' | 'tunggakan' | 'reset_pokok_tunggakan'
+  >('iuran');
 
   // Unified Sub-tab selection: 'mutasi' (1. Buku Kas), 'per_kk' (2. Rekap Iuran Per KK - Pengurus Saja), 'rekap_total_kk' (3. Rekap Keseluruhan Kas Per KK)
   const [currentSubTab, setCurrentSubTab] = useState<'mutasi' | 'per_kk' | 'rekap_total_kk'>(
@@ -2199,17 +2199,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const handleExecuteDeleteComponent = (
     house: ResidentHouse,
     targetPeriod: string,
-    componentType: 'all' | 'iuran' | 'baksos' | 'tunggakan' | 'reset_pokok_tunggakan'
+    componentType: 'iuran' | 'baksos' | 'tunggakan' | 'reset_pokok_tunggakan'
   ) => {
     if (!isAdmin) return;
     const period = targetPeriod || selectedKKPeriod || defaultMonthLabel;
     const periodKey = parseIndonesianMonthYearToKey(period);
     const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
-
-    if (componentType === 'all') {
-      handleResetSingleHousePayment(house, period);
-      return;
-    }
 
     if (componentType === 'iuran') {
       // 1. Reset iuran status di periodHistory dan di resident root jika periode aktif
@@ -2759,7 +2754,30 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           newPeriodHistory[editPeriodKey].duesStatus = 'Lunas';
         }
       }
+      // Catat data baru untuk periode yang diedit ini
       newPeriodHistory[activeEditPeriod] = { ...newPeriodHistory[editPeriodKey] };
+
+      // Jika bayar lebih (>1 bulan), tandai juga bulan-bulan berikutnya yang dipilih sebagai Lunas di periodHistory
+      if (isAdvancePay && finalUpcomingMonths.length > 0) {
+        finalUpcomingMonths.forEach((upMonth) => {
+          const upKey = parseIndonesianMonthYearToKey(upMonth);
+          if (upKey) {
+            newOccupancyHistory[upKey] = houseDuesOccupancyInput;
+            newOccupancyHistory[upMonth] = houseDuesOccupancyInput;
+            newPeriodHistory[upKey] = {
+              occupancy: houseDuesOccupancyInput,
+              headName: finalHeadName,
+              duesHeadNameOverride: finalHeadName,
+              duesStatus: 'Lunas',
+              customDuesAmount: amountNum,
+              paidAmount: amountNum,
+              paidDate: paidDateVal,
+              updatedAt: new Date().toISOString(),
+            };
+            newPeriodHistory[upMonth] = { ...newPeriodHistory[upKey] };
+          }
+        });
+      }
 
       // Jika ada pembayaran tunggakan, tandai pelunasan pada bulan-bulan sebelumnya yang belum bayar
       if (tunggakanPaidNum > 0) {
@@ -2901,15 +2919,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           : `Iuran Bulanan (${monthLabel}) Warga Blok ${finalBlockNumber} ${houseDescLabel}${houseDuesCustomNoteInput.trim() ? ` - ${houseDuesCustomNoteInput.trim()}` : ''}`,
         amount: totalReceived,
       });
-
-      if (onCreatePeriod && isAdvancePay) {
-        const explicitMonths = monthLabel.split(/[,;/+]+/).map((s) => s.trim()).filter(Boolean);
-        explicitMonths.forEach((m) => {
-          if (m.length >= 4) {
-            onCreatePeriod(m, { setActiveCurrentMonth: false, resetNonAdvanceDues: false });
-          }
-        });
-      }
     }
 
     // 2. Masukkan Pembayaran Denda Baksos jika dipilih Lunas
@@ -3162,12 +3171,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           const isAdvance = monthsCount > 1 || finalAmount > nom;
           const startPeriod = txIuranStartMonth.trim() || defaultMonthLabel;
           const coveredList = getSubsequentMonthLabels(startPeriod, monthsCount);
-
-          if (onCreatePeriod && isAdvance) {
-            coveredList.forEach((m) => {
-              onCreatePeriod(m, { setActiveCurrentMonth: false, resetNonAdvanceDues: false });
-            });
-          }
 
           const newPeriodHist = { ...(targetHouse.periodHistory || {}) };
           coveredList.forEach((m) => {
@@ -5172,11 +5175,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                         type="button"
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          setDeleteTargetComponent('all');
-                                          setDeletingSingleHouse({ house, period: periodStr, componentType: 'all' });
+                                          setDeleteTargetComponent('iuran');
+                                          setDeletingSingleHouse({ house, period: periodStr, componentType: 'iuran' });
                                         }}
                                         className="p-1 rounded-md text-rose-500 hover:text-rose-700 hover:bg-rose-100/80 transition-colors cursor-pointer shrink-0"
-                                        title="Hapus Total Semua Pembayaran KK Ini (Kembali Rp 0 & Otomatis Bersihkan dari Buku Kas)"
+                                        title="Hapus Pembayaran Iuran KK Ini (Otomatis Bersihkan dari Buku Kas)"
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
@@ -5212,8 +5215,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      setDeleteTargetComponent('all');
-                                      setDeletingSingleHouse({ house, period: periodStr, componentType: 'all' });
+                                      setDeleteTargetComponent('iuran');
+                                      setDeletingSingleHouse({ house, period: periodStr, componentType: 'iuran' });
                                     }}
                                     className="px-2 py-1 text-[11px] font-bold rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer active:scale-95 border bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200 hover:border-rose-400"
                                     title="Pilihan Hapus Pembayaran Iuran, Denda Baksos, atau Tunggakan KK Ini"
@@ -7886,38 +7889,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     Pilih Komponen Pembayaran yang Ingin Dihapus:
                   </label>
                   <div className="space-y-2">
-                    {/* Option 1: Semua Pembayaran */}
-                    <div
-                      onClick={() => setDeleteTargetComponent('all')}
-                      className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
-                        deleteTargetComponent === 'all'
-                          ? 'border-rose-600 bg-rose-50/70 shadow-xs ring-1 ring-rose-400'
-                          : 'border-slate-200 hover:border-slate-300 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="deleteComponentChoice"
-                            checked={deleteTargetComponent === 'all'}
-                            onChange={() => setDeleteTargetComponent('all')}
-                            className="text-rose-600 focus:ring-rose-500"
-                          />
-                          <span className="text-xs font-black text-rose-950">
-                            1. Hapus Semua Pembayaran Periode Ini
-                          </span>
-                        </div>
-                        <span className="font-mono text-xs font-black text-rose-700">
-                          {totalTxAmount > 0 ? formatRupiah(totalTxAmount) : 'Rp 0'}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-600 mt-1 pl-6">
-                        Menghapus pembayaran Iuran, Denda Baksos, dan Tunggakan pada periode {periodLabel}. Semua transaksi terkait akan dibersihkan dari Buku Kas.
-                      </p>
-                    </div>
-
-                    {/* Option 2: Iuran Bulanan Saja */}
+                    {/* Option 1: Iuran Bulanan Saja */}
                     <div
                       onClick={() => setDeleteTargetComponent('iuran')}
                       className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
@@ -7936,7 +7908,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             className="text-emerald-600 focus:ring-emerald-500"
                           />
                           <span className="text-xs font-black text-emerald-950">
-                            2. Hapus Pembayaran Iuran Bulanan Saja
+                            1. Hapus Pembayaran Iuran Bulanan Saja
                           </span>
                         </div>
                         <span className="font-mono text-xs font-black text-emerald-700">
@@ -7948,7 +7920,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       </p>
                     </div>
 
-                    {/* Option 3: Denda Baksos Saja */}
+                    {/* Option 2: Denda Baksos Saja */}
                     <div
                       onClick={() => setDeleteTargetComponent('baksos')}
                       className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
@@ -7967,7 +7939,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             className="text-teal-600 focus:ring-teal-500"
                           />
                           <span className="text-xs font-black text-teal-950">
-                            3. Hapus Pembayaran Denda Baksos Saja
+                            2. Hapus Pembayaran Denda Baksos Saja
                           </span>
                         </div>
                         <span className="font-mono text-xs font-black text-teal-700">
@@ -7979,7 +7951,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       </p>
                     </div>
 
-                    {/* Option 4: Pembayaran Tunggakan Saja */}
+                    {/* Option 3: Pembayaran Tunggakan Saja */}
                     <div
                       onClick={() => setDeleteTargetComponent('tunggakan')}
                       className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
@@ -7998,7 +7970,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             className="text-indigo-600 focus:ring-indigo-500"
                           />
                           <span className="text-xs font-black text-indigo-950">
-                            4. Hapus Pembayaran Tunggakan Saja
+                            3. Hapus Pembayaran Tunggakan Saja
                           </span>
                         </div>
                         <span className="font-mono text-xs font-black text-indigo-700">
@@ -8010,7 +7982,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       </p>
                     </div>
 
-                    {/* Option 5: Nolkan Saldo Pokok Tunggakan Profil KK */}
+                    {/* Option 4: Nolkan Saldo Pokok Tunggakan Profil KK */}
                     <div
                       onClick={() => setDeleteTargetComponent('reset_pokok_tunggakan')}
                       className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
@@ -8029,7 +8001,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             className="text-purple-600 focus:ring-purple-500"
                           />
                           <span className="text-xs font-black text-purple-950">
-                            5. Hapus / Nolkan Saldo Pokok Tunggakan Profil KK (Rp 0)
+                            4. Hapus / Nolkan Saldo Pokok Tunggakan Profil KK (Rp 0)
                           </span>
                         </div>
                         <span className="font-mono text-xs font-black text-purple-700">
@@ -8063,9 +8035,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>
-                    {deleteTargetComponent === 'all'
-                      ? 'Hapus Semua Pembayaran'
-                      : deleteTargetComponent === 'iuran'
+                    {deleteTargetComponent === 'iuran'
                       ? 'Hapus Pembayaran Iuran'
                       : deleteTargetComponent === 'baksos'
                       ? 'Hapus Pembayaran Denda'

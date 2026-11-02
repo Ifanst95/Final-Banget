@@ -1476,16 +1476,25 @@ export function getHouseStatusForPeriod(
         };
       }
 
-      // Standar mutlak jika pembayaran dihapus / belum bayar: Status Belum Bayar & Pewarnaan Merah
-      return {
-        status: 'Belum Bayar',
-        amount: 0,
-        isAdvanceSubsequentMonth: false,
-        label: 'Belum Bayar',
-        badgeClass: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold',
-        paidDate: undefined,
-        note: 'Belum Bayar',
-      };
+      // Cek apakah sebenarnya periode ini tercakup dalam pembayaran lebih dari 1 bulan dari KK ini
+      const isCoveredByAdvancePayment = Boolean(
+        house.duesMonthNote &&
+        isPeriodCoveredInDuesNote(house.duesMonthNote, periodLabel) &&
+        (house.duesStatus === 'Bayar Lebih' || house.duesStatus === 'Lunas' || (house.duesPaidMonths || 0) > 1)
+      );
+
+      if (!isCoveredByAdvancePayment) {
+        // Standar mutlak jika pembayaran memang belum bayar / dihapus: Status Belum Bayar & Pewarnaan Merah
+        return {
+          status: 'Belum Bayar',
+          amount: 0,
+          isAdvanceSubsequentMonth: false,
+          label: 'Belum Bayar',
+          badgeClass: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold',
+          paidDate: undefined,
+          note: 'Belum Bayar',
+        };
+      }
     }
 
     if (periodSnapshot.duesStatus === 'Lunas' || periodSnapshot.duesStatus === 'Bayar Lebih') {
