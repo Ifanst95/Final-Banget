@@ -1716,49 +1716,133 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         ? formatMonthYearFromKey(effectiveMonthKey)
         : defaultMonthLabel;
 
-    // 2. Data Total Penerimaan Rekap Iuran Per KK untuk periode ini
-    // Transaksi iuran yang ada di periode ini (iuran rutin)
+    // 2. Data Total Penerimaan Kas mengikuti inputan dari Total Semua Pembayaran dari Tabel Rekap Pembayaran Iuran Per KK
     const iuranTxsInPeriod = filteredTransactions.filter((tx) => {
       return tx.type === 'masuk' && isPureIuranTx(tx);
     });
 
-    const totalIuranFromTxs = iuranTxsInPeriod.reduce((sum, t) => sum + t.amount, 0);
-
-    // Hitung juga total nominal iuran yang tercatat dari rekapitulasi data KK
-    const totalIuranFromRecap = recapTotals.sumIuran;
-
-    // Prioritaskan total dari transaksi pembukuan kas jika ada, atau sinkron dari rekap KK
-    const effectiveTotalIuran = totalIuranFromTxs > 0 ? totalIuranFromTxs : totalIuranFromRecap;
-
-    // Transaksi Denda Baksos di periode ini
     const dendaTxsInPeriod = filteredTransactions.filter((tx) => {
       const cat = tx.category || '';
       const desc = (tx.description || '').toLowerCase();
       return tx.type === 'masuk' && (cat === 'Denda Baksos' || desc.includes('denda'));
     });
-    const totalDendaFromTxs = dendaTxsInPeriod.reduce((sum, t) => sum + t.amount, 0);
-    const effectiveTotalDenda = totalDendaFromTxs > 0 ? totalDendaFromTxs : (recapTotals.sumDenda || 0);
 
-    // Transaksi Pembayaran Tunggakan di periode ini
     const tunggakanTxsInPeriod = filteredTransactions.filter((tx) => {
       return isTunggakanTx(tx);
     });
-    const totalTunggakanFromTxs = tunggakanTxsInPeriod.reduce((sum, t) => sum + t.amount, 0);
-    const effectiveTotalTunggakan = totalTunggakanFromTxs > 0 ? totalTunggakanFromTxs : (recapTotals.sumTunggakan || 0);
 
-    // Total gabungan seluruh penerimaan kas warga
-    const effectiveTotalPenerimaanKas = effectiveTotalIuran + effectiveTotalDenda + effectiveTotalTunggakan;
+    // Hitung seluruh rincian inputan dari Tabel Rekap Pembayaran Iuran Per KK
+    // (Iuran Rutin, Denda Baksos, Pembayaran Tunggakan, dan Total Semua Pembayaran)
+    let recapSumIuran = 0;
+    let recapSumDenda = 0;
+    let recapSumTunggakan = 0;
+    let recapSumTotalSemua = 0;
+    let lunasCount = 0;
+    let occupiedCount = 0;
 
-    const lunasCount = perKKRecapList.filter((item) => {
-      if (item.isEmptyHouse) return false;
-      if (effectiveMonthKey !== 'semua') {
-        const s = getHouseStatusForPeriod(item.house, activePeriodLabel);
-        return s.status === 'Lunas' || s.status === 'Bayar Lebih';
-      }
-      return item.isLunas || item.isAdvancePaid;
-    }).length;
+    if (effectiveMonthKey === 'semua') {
+      sortedPeriods.forEach((pLabel) => {
+        residents.forEach((house) => {
+          const effectiveOccupancy = getHouseOccupancyForPeriod(house, pLabel, transactions);
+          const isPureKosong = effectiveOccupancy === 'Kosong';
+          const statusInfo = getHouseStatusForPeriod(house, pLabel);
+          const defaultNominal = getHouseDuesNominal(house, pLabel) || config.duesAmountPerMonth || 25000;
+          const nominal = isPureKosong ? 0 : defaultNominal;
 
-    const occupiedCount = perKKRecapList.filter((item) => !item.isEmptyHouse).length;
+          const isAdvancePaid = house.duesStatus === 'Bayar Lebih';
+          const isLunas = house.duesStatus === 'Lunas' || isAdvancePaid;
+
+          const iuranPaid = isPureKosong
+            ? (statusInfo && statusInfo.status === 'Lunas' ? (statusInfo.amount || 0) : 0)
+            : statusInfo
+            ? statusInfo.isAdvanceSubsequentMonth
+              ? 0
+              : statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih'
+              ? (statusInfo.amount !== undefined ? statusInfo.amount : nominal)
+              : statusInfo.amount || 0
+            : 0;
+
+          const baksosInfo = getHouseBaksosForPeriod(house, pLabel);
+          const dendaPaid = isPureKosong ? 0 : baksosInfo.dendaPaid;
+
+          const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+          const pKey = parseIndonesianMonthYearToKey(pLabel);
+          const tunggakanTxs = transactions.filter((t) => {
+            if (t.type !== 'masuk') return false;
+            if (!isTunggakanTx(t)) return false;
+            if (!blockRegex.test(t.description)) return false;
+            if (pKey) return getMonthKeyFromDate(t.date) === pKey;
+            return true;
+          });
+          const tunggakanPaid = isPureKosong ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
+
+          const totalSemua = iuranPaid + dendaPaid + tunggakanPaid;
+
+          recapSumIuran += iuranPaid;
+          recapSumDenda += dendaPaid;
+          recapSumTunggakan += tunggakanPaid;
+          recapSumTotalSemua += totalSemua;
+        });
+      });
+      occupiedCount = residents.filter((r) => r.occupancy !== 'Kosong').length;
+      lunasCount = residents.filter((r) => r.occupancy !== 'Kosong' && (r.duesStatus === 'Lunas' || r.duesStatus === 'Bayar Lebih')).length;
+    } else {
+      residents.forEach((house) => {
+        const effectiveOccupancy = getHouseOccupancyForPeriod(house, activePeriodLabel, transactions);
+        const isPureKosong = effectiveOccupancy === 'Kosong';
+        if (!isPureKosong) occupiedCount++;
+
+        const statusInfo = getHouseStatusForPeriod(house, activePeriodLabel);
+        const defaultNominal = getHouseDuesNominal(house, activePeriodLabel) || config.duesAmountPerMonth || 25000;
+        const nominal = isPureKosong ? 0 : defaultNominal;
+
+        const isAdvancePaid = house.duesStatus === 'Bayar Lebih';
+        const isLunas = house.duesStatus === 'Lunas' || isAdvancePaid;
+
+        const iuranPaid = isPureKosong
+          ? (statusInfo && statusInfo.status === 'Lunas' ? (statusInfo.amount || 0) : 0)
+          : statusInfo
+          ? statusInfo.isAdvanceSubsequentMonth
+            ? 0
+            : statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih'
+            ? (statusInfo.amount !== undefined ? statusInfo.amount : nominal)
+            : statusInfo.amount || 0
+          : isLunas
+          ? nominal * (isAdvancePaid ? Math.max(1, house.duesPaidMonths || 1) : 1)
+          : house.duesPaidAmount || 0;
+
+        const baksosInfo = getHouseBaksosForPeriod(house, activePeriodLabel);
+        const dendaPaid = isPureKosong ? 0 : baksosInfo.dendaPaid;
+
+        const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+        const pKey = parseIndonesianMonthYearToKey(activePeriodLabel);
+        const tunggakanTxs = transactions.filter((t) => {
+          if (t.type !== 'masuk') return false;
+          if (!isTunggakanTx(t)) return false;
+          if (!blockRegex.test(t.description)) return false;
+          if (pKey) return getMonthKeyFromDate(t.date) === pKey;
+          return true;
+        });
+        const tunggakanPaid = isPureKosong ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
+
+        const totalSemua = iuranPaid + dendaPaid + tunggakanPaid;
+
+        if (!isPureKosong && statusInfo && (statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih' || statusInfo.isAdvanceSubsequentMonth)) {
+          lunasCount++;
+        }
+
+        recapSumIuran += iuranPaid;
+        recapSumDenda += dendaPaid;
+        recapSumTunggakan += tunggakanPaid;
+        recapSumTotalSemua += totalSemua;
+      });
+    }
+
+    // Total Penerimaan Kas di Tabel Buku Keluar Masuk Kas 100% mengikuti inputan dari Total Semua Pembayaran dari Tabel Rekap Pembayaran Iuran Per KK
+    const effectiveTotalIuran = recapSumIuran;
+    const effectiveTotalDenda = recapSumDenda;
+    const effectiveTotalTunggakan = recapSumTunggakan;
+    const effectiveTotalPenerimaanKas = recapSumTotalSemua;
 
     // 3. Uraian Pengeluaran Kas Gang (nota/biaya operasional gang)
     const pengeluaranGangTxs = filteredTransactions.filter((tx) => {
@@ -1970,6 +2054,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     defaultMonthLabel,
     perKKRecapList,
     recapTotals,
+    sortedPeriods,
+    residents,
+    transactions,
+    config,
+    baksosAgendas,
+    getHouseOccupancyForPeriod,
+    getHouseDuesNominal,
+    getHouseBaksosForPeriod,
     getHouseStatusForPeriod,
     filterPool,
     searchTx,
@@ -2757,7 +2849,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       // Catat data baru untuk periode yang diedit ini
       newPeriodHistory[activeEditPeriod] = { ...newPeriodHistory[editPeriodKey] };
 
-      // Jika bayar lebih (>1 bulan), tandai juga bulan-bulan berikutnya yang dipilih sebagai Lunas di periodHistory
+      // Jika bayar lebih (>1 bulan), tandai bulan-bulan berikutnya yang dipilih sebagai Lunas tanpa nominal (amount: 0)
       if (isAdvancePay && finalUpcomingMonths.length > 0) {
         finalUpcomingMonths.forEach((upMonth) => {
           const upKey = parseIndonesianMonthYearToKey(upMonth);
@@ -2770,7 +2862,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               duesHeadNameOverride: finalHeadName,
               duesStatus: 'Lunas',
               customDuesAmount: amountNum,
-              paidAmount: amountNum,
+              paidAmount: 0, // KUNCI: Tercatat Lunas tanpa nominal (0) untuk bulan lanjutan yang sudah termasuk pembayaran di muka
+              isAdvanceSubsequentMonth: true,
+              advanceOriginMonth: activeEditPeriod,
               paidDate: paidDateVal,
               updatedAt: new Date().toISOString(),
             };
@@ -4314,8 +4408,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   {/* 2. Total Penerimaan Kas */}
                   <div className="flex justify-between items-center text-emerald-950 px-2.5 py-1.5 rounded-xl bg-white/95 border-2 border-emerald-200 shadow-2xs">
                     <span className="font-sans text-[11px] font-bold text-emerald-900">2. Total Penerimaan Kas (+):</span>
-                    <span className="font-bold text-emerald-700 tabular-nums">+{formatRupiah(tableTotals.sumMasukKasUtama)}</span>
+                    <span className="font-bold text-emerald-700 tabular-nums">+{formatRupiah(simplifiedCashbookData.effectiveTotalPenerimaanKas)}</span>
                   </div>
+
+                  {tableTotals.sumMasukKasLain > 0 && (
+                    <div className="flex justify-between items-center text-slate-800 px-2.5 py-1.5 rounded-xl bg-white/90 border border-emerald-100 shadow-2xs">
+                      <span className="font-sans text-[11px] font-bold text-slate-700">Penerimaan Kas Lain (+):</span>
+                      <span className="font-bold text-emerald-700 tabular-nums">+{formatRupiah(tableTotals.sumMasukKasLain)}</span>
+                    </div>
+                  )}
 
                   {/* 3. Pengeluaran Kas */}
                   <div className="flex justify-between items-center text-slate-800 px-2.5 py-1.5 rounded-xl bg-white/90 border border-amber-200 shadow-2xs">

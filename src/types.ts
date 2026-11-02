@@ -58,6 +58,9 @@ export interface ResidentHouse {
     duesStatus?: DuesStatus;
     customDuesAmount?: number;
     paidAmount?: number;
+    paidMonths?: number;
+    isAdvanceSubsequentMonth?: boolean;
+    advanceOriginMonth?: string;
     paidDate?: string;
     settlementMonth?: string;
     updatedAt?: string;

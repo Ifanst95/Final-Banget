@@ -602,7 +602,7 @@ export async function generateCashbookImage(
   ctx.fillText('Penerimaan & Pengeluaran Gang', c2X + cardW / 2, curY + 44);
 
   drawKvRow('1. Sisa Saldo Bulan Sebelumnya:', formatRupiah(prevMonthSummary.kasUtama), c2X + 12, curY + 54, cardW - 24, '#047857');
-  drawKvRow('2. Total Penerimaan Kas (+):', `+${formatRupiah(tableTotals.sumMasukKasUtama)}`, c2X + 12, curY + 88, cardW - 24, '#047857');
+  drawKvRow('2. Total Penerimaan Kas (+):', `+${formatRupiah(rekapIuranRow ? rekapIuranRow.masuk : tableTotals.sumMasukKasUtama)}`, c2X + 12, curY + 88, cardW - 24, '#047857');
   drawKvRow('3. Pengeluaran Kas (-):', `-${formatRupiah(tableTotals.sumKeluarKasUtama)}`, c2X + 12, curY + 122, cardW - 24, '#be123c');
   drawKvRow(
     '4. Arus Kas Bersih:',
