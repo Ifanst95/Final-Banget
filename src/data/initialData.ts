@@ -130,6 +130,8 @@ export const INITIAL_SITE_CONFIG: SiteConfig = {
   duesAmountPerMonth: 50000,
   duesCurrentMonth: 'Oktober 2026',
   duesAvailablePeriods: ['September 2026'],
+  waArrearsMessageTemplate: '',
+  waArrearsBroadcastTemplate: '',
 };
 
 export const INITIAL_COMMITTEES: CommitteeContact[] = [

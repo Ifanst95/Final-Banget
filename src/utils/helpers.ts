@@ -2771,3 +2771,150 @@ export function computeOverallKKRecapList(
   };
 }
 
+export const DEFAULT_WA_ARREARS_SINGLE_TEMPLATE =
+`Halo Bpk/Ibu *{nama_warga}* (Blok {blok}),
+Salam hangat dan rukun warga {nama_gang}.
+
+Kami dari pengurus menyampaikan rincian catatan tagihan kas/iuran gang yang perlu diselesaikan:
+• Iuran Kas/Sampah ({periode}): {iuran_kas}
+• Denda Baksos: {denda_baksos}
+• Tunggakan Iuran Bulan/Tahun Lalu: {tunggakan_lalu}
+────────────────────
+*Total Tagihan: {total_tagihan}*
+
+💳 *Rekening Pembayaran Kas Gang (Bendahara):*
+• Bank: *{nama_bank}*
+• No. Rekening: *{no_rekening}*
+• Atas Nama: *{atas_nama}*
+• Berita Transfer: Kas Gang - Blok {blok}
+• Konfirmasi WA: {kontak_bendahara}
+
+Pembayaran juga dapat diserahkan tunai melalui bendahara gang. Mohon konfirmasi bukti transfer jika sudah membayar agar status langsung diperbarui menjadi *Lunas* di portal resmi warga.
+
+Terima kasih atas partisipasi dan kepedulian Bpk/Ibu untuk kemajuan lingkungan {nama_gang}. 🙏✨`;
+
+export const DEFAULT_WA_ARREARS_BROADCAST_TEMPLATE =
+`📢 *PEMBERITAHUAN PENARIKAN IURAN & TAGIHAN WARGA {nama_gang}*
+Periode: *{periode}*
+Total Tunggakan: *{total_seluruh_tunggakan}* ({jumlah_rumah_tertunggak} Rumah Tertunggak)
+
+Yth. Seluruh Warga {nama_gang},
+Demi kelancaran operasional kebersihan, keamanan, penerangan jalan, dan kas bersama gang, berikut kami sampaikan rekapitulasi tagihan yang belum terselesaikan:
+
+{daftar_tunggakan_warga}
+
+────────────────────
+💳 *Rekening Penyaluran Pembayaran (Bendahara Gang):*
+• Bank: *{nama_bank}*
+• No. Rekening: *{no_rekening}*
+• Atas Nama: *{atas_nama}*
+• Berita Transfer: Kas Gang – [Nama Blok/Nomor Rumah]
+• Konfirmasi Bukti Transfer WA: {kontak_bendahara}
+Atau tunai langsung ke rumah Bendahara Gang / Pos Gang.
+
+Warga yang sudah transfer dimohon untuk mengirimkan bukti transfer ke Bendahara Gang agar status dapat langsung diperbarui menjadi *Lunas* di Portal Resmi Warga.
+
+Atas perhatian, kebersamaan, dan kerja sama seluruh warga, kami haturkan terima kasih. 🙏✨
+_Pengurus {nama_gang}_`;
+
+export interface RenderArrearsSingleParams {
+  template?: string;
+  payerName: string;
+  blockNumber: string;
+  monthStr?: string;
+  duesArrears: number;
+  baksosFineArrears: number;
+  previousArrears: number;
+  totalArrears: number;
+  previousArrearsNote?: string;
+  previousBaksosArrearsNote?: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  bankPhone?: string;
+  brandName?: string;
+}
+
+export function renderArrearsSingleWhatsAppMessage(params: RenderArrearsSingleParams): string {
+  const tpl = (params.template && params.template.trim().length > 0)
+    ? params.template
+    : DEFAULT_WA_ARREARS_SINGLE_TEMPLATE;
+
+  const brand = params.brandName || 'Warga Gang Mandor Blok K2/25 - K3/24';
+  const month = params.monthStr || 'Bulan Berjalan';
+  const payer = params.payerName || 'Warga';
+  const blok = params.blockNumber || '';
+  const bank = params.bankName || 'BCA';
+  const accNum = params.accountNumber || '7130889411';
+  const accName = params.accountName || 'Muhidin Akbar (Bendahara Gang Mandor)';
+  const phone = params.bankPhone || '+6287887332749';
+
+  const prevNoteStr = params.previousArrearsNote ? ` (${params.previousArrearsNote})` : '';
+  const baksosNoteStr = params.previousBaksosArrearsNote ? ` (Termasuk denda lalu: ${params.previousBaksosArrearsNote})` : '';
+
+  const rincianLines: string[] = [];
+  if (params.duesArrears > 0) {
+    rincianLines.push(`• Iuran Kas/Sampah (${month}): ${formatRupiah(params.duesArrears)}`);
+  }
+  if (params.baksosFineArrears > 0) {
+    rincianLines.push(`• Denda Baksos: ${formatRupiah(params.baksosFineArrears)}${baksosNoteStr}`);
+  }
+  if (params.previousArrears > 0) {
+    rincianLines.push(`• Tunggakan Iuran Lalu: ${formatRupiah(params.previousArrears)}${prevNoteStr}`);
+  }
+  const rincianStr = rincianLines.length > 0 ? rincianLines.join('\n') : `• Total Tagihan Kas: ${formatRupiah(params.totalArrears)}`;
+
+  return tpl
+    .replace(/\{nama_warga\}|\{nama\}|\{pembayar\}/gi, payer)
+    .replace(/\{blok\}|\{nomor_blok\}/gi, blok)
+    .replace(/\{periode\}|\{bulan\}/gi, month)
+    .replace(/\{iuran_kas\}|\{iuran\}/gi, formatRupiah(params.duesArrears))
+    .replace(/\{denda_baksos\}|\{denda\}/gi, `${formatRupiah(params.baksosFineArrears)}${baksosNoteStr}`)
+    .replace(/\{tunggakan_lalu\}/gi, `${formatRupiah(params.previousArrears)}${prevNoteStr}`)
+    .replace(/\{total_tagihan\}|\{total\}/gi, formatRupiah(params.totalArrears))
+    .replace(/\{rincian_tagihan\}/gi, rincianStr)
+    .replace(/\{nama_bank\}|\{bank\}/gi, bank)
+    .replace(/\{no_rekening\}|\{nomor_rekening\}|\{rekening\}/gi, accNum)
+    .replace(/\{atas_nama\}/gi, accName)
+    .replace(/\{kontak_bendahara\}|\{kontak_wa\}|\{wa_bendahara\}/gi, phone)
+    .replace(/\{nama_gang\}|\{brand\}/gi, brand);
+}
+
+export interface RenderArrearsBroadcastParams {
+  template?: string;
+  brandName?: string;
+  monthStr?: string;
+  totalAllArrears: number;
+  housesCount: number;
+  housesListFormatted: string;
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  bankPhone?: string;
+}
+
+export function renderArrearsBroadcastWhatsAppMessage(params: RenderArrearsBroadcastParams): string {
+  const tpl = (params.template && params.template.trim().length > 0)
+    ? params.template
+    : DEFAULT_WA_ARREARS_BROADCAST_TEMPLATE;
+
+  const brand = params.brandName || 'Gang Mandor Blok K2/25 s/d K3/24';
+  const month = params.monthStr || 'Bulan Berjalan';
+  const bank = params.bankName || 'BCA';
+  const accNum = params.accountNumber || '7130889411';
+  const accName = params.accountName || 'Muhidin Akbar (Bendahara)';
+  const phone = params.bankPhone || '+6287887332749';
+
+  return tpl
+    .replace(/\{nama_gang\}|\{brand\}/gi, brand)
+    .replace(/\{periode\}|\{bulan\}/gi, month)
+    .replace(/\{total_seluruh_tunggakan\}|\{total_tunggakan\}/gi, formatRupiah(params.totalAllArrears))
+    .replace(/\{jumlah_rumah_tertunggak\}|\{jumlah_rumah\}/gi, String(params.housesCount))
+    .replace(/\{daftar_tunggakan_warga\}|\{daftar_tunggakan\}/gi, params.housesListFormatted)
+    .replace(/\{nama_bank\}|\{bank\}/gi, bank)
+    .replace(/\{no_rekening\}|\{nomor_rekening\}|\{rekening\}/gi, accNum)
+    .replace(/\{atas_nama\}/gi, accName)
+    .replace(/\{kontak_bendahara\}|\{kontak_wa\}|\{wa_bendahara\}/gi, phone);
+}
+
+

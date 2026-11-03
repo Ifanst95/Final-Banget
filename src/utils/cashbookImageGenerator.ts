@@ -48,6 +48,25 @@ export interface CashbookImageParams {
 /**
  * Utility to draw a rounded rectangle on a CanvasRenderingContext2D
  */
+function dataUrlToBlob(dataUrl: string): Blob {
+  try {
+    const parts = dataUrl.split(',');
+    const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const bstr = atob(parts[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  } catch {
+    return new Blob([], { type: 'image/png' });
+  }
+}
+
+/**
+ * Utility to draw a rounded rectangle on a CanvasRenderingContext2D
+ */
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -56,6 +75,14 @@ function roundRect(
   h: number,
   radius: number | number[]
 ) {
+  w = Math.max(1, w);
+  h = Math.max(1, h);
+  if (typeof (ctx as any).roundRect === 'function') {
+    ctx.beginPath();
+    (ctx as any).roundRect(x, y, w, h, radius);
+    ctx.closePath();
+    return;
+  }
   let tl = 0, tr = 0, br = 0, bl = 0;
   if (typeof radius === 'number') {
     tl = tr = br = bl = radius;
@@ -102,7 +129,10 @@ export async function generateCashbookImage(
   // Pastikan seluruh custom fonts (Outfit, Plus Jakarta Sans, JetBrains Mono) selesai dimuat sebelum rendering canvas
   if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
     try {
-      await document.fonts.ready;
+      await Promise.race([
+        document.fonts.ready,
+        new Promise((resolve) => setTimeout(resolve, 600)),
+      ]);
     } catch {}
   }
 
@@ -775,12 +805,30 @@ export async function generateCashbookImage(
 
   // Return dataUrl & Blob
   const dataUrl = canvas.toDataURL('image/png');
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((b) => {
-      if (b) resolve(b);
-      else reject(new Error('Canvas toBlob failed'));
-    }, 'image/png');
-  });
+  let blob: Blob;
+  try {
+    blob = await new Promise<Blob>((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve(dataUrlToBlob(dataUrl));
+      }, 1000);
+
+      try {
+        canvas.toBlob((b) => {
+          clearTimeout(timeout);
+          if (b) {
+            resolve(b);
+          } else {
+            resolve(dataUrlToBlob(dataUrl));
+          }
+        }, 'image/png');
+      } catch {
+        clearTimeout(timeout);
+        resolve(dataUrlToBlob(dataUrl));
+      }
+    });
+  } catch {
+    blob = dataUrlToBlob(dataUrl);
+  }
 
   return { dataUrl, blob };
 }

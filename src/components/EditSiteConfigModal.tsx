@@ -20,6 +20,7 @@ import {
   Layers,
   Megaphone,
   Menu,
+  MessageCircle,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -37,6 +38,7 @@ import {
 import { MenuItemConfig, PortalDatabasePayload, SiteConfig, SubMenuItemConfig } from '../types';
 import { INITIAL_NAV_MENUS, INITIAL_SITE_CONFIG } from '../data/initialData';
 import { downloadBackupJsonFile, parseAndNormalizeBackupJson } from '../utils/backupRestoreHelper';
+import { DEFAULT_WA_ARREARS_SINGLE_TEMPLATE, DEFAULT_WA_ARREARS_BROADCAST_TEMPLATE } from '../utils/helpers';
 import confetti from 'canvas-confetti';
 
 interface EditSiteConfigModalProps {
@@ -44,7 +46,7 @@ interface EditSiteConfigModalProps {
   onClose: () => void;
   config: SiteConfig;
   onSave: (newConfig: Partial<SiteConfig>) => void;
-  initialTab?: 'menus' | 'titles' | 'dues' | 'backup';
+  initialTab?: 'menus' | 'titles' | 'dues' | 'wa_template' | 'backup';
   onResetAllData?: () => void;
   onResetToDefaultWithLatestDb?: () => void;
   currentPayload?: PortalDatabasePayload;
@@ -90,7 +92,7 @@ export const EditSiteConfigModal: React.FC<EditSiteConfigModalProps> = ({
   onRestorePayload,
 }) => {
   // Master modal tab selection
-  const [activeTab, setActiveTab] = useState<'menus' | 'titles' | 'dues' | 'backup'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'menus' | 'titles' | 'dues' | 'wa_template' | 'backup'>(initialTab);
 
   // General site configuration state
   const [formData, setFormData] = useState<SiteConfig>({ ...config });
@@ -484,6 +486,19 @@ export const EditSiteConfigModal: React.FC<EditSiteConfigModalProps> = ({
 
           <button
             type="button"
+            onClick={() => setActiveTab('wa_template')}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              activeTab === 'wa_template'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+            }`}
+          >
+            <MessageCircle className="w-4 h-4 text-emerald-400" />
+            <span>4. Template Pesan WhatsApp</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('backup')}
             className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'backup'
@@ -492,7 +507,7 @@ export const EditSiteConfigModal: React.FC<EditSiteConfigModalProps> = ({
             }`}
           >
             <FileJson className="w-4 h-4" />
-            <span>4. Cadangan & Reset Database</span>
+            <span>5. Cadangan & Reset Database</span>
           </button>
         </div>
 
@@ -1497,7 +1512,117 @@ export const EditSiteConfigModal: React.FC<EditSiteConfigModalProps> = ({
           )}
 
           {/* ======================================================== */}
-          {/* TAB 4: CADANGAN, PULIHKAN & RESET DATABASE               */}
+          {/* TAB 4: TEMPLATE PESAN WHATSAPP PENAGIHAN & TUNGGAKAN     */}
+          {/* ======================================================== */}
+          {activeTab === 'wa_template' && (
+            <div className="space-y-5">
+              <div className="pb-3 border-b border-slate-100">
+                <h4 className="font-extrabold text-sm sm:text-base text-slate-900">
+                  Template Format Pesan WhatsApp Tagihan &amp; Tunggakan
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Kustomisasi format teks pesan penagihan ke nomor warga per KK maupun broadcast rekapitulasi ke grup WhatsApp.
+                </p>
+              </div>
+
+              {/* Template Single Billing Per Rumah */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <MessageCircle className="w-4 h-4 text-emerald-600" />
+                      <span>1. Template Pesan Tagihan Per Rumah (Pribadi / Single Billing)</span>
+                    </h5>
+                    <p className="text-[11px] text-slate-500">
+                      Format pesan penagihan langsung ke nomor WhatsApp warga saat tombol "Ingatkan WA" diklik atau saat penarikan otomatis massal berjalan.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        waArrearsMessageTemplate: DEFAULT_WA_ARREARS_SINGLE_TEMPLATE,
+                      })
+                    }
+                    className="px-2.5 py-1 text-[11px] font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg shadow-2xs cursor-pointer shrink-0"
+                  >
+                    Reset ke Standar
+                  </button>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 text-[11px] text-slate-700 space-y-1">
+                  <span className="font-bold text-emerald-900 block">Variabel Dinamis yang Didukung:</span>
+                  <div className="flex flex-wrap gap-1 font-mono text-[10.5px]">
+                    {['{nama_warga}', '{blok}', '{periode}', '{total_tagihan}', '{iuran_kas}', '{denda_baksos}', '{tunggakan_lalu}', '{rincian_tagihan}', '{nama_bank}', '{no_rekening}', '{atas_nama}', '{kontak_bendahara}', '{nama_gang}'].map((tag) => (
+                      <span key={tag} className="px-1.5 py-0.5 rounded bg-white border border-emerald-300 text-emerald-800 font-bold">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <textarea
+                  rows={8}
+                  value={formData.waArrearsMessageTemplate ?? DEFAULT_WA_ARREARS_SINGLE_TEMPLATE}
+                  onChange={(e) => setFormData({ ...formData, waArrearsMessageTemplate: e.target.value })}
+                  className="w-full p-3 text-xs font-mono bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  placeholder="Ketik template pesan WhatsApp penagihan per rumah..."
+                />
+              </div>
+
+              {/* Template Broadcast Grup WA */}
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Layers className="w-4 h-4 text-cyan-600" />
+                      <span>2. Template Broadcast Rekapitulasi Tagihan Grup WhatsApp</span>
+                    </h5>
+                    <p className="text-[11px] text-slate-500">
+                      Format pesan rangkuman daftar seluruh rumah tertunggak untuk dibagikan ke grup WhatsApp resmi warga.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        waArrearsBroadcastTemplate: DEFAULT_WA_ARREARS_BROADCAST_TEMPLATE,
+                      })
+                    }
+                    className="px-2.5 py-1 text-[11px] font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg shadow-2xs cursor-pointer shrink-0"
+                  >
+                    Reset ke Standar
+                  </button>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-cyan-50/70 border border-cyan-200/80 text-[11px] text-slate-700 space-y-1">
+                  <span className="font-bold text-cyan-950 block">Variabel Dinamis yang Didukung:</span>
+                  <div className="flex flex-wrap gap-1 font-mono text-[10.5px]">
+                    {['{nama_gang}', '{periode}', '{total_seluruh_tunggakan}', '{jumlah_rumah_tertunggak}', '{daftar_tunggakan_warga}', '{nama_bank}', '{no_rekening}', '{atas_nama}', '{kontak_bendahara}'].map((tag) => (
+                      <span key={tag} className="px-1.5 py-0.5 rounded bg-white border border-cyan-300 text-cyan-800 font-bold">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <textarea
+                  rows={8}
+                  value={formData.waArrearsBroadcastTemplate ?? DEFAULT_WA_ARREARS_BROADCAST_TEMPLATE}
+                  onChange={(e) => setFormData({ ...formData, waArrearsBroadcastTemplate: e.target.value })}
+                  className="w-full p-3 text-xs font-mono bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  placeholder="Ketik template pesan broadcast grup WhatsApp..."
+                />
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB 5: CADANGAN, PULIHKAN & RESET DATABASE               */}
           {/* ======================================================== */}
           {activeTab === 'backup' && (
             <div className="space-y-4">
@@ -1645,7 +1770,7 @@ export const EditSiteConfigModal: React.FC<EditSiteConfigModalProps> = ({
         {/* Footer Modal Bersama */}
         <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
           <div className="text-xs text-slate-500 font-medium">
-            Tab aktif: <span className="font-bold text-emerald-800">{activeTab === 'menus' ? 'Kelola Menu' : activeTab === 'titles' ? 'Judul & Deskripsi' : activeTab === 'dues' ? 'Iuran & Kas' : 'Cadangan & Reset'}</span>
+            Tab aktif: <span className="font-bold text-emerald-800">{activeTab === 'menus' ? 'Kelola Menu' : activeTab === 'titles' ? 'Judul & Deskripsi' : activeTab === 'dues' ? 'Iuran & Kas' : activeTab === 'wa_template' ? 'Template Pesan WhatsApp' : 'Cadangan & Reset'}</span>
           </div>
           <div className="flex items-center gap-2">
             <button

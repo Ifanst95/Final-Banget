@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import {
   AlertTriangle,
@@ -3821,8 +3821,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     getHouseStatusForPeriod,
   ]);
 
+  // Ref guard to prevent concurrent or infinite rendering loops
+  const isGeneratingRef = useRef<boolean>(false);
+
   // GENERATOR BENTUK GAMBAR BUKU KAS KELUAR MASUK UNTUK WHATSAPP
   const generateWaImageNow = useCallback(async () => {
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
     setIsGeneratingImage(true);
     try {
       const firstDate = waPeriodTransactions[0]
@@ -3833,11 +3838,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         brandName: config.brandName || config.title || 'Warga Gang Mandor Blok K2/25 - K3/24',
         periodLabel: waTargetMonthLabel,
         prevMonthSummary: {
-          prevMonthLabel: waPrevMonthSummary.prevMonthLabel,
-          kasUtama: waPrevMonthSummary.kasUtama,
-          wifiCashback: waPrevMonthSummary.wifiCashback,
-          sampahCashback: waPrevMonthSummary.sampahCashback,
-          total: waPrevMonthSummary.total,
+          prevMonthLabel: waPrevMonthSummary.prevMonthLabel || 'Awal Bulan',
+          kasUtama: Number(waPrevMonthSummary.kasUtama) || 0,
+          wifiCashback: Number(waPrevMonthSummary.wifiCashback) || 0,
+          sampahCashback: Number(waPrevMonthSummary.sampahCashback) || 0,
+          total: Number(waPrevMonthSummary.total) || 0,
         },
         rekapIuranRow: {
           no: 1,
@@ -3846,22 +3851,22 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             waTargetMonthKey === 'semua'
               ? 'Total Penerimaan Kas'
               : `Total Penerimaan Kas ${waTargetMonthLabel}`,
-          masuk: waRekapData.totalPenerimaan,
+          masuk: Number(waRekapData.totalPenerimaan) || 0,
           keluar: 0,
-          runningBalance: waPrevMonthSummary.total + waRekapData.totalPenerimaan,
-          effectiveTotalIuran: waRekapData.sumIuran,
-          effectiveTotalDenda: waRekapData.sumDenda,
-          effectiveTotalTunggakan: waRekapData.sumTunggakan,
+          runningBalance: (Number(waPrevMonthSummary.total) || 0) + (Number(waRekapData.totalPenerimaan) || 0),
+          effectiveTotalIuran: Number(waRekapData.sumIuran) || 0,
+          effectiveTotalDenda: Number(waRekapData.sumDenda) || 0,
+          effectiveTotalTunggakan: Number(waRekapData.sumTunggakan) || 0,
         },
-        cashbookRows: waRemainingRows.map((r) => ({
+        cashbookRows: (waRemainingRows || []).map((r) => ({
           no: r.no,
-          date: r.date,
-          description: r.description,
-          subCategoryLabel: r.subCategoryLabel,
-          pool: r.pool,
-          isMasuk: r.isMasuk,
-          amount: r.amount,
-          runningBalance: r.runningBalance,
+          date: r.date || '',
+          description: r.description || '',
+          subCategoryLabel: r.subCategoryLabel || '',
+          pool: r.pool || '',
+          isMasuk: Boolean(r.isMasuk),
+          amount: Number(r.amount) || 0,
+          runningBalance: Number(r.runningBalance) || 0,
         })),
         tableTotals: waTableTotals,
       });
@@ -3871,6 +3876,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     } catch (err) {
       console.error('Failed to generate cashbook image:', err);
     } finally {
+      isGeneratingRef.current = false;
       setIsGeneratingImage(false);
     }
   }, [
@@ -3890,7 +3896,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     if (isWaModalOpen && waRecapMode === 'gambar_kas') {
       generateWaImageNow();
     }
-  }, [isWaModalOpen, waRecapMode, generateWaImageNow, waTargetMonthKey]);
+  }, [isWaModalOpen, waRecapMode, waTargetMonthKey]);
 
   const handleDownloadWaImage = () => {
     if (!waImageDataUrl) return;
@@ -4003,21 +4009,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             </button>
           )}
 
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => {
-                setWaSelectedMonth(effectiveMonthKey !== 'semua' ? effectiveMonthKey : defaultMonthKey);
-                setWaCustomText('');
-                setWaRecapMode('gambar_kas');
-                setIsWaModalOpen(true);
-              }}
-              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white/15 hover:bg-white/25 text-white border border-white/25 rounded-xl transition-all cursor-pointer backdrop-blur-xs font-sans"
-            >
-              <MessageCircle className="w-4 h-4 text-emerald-300" />
-              <span>Share WA</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => {
+              setWaSelectedMonth(effectiveMonthKey !== 'semua' ? effectiveMonthKey : defaultMonthKey);
+              setWaCustomText('');
+              setWaRecapMode('gambar_kas');
+              setIsWaModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white/15 hover:bg-white/25 text-white border border-white/25 rounded-xl transition-all cursor-pointer backdrop-blur-xs font-sans"
+            title="Buka Gambar Resmi Buku Kas & Ringkasan Laporan WhatsApp"
+          >
+            <LucideImage className="w-4 h-4 text-emerald-300" />
+            <span>Gambar Kas &amp; WA</span>
+          </button>
 
           {isAdmin && (
             <button
@@ -4318,6 +4323,21 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                 Menampilkan Saldo Awal, Pemasukan (+), Pengeluaran (-), dan Saldo Berjalan dengan rincian kategori dan pos pada detail transaksi.
               </p>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setWaSelectedMonth(effectiveMonthKey !== 'semua' ? effectiveMonthKey : defaultMonthKey);
+                setWaCustomText('');
+                setWaRecapMode('gambar_kas');
+                setIsWaModalOpen(true);
+              }}
+              className="flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-green-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-md shadow-emerald-700/20 active:scale-95 transition-all cursor-pointer shrink-0"
+              title="Lihat dan unduh bentuk gambar grafis resmi Buku Kas Keluar & Masuk"
+            >
+              <LucideImage className="w-4 h-4 text-amber-300" />
+              <span>Bentuk Gambar Resmi Buku Kas</span>
+            </button>
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-300/90 shadow-sm bg-white">
@@ -8817,36 +8837,36 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   </div>
 
                   {/* Area Pratinjau Gambar */}
-                  <div className="relative border-2 border-slate-200 rounded-2xl bg-slate-900/5 overflow-hidden flex flex-col items-center justify-center min-h-[300px] max-h-[55vh] p-2">
+                  <div className="relative border-2 border-slate-300 rounded-2xl bg-slate-900/5 overflow-hidden flex flex-col items-center justify-center min-h-[350px] max-h-[62vh] p-2 sm:p-3">
                     {isGeneratingImage ? (
                       <div className="flex flex-col items-center justify-center p-8 text-center space-y-3">
                         <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
                         <div className="space-y-1">
                           <p className="text-xs font-bold text-slate-800">
-                            Sedang Merender Gambar Laporan Keuangan...
+                            Sedang Merender Bentuk Gambar Resmi Buku Kas...
                           </p>
                           <p className="text-[11px] text-slate-500">
-                            Menyusun tabel buku kas {waTargetMonthLabel}, mutasi transaksi, dan total sisa saldo keseluruhan
+                            Menyusun tabel buku kas {waTargetMonthLabel}, saldo awal, mutasi keluar masuk, dan total sisa saldo keseluruhan
                           </p>
                         </div>
                       </div>
                     ) : waImageDataUrl ? (
-                      <div className="w-full h-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-inner flex justify-center">
+                      <div className="w-full flex-1 overflow-y-auto rounded-xl border border-slate-300 bg-white shadow-inner flex flex-col items-center p-2">
                         <img
                           src={waImageDataUrl}
                           alt={`Laporan Kas Gang Mandor - ${waTargetMonthLabel}`}
-                          className="w-full max-w-full h-auto object-contain block shadow-sm"
+                          className="w-full max-w-2xl h-auto object-contain block shadow-sm mx-auto rounded-lg"
                         />
                       </div>
                     ) : (
                       <div className="text-center p-8 space-y-2">
-                        <p className="text-xs font-bold text-slate-700">Gambar belum dibuat</p>
+                        <p className="text-xs font-bold text-slate-700">Gambar belum dibuat atau gagal dimuat</p>
                         <button
                           type="button"
                           onClick={generateWaImageNow}
-                          className="px-3 py-1.5 bg-emerald-600 text-white font-bold text-xs rounded-xl cursor-pointer"
+                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-sm active:scale-95"
                         >
-                          Buat Gambar Sekarang
+                          Render Gambar Sekarang
                         </button>
                       </div>
                     )}

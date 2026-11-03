@@ -46,9 +46,12 @@ import {
   getSubsequentMonthLabels,
   isHouseVacant,
   openWhatsAppShare,
+  renderArrearsSingleWhatsAppMessage,
+  renderArrearsBroadcastWhatsAppMessage,
 } from '../utils/helpers';
 import { exportFinancialReportToExcel } from '../utils/financialExcelExport';
 import { BalanceBreakdown } from '../hooks/useStorage';
+import { EditWaTemplateModal } from './EditWaTemplateModal';
 
 interface ArrearsSectionProps {
   config: SiteConfig;
@@ -61,6 +64,7 @@ interface ArrearsSectionProps {
   onAddTransaction: (tx: any) => void;
   onMarkFinePaid: (agendaId: string, residentId: string, houseName: string, blockNo: string) => void;
   onOpenConfigModal?: () => void;
+  onUpdateSiteConfig?: (newConfig: Partial<SiteConfig>) => void;
 }
 
 export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
@@ -74,7 +78,11 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   onAddTransaction,
   onMarkFinePaid,
   onOpenConfigModal,
+  onUpdateSiteConfig,
 }) => {
+  // Modal Edit Template Pesan WhatsApp
+  const [isWaTemplateModalOpen, setIsWaTemplateModalOpen] = useState(false);
+
   // Modal Input / Tambah Manual Tunggakan Iuran & Denda Baksos
   const [editingHouse, setEditingHouse] = useState<ResidentHouse | null>(null);
   const [selectedHouseId, setSelectedHouseId] = useState<string>('');
@@ -520,38 +528,29 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
 
   const generateSingleBillingMessage = (item: typeof arrearsList[0]) => {
     const payerName = item.house.duesHeadNameOverride || item.house.headName;
-    const prevNoteStr = item.previousArrearsNote ? ` (${item.previousArrearsNote})` : '';
-    const baksosNoteStr = item.previousBaksosArrearsNote ? ` (Termasuk denda lalu: ${item.previousBaksosArrearsNote})` : '';
     const monthStr = item.house.duesMonthNote || config.duesCurrentMonth || 'Bulan Berjalan';
-    return (
-      `Halo Bpk/Ibu *${payerName}* (Blok ${item.house.blockNumber}),\n` +
-      `Salam hangat dan rukun warga Gang Mandor.\n\n` +
-      `Kami dari pengurus menyampaikan rincian catatan tagihan kas/iuran gang yang perlu diselesaikan:\n` +
-      `• Iuran Kas/Sampah (${monthStr}): ${formatRupiah(item.duesArrears)}\n` +
-      `• Denda Baksos: ${formatRupiah(item.baksosFineArrears)}${baksosNoteStr}\n` +
-      `• Tunggakan Iuran Bulan/Tahun Lalu: ${formatRupiah(item.previousArrears)}${prevNoteStr}\n` +
-      `────────────────────\n` +
-      `*Total Tagihan: ${formatRupiah(item.totalArrears)}*\n\n` +
-      `💳 *Rekening Pembayaran Kas Gang (Bendahara):*\n` +
-      `• Bank: *${TREASURER_BANK.bankName}*\n` +
-      `• No. Rekening: *${TREASURER_BANK.accountNumber}*\n` +
-      `• Atas Nama: *${TREASURER_BANK.accountName}* (${TREASURER_BANK.role})\n` +
-      `• Berita Transfer: Kas Gang - Blok ${item.house.blockNumber}\n` +
-      `• Konfirmasi WA: ${TREASURER_BANK.phone}\n\n` +
-      `Pembayaran juga dapat diserahkan tunai melalui bendahara gang. Mohon konfirmasi bukti transfer jika sudah membayar agar status langsung diperbarui menjadi *Lunas* di portal resmi warga.\n\n` +
-      `Terima kasih atas partisipasi dan kepedulian Bpk/Ibu untuk kemajuan lingkungan Gang Mandor. 🙏✨`
-    );
+    return renderArrearsSingleWhatsAppMessage({
+      template: config.waArrearsMessageTemplate,
+      payerName,
+      blockNumber: item.house.blockNumber,
+      monthStr,
+      duesArrears: item.duesArrears,
+      baksosFineArrears: item.baksosFineArrears,
+      previousArrears: item.previousArrears,
+      totalArrears: item.totalArrears,
+      previousArrearsNote: item.previousArrearsNote,
+      previousBaksosArrearsNote: item.previousBaksosArrearsNote,
+      bankName: bankInfo ? bankInfo.split(' ')[0] || TREASURER_BANK.bankName : TREASURER_BANK.bankName,
+      accountNumber: TREASURER_BANK.accountNumber,
+      accountName: `${TREASURER_BANK.accountName} (${TREASURER_BANK.role})`,
+      bankPhone: TREASURER_BANK.phone,
+      brandName: config.brandName || config.title || 'Warga Gang Mandor Blok K2/25 - K3/24',
+    });
   };
 
   const generateFullGroupBroadcast = () => {
     const monthStr = config.duesCurrentMonth || 'Oktober 2026';
-    let text =
-      `📢 *PEMBERITAHUAN PENARIKAN IURAN & TAGIHAN WARGA GANG MANDOR*\n` +
-      `Periode: *${monthStr}*\n` +
-      `Total Tunggakan: *${formatRupiah(totalAllArrears)}* (${housesWithArrears.length} Rumah Tertunggak)\n\n` +
-      `Yth. Seluruh Warga Gang Mandor Blok K2/25 s/d K3/24,\n` +
-      `Demi kelancaran operasional kebersihan, keamanan, penerangan jalan, dan kas bersama gang, berikut kami sampaikan rekapitulasi tagihan yang belum terselesaikan:\n\n`;
-
+    let formattedList = '';
     housesWithArrears.forEach((item, idx) => {
       const payerName = item.house.duesHeadNameOverride || item.house.headName;
       const details = [];
@@ -559,24 +558,21 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       if (item.baksosFineArrears > 0) details.push(`Denda: ${formatRupiah(item.baksosFineArrears)}`);
       if (item.previousArrears > 0) details.push(`Lalu: ${formatRupiah(item.previousArrears)}`);
       const detailStr = details.length > 0 ? ` (${details.join(', ')})` : '';
-
-      text += `${idx + 1}. *Blok ${item.house.blockNumber}* - ${payerName}: *${formatRupiah(item.totalArrears)}*${detailStr}\n`;
+      formattedList += `${idx + 1}. *Blok ${item.house.blockNumber}* - ${payerName}: *${formatRupiah(item.totalArrears)}*${detailStr}\n`;
     });
 
-    text +=
-      `\n────────────────────\n` +
-      `💳 *Rekening Penyaluran Pembayaran (Bendahara Gang):*\n` +
-      `• Bank: *${TREASURER_BANK.bankName}*\n` +
-      `• No. Rekening: *${TREASURER_BANK.accountNumber}*\n` +
-      `• Atas Nama: *${TREASURER_BANK.accountName}* (${TREASURER_BANK.role})\n` +
-      `• Berita Transfer: Kas Gang – [Nama Blok/Nomor Rumah]\n` +
-      `• Konfirmasi Bukti Transfer WA: ${TREASURER_BANK.phone}\n` +
-      `Atau tunai langsung ke rumah Bendahara Gang / Pos Gang.\n\n` +
-      `Warga yang sudah transfer dimohon untuk mengirimkan bukti transfer ke Bendahara Gang agar status dapat langsung diperbarui menjadi *Lunas* di Portal Resmi Warga.\n\n` +
-      `Atas perhatian, kebersamaan, dan kerja sama seluruh warga, kami haturkan terima kasih. 🙏✨\n` +
-      `_Pengurus RT/RW Gang Mandor Blok K2/25 - K3/24_`;
-
-    return text;
+    return renderArrearsBroadcastWhatsAppMessage({
+      template: config.waArrearsBroadcastTemplate,
+      brandName: config.brandName || config.title || 'Gang Mandor Blok K2/25 s/d K3/24',
+      monthStr,
+      totalAllArrears,
+      housesCount: housesWithArrears.length,
+      housesListFormatted: formattedList.trim(),
+      bankName: TREASURER_BANK.bankName,
+      accountNumber: TREASURER_BANK.accountNumber,
+      accountName: `${TREASURER_BANK.accountName} (${TREASURER_BANK.role})`,
+      bankPhone: TREASURER_BANK.phone,
+    });
   };
 
   // Timer auto-sender runner
@@ -742,6 +738,17 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
             >
               <Zap className="w-4 h-4 text-amber-300 animate-pulse" />
               <span>⚡ Tarik Tagihan Otomatis Massal ({housesWithArrears.length})</span>
+            </button>
+
+            {/* Tombol Kustomisasi / Edit Template Pesan WhatsApp Penagihan */}
+            <button
+              type="button"
+              onClick={() => setIsWaTemplateModalOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-white hover:bg-slate-50 text-emerald-900 border-2 border-emerald-400 rounded-xl shadow-2xs transition-all cursor-pointer whitespace-nowrap min-h-[38px] hover:border-emerald-600 active:scale-95"
+              title="Edit Format Template Pesan WhatsApp Penagihan Tunggakan Per KK & Broadcast Grup"
+            >
+              <MessageCircle className="w-4 h-4 text-emerald-600" />
+              <span>Edit Template Pesan WA</span>
             </button>
 
             <button
@@ -2583,7 +2590,18 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                 {/* Preview Format Pesan WA */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                    <span>Preview Pesan Tagihan WhatsApp:</span>
+                    <span className="flex items-center gap-1.5">
+                      <span>Preview Pesan Tagihan WhatsApp:</span>
+                      <button
+                        type="button"
+                        onClick={() => setIsWaTemplateModalOpen(true)}
+                        className="text-[11px] text-emerald-700 hover:text-emerald-800 hover:underline flex items-center gap-1 font-bold cursor-pointer"
+                        title="Ubah template format pesan ini"
+                      >
+                        <Edit2 className="w-3 h-3 text-emerald-600" />
+                        <span>(Edit Template Pesan)</span>
+                      </button>
+                    </span>
                     <button
                       type="button"
                       onClick={() => handleCopyText(msg, setCopiedSingleMsg)}
@@ -2641,6 +2659,21 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
           </div>
         );
       })()}
+
+      {/* MODAL EDIT TEMPLATE PESAN WHATSAPP PENAGIHAN */}
+      {isWaTemplateModalOpen && (
+        <EditWaTemplateModal
+          isOpen={isWaTemplateModalOpen}
+          onClose={() => setIsWaTemplateModalOpen(false)}
+          config={config}
+          onSave={(newCfg) => {
+            if (onUpdateSiteConfig) {
+              onUpdateSiteConfig(newCfg);
+            }
+          }}
+          sampleHouse={singleBillingHouse?.house || housesWithArrears[0]?.house || null}
+        />
+      )}
     </div>
   );
 };

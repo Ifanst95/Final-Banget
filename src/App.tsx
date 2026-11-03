@@ -254,6 +254,7 @@ export default function App() {
               onAddTransaction={addTransaction}
               onMarkFinePaid={markBaksosFinePaid}
               onOpenConfigModal={() => setIsConfigModalOpen(true)}
+              onUpdateSiteConfig={updateSiteConfig}
             />
           )}
 

@@ -177,6 +177,8 @@ export interface SiteConfig {
   duesCurrentMonth?: string;
   duesAvailablePeriods?: string[];
   periodDuesAmounts?: Record<string, number>;
+  waArrearsMessageTemplate?: string;
+  waArrearsBroadcastTemplate?: string;
 }
 
 export interface PortalDatabasePayload {
