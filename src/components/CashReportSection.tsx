@@ -1305,7 +1305,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             : (house.duesHeadNameOverride || house.headName || ''));
 
       const baksosInfo = getHouseBaksosForPeriod(house, selectedKKPeriod);
-      const dendaPaid = isPureKosong ? 0 : baksosInfo.dendaPaid;
+      const dendaPaid = baksosInfo.dendaPaid;
 
       const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
       const tunggakanTxs = transactions.filter((t) => {
@@ -1771,7 +1771,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             : 0;
 
           const baksosInfo = getHouseBaksosForPeriod(house, pLabel);
-          const dendaPaid = isPureKosong ? 0 : baksosInfo.dendaPaid;
+          const dendaPaid = baksosInfo.dendaPaid;
 
           const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
           const pKey = parseIndonesianMonthYearToKey(pLabel);
@@ -1820,7 +1820,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           : house.duesPaidAmount || 0;
 
         const baksosInfo = getHouseBaksosForPeriod(house, activePeriodLabel);
-        const dendaPaid = isPureKosong ? 0 : baksosInfo.dendaPaid;
+        const dendaPaid = baksosInfo.dendaPaid;
 
         const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
         const pKey = parseIndonesianMonthYearToKey(activePeriodLabel);
@@ -1846,29 +1846,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       });
     }
 
-    // Total Penerimaan Kas di Tabel Buku Keluar Masuk Kas
-    const txIuranTotal = iuranTxsInPeriod.reduce((s, t) => s + t.amount, 0);
-    const txDendaTotal = dendaTxsInPeriod.reduce((s, t) => s + t.amount, 0);
-    const txTunggakanTotal = tunggakanTxsInPeriod.reduce((s, t) => s + t.amount, 0);
-    const hasRecordedTransactions =
-      iuranTxsInPeriod.length > 0 ||
-      dendaTxsInPeriod.length > 0 ||
-      tunggakanTxsInPeriod.length > 0;
-
-    const effectiveTotalIuran = hasRecordedTransactions ? txIuranTotal : recapSumIuran;
-    const effectiveTotalDenda = hasRecordedTransactions ? txDendaTotal : recapSumDenda;
-    const effectiveTotalTunggakan = hasRecordedTransactions ? txTunggakanTotal : recapSumTunggakan;
-    const effectiveTotalPenerimaanKas = effectiveTotalIuran + effectiveTotalDenda + effectiveTotalTunggakan;
-
-    if (hasRecordedTransactions) {
-      const housesPaidInPeriod = residents.filter((h) => {
-        const blockRegex = new RegExp(`\\b${h.blockNumber.replace('/', '\\/')}\\b`, 'i');
-        return iuranTxsInPeriod.some((t) => blockRegex.test(t.description));
-      }).length;
-      if (housesPaidInPeriod > 0) {
-        lunasCount = housesPaidInPeriod;
-      }
-    }
+    // Total Penerimaan Kas di Tabel Buku Keluar Masuk Kas otomatis mengikuti total semua pembayaran di Tabel Rekap Pembayaran Iuran Per KK
+    const effectiveTotalIuran = recapSumIuran;
+    const effectiveTotalDenda = recapSumDenda;
+    const effectiveTotalTunggakan = recapSumTunggakan;
+    const effectiveTotalPenerimaanKas = recapSumTotalSemua;
 
     // 3. Uraian Pengeluaran Kas Gang (nota/biaya operasional gang)
     const pengeluaranGangTxs = filteredTransactions.filter((tx) => {
@@ -1896,7 +1878,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const cat = tx.category || '';
       const desc = (tx.description || '').toLowerCase();
       if (cat === 'Iuran Warga' || cat === 'Denda Baksos' || cat === 'Pembayaran Tunggakan') return false;
-      if (desc.includes('iuran bulanan') || desc.includes('pelunasan denda baksos')) return false;
+      if (isPureIuranTx(tx) || isTunggakanTx(tx)) return false;
+      if (desc.includes('iuran bulanan') || desc.includes('pelunasan denda baksos') || desc.includes('pelunasan tunggakan')) return false;
 
       // Exclude transaksi pengeluaran gang
       if (pengeluaranGangTxs.some((gt) => gt.id === tx.id)) return false;
@@ -1944,7 +1927,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
     let rekapIuranRow: any = null;
     if (showPenerimaanRow) {
-      running += effectiveTotalPenerimaanKas;
+      const masukValue =
+        filterPool === 'Iuran Warga'
+          ? effectiveTotalIuran
+          : filterPool === 'Denda Baksos'
+          ? effectiveTotalDenda
+          : effectiveTotalPenerimaanKas;
+
+      running += masukValue;
+      const pKey = parseIndonesianMonthYearToKey(activePeriodLabel);
+      const defaultDateStr = pKey ? `${pKey}-01` : '2026-06-01';
       const firstTxDate =
         iuranTxsInPeriod.length > 0
           ? formatDateDDMMYYYY(iuranTxsInPeriod[0].date)
@@ -1952,7 +1944,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           ? formatDateDDMMYYYY(dendaTxsInPeriod[0].date)
           : tunggakanTxsInPeriod.length > 0
           ? formatDateDDMMYYYY(tunggakanTxsInPeriod[0].date)
-          : '01/10/2026';
+          : formatDateDDMMYYYY(defaultDateStr);
 
       rekapIuranRow = {
         id: 'row-rekap-penerimaan-kas',
@@ -1968,7 +1960,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         masukIuran: effectiveTotalIuran,
         masukDenda: effectiveTotalDenda,
         masukTunggakan: effectiveTotalTunggakan,
-        masuk: effectiveTotalPenerimaanKas,
+        masuk: masukValue,
         keluar: 0,
         runningBalance: running,
         lunasCount,
@@ -2880,6 +2872,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             : houseDuesBaksosStatusInput === 'Lunas' || houseDuesBaksosStatusInput === 'Bebas' || houseDuesBaksosStatusInput === 'Hadir' || houseDuesBaksosStatusInput === 'Tidak Wajib'
             ? 0
             : undefined,
+        paidBaksosAmount: houseDuesBaksosStatusInput === 'Lunas' ? dendaAmountNum : 0,
+        baksosStatus: houseDuesBaksosStatusInput,
+        baksosPaidDate: houseDuesBaksosStatusInput === 'Lunas' ? (houseDuesBaksosDateInput || paidDateVal) : undefined,
         updatedAt: new Date().toISOString(),
       };
       if (houseDuesStatusInput === 'Belum Bayar') {
@@ -4167,7 +4162,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         <Users className="w-3.5 h-3.5 text-emerald-700" />
                         <span>{simplifiedCashbookData.rekapIuranRow.description}</span>
                         <span className="px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-black shadow-2xs">
-                          ✓ Cocok dgn Rekap KK
+                          ✓ Otomatis Mengikuti Total Rekap KK
                         </span>
                       </div>
                       <div className="mt-1 flex items-center justify-center gap-1.5 flex-wrap text-[10px]">
@@ -4206,10 +4201,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         <button
                           type="button"
                           onClick={() => {
+                            const targetPeriodLabel = effectiveMonthKey !== 'semua' ? formatMonthYearFromKey(effectiveMonthKey) : defaultMonthLabel;
+                            setSelectedKKPeriod(targetPeriodLabel);
                             setCurrentSubTab('per_kk');
                             if (onSwitchMode) onSwitchMode('iuran_kk');
                           }}
                           className="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[10px] font-bold cursor-pointer transition-all border border-emerald-300 shadow-2xs"
+                          title="Buka Tabel Rekap Pembayaran Iuran Per KK"
                         >
                           Rekap KK
                         </button>
@@ -4470,7 +4468,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
                   {/* 2. Total Penerimaan Kas */}
                   <div className="flex justify-between items-center text-emerald-950 px-2.5 py-1.5 rounded-xl bg-white/95 border-2 border-emerald-200 shadow-2xs">
-                    <span className="font-sans text-[11px] font-bold text-emerald-900">2. Total Penerimaan Kas (+):</span>
+                    <span className="font-sans text-[11px] font-bold text-emerald-900 flex items-center gap-1">
+                      <span>2. Total Penerimaan Kas (+):</span>
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded border border-emerald-200 font-bold">Otomatis Rekap KK</span>
+                    </span>
                     <span className="font-bold text-emerald-700 tabular-nums">+{formatRupiah(simplifiedCashbookData.effectiveTotalPenerimaanKas)}</span>
                   </div>
 

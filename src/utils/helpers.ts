@@ -1814,9 +1814,12 @@ export function getHouseBaksosForPeriod(
   transactions: CashTransaction[] = [],
   residents: ResidentHouse[] = []
 ): HousePeriodBaksosInfo {
-  const isPureKosong = house.occupancy === 'Kosong' || isHouseVacant(house);
-  const isUnoccupied = house.occupancy === 'Belum Ditempati';
-  const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
+  const periodOccupancy = periodLabel && periodLabel !== 'semua'
+    ? getHouseOccupancyForPeriod(house, periodLabel, transactions)
+    : house.occupancy || 'Ditempati';
+  const isPureKosong = periodOccupancy === 'Kosong' || isHouseVacant(house);
+  const isUnoccupied = periodOccupancy === 'Belum Ditempati';
+  const isContract = house.ownership === 'Kontrak' || periodOccupancy === 'Dikontrakan';
   const targetKey = periodLabel !== 'semua' ? parseIndonesianMonthYearToKey(periodLabel) : null;
   const pMonthName = (periodLabel || '').split(' ')[0]?.toLowerCase();
 
@@ -1860,36 +1863,42 @@ export function getHouseBaksosForPeriod(
   });
   const agendaPaidAmount = paidAgendas.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
 
-  // Total denda baksos paid
-  const dendaPaid = isPureKosong || isUnoccupied ? 0 : Math.max(txPaidAmount, agendaPaidAmount);
+  // Cek periodHistory jika ada catatan paidBaksosAmount
+  const periodHist = targetKey
+    ? house.periodHistory?.[targetKey] || (periodLabel ? house.periodHistory?.[periodLabel] : undefined)
+    : undefined;
+  const periodHistPaid = periodHist?.paidBaksosAmount ?? (periodHist?.baksosStatus === 'Lunas' ? (periodHist?.customBaksosFineAmount || 10000) : 0);
 
-  // Unpaid baksos agendas
+  // Total denda baksos paid: jika terbukti ada pembayaran riil di transaksi / agenda / periodHistory, HARUS MASUK!
+  const dendaPaid = Math.max(txPaidAmount, agendaPaidAmount, periodHistPaid);
+
+  // Unpaid baksos agendas (hanya jika belum bayar denda)
   const unpaidAgendas = matchingAgendas.filter((agenda) => {
-    const isPaid = isBaksosFinePaidForHouse(agenda, house, residents);
+    const isPaid = isBaksosFinePaidForHouse(agenda, house, residents) || dendaPaid > 0;
     if (isPaid) return false;
     const att = getBaksosAttendanceForHouse(agenda, house, residents);
     if (att) {
       return att === 'Tidak Hadir';
     }
-    if (house.occupancy === 'Kosong' || isPureKosong || isUnoccupied) return false;
+    if (periodOccupancy === 'Kosong' || isPureKosong || isUnoccupied) return false;
     if (isContract) return false;
     return false;
   });
-  const calculatedUnpaid = isPureKosong || isUnoccupied ? 0 : unpaidAgendas.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
-  const periodHistFine = targetKey
-    ? house.periodHistory?.[targetKey]?.customBaksosFineAmount ?? (periodLabel ? house.periodHistory?.[periodLabel]?.customBaksosFineAmount : undefined)
-    : undefined;
+  const calculatedUnpaid = (isPureKosong || isUnoccupied) && periodHist?.customBaksosFineAmount === undefined
+    ? 0
+    : unpaidAgendas.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
+  const periodHistFine = periodHist?.customBaksosFineAmount;
 
   const dendaUnpaid =
-    isPureKosong || isUnoccupied
+    dendaPaid > 0
+      ? 0
+      : (isPureKosong || isUnoccupied) && periodHistFine === undefined
       ? 0
       : periodHistFine !== undefined
       ? periodHistFine
       : targetKey === null && house.customBaksosFineAmount !== undefined
       ? house.customBaksosFineAmount
-      : calculatedUnpaid > 0
-      ? calculatedUnpaid
-      : (house.customBaksosFineAmount !== undefined ? house.customBaksosFineAmount : calculatedUnpaid);
+      : calculatedUnpaid;
 
   const hadHadir = matchingAgendas.some((a) => {
     const att = getBaksosAttendanceForHouse(a, house, residents);
@@ -1908,7 +1917,7 @@ export function getHouseBaksosForPeriod(
     dendaUnpaid,
     hadHadir,
     hadTidakWajib,
-    isPureKosong: isPureKosong || isUnoccupied,
+    isPureKosong: isPureKosong,
     paidAgendas,
     unpaidAgendas,
   };
@@ -2084,7 +2093,7 @@ export function computeOverallKKRecapList(
         : (statusInfo.amount || 0);
 
       // Denda Baksos Paid for this cell
-      const dendaPaid = isPeriodVacant || isUnoccupied ? 0 : baksosInfo.dendaPaid;
+      const dendaPaid = isPeriodVacant ? 0 : baksosInfo.dendaPaid;
 
       // Tunggakan Paid for this cell
       const tunggakanTxs = transactions.filter((t) => {

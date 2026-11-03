@@ -1,10 +1,10 @@
 {
   "version": 5,
-  "revision": 2646,
+  "revision": 2880,
   "isDefaultSeed": false,
-  "updatedAt": "2026-11-02T12:46:23.848Z",
-  "updatedBy": "Pengurus Gang Mandor (Online)",
-  "clientId": "test-client-sync",
+  "updatedAt": "2026-11-03T08:45:00.000Z",
+  "updatedBy": "Warga Gang Mandor (Online)",
+  "clientId": "client-nwzl4znl-mw0c2bvn",
   "siteConfig": {
     "brandName": "GANG MANDOR PRO",
     "title": "GANG MANDOR PRO",
@@ -130,11 +130,11 @@
     ],
     "periodDuesAmounts": {
       "2026-10": 40000,
-      "Oktober 2026": 40000,
       "2026-11": 40000,
-      "November 2026": 40000,
       "2026-12": 40000,
-      "Desember 2026": 40000
+      "Oktober 2026": 40000,
+      "Desember 2026": 40000,
+      "November 2026": 40000
     }
   },
   "residents": [
@@ -187,7 +187,7 @@
       "duesPaidMonths": 6,
       "duesPrepaidBalance": 75000,
       "duesPaidDate": "2026-07-06",
-      "duesMonthNote": "Juli 2026, Agustus 2026, September 2026, Oktober 2026, November 2026, Desember 2026",
+      "duesMonthNote": "Mei 2026, Juni 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "members": [
@@ -202,24 +202,12 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:37:53.384Z",
+      "updatedAt": "2026-11-02T23:04:36.065Z",
       "occupancyHistory": {
         "2026-05": "Belum Ditempati",
         "Mei 2026": "Belum Ditempati",
         "2026-06": "Belum Ditempati",
-        "Juni 2026": "Belum Ditempati",
-        "2026-07": "Belum Ditempati",
-        "Juli 2026": "Belum Ditempati",
-        "2026-08": "Belum Ditempati",
-        "Agustus 2026": "Belum Ditempati",
-        "2026-09": "Belum Ditempati",
-        "September 2026": "Belum Ditempati",
-        "2026-10": "Belum Ditempati",
-        "Oktober 2026": "Belum Ditempati",
-        "2026-11": "Belum Ditempati",
-        "November 2026": "Belum Ditempati",
-        "2026-12": "Belum Ditempati",
-        "Desember 2026": "Belum Ditempati"
+        "Juni 2026": "Belum Ditempati"
       },
       "periodHistory": {
         "2026-05": {
@@ -229,8 +217,8 @@
           "duesStatus": "Bayar Lebih",
           "customDuesAmount": 15000,
           "paidAmount": 30000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:16:40.663Z"
+          "paidDate": "2026-05-01",
+          "updatedAt": "2026-11-02T23:04:36.062Z"
         },
         "Mei 2026": {
           "occupancy": "Belum Ditempati",
@@ -239,8 +227,8 @@
           "duesStatus": "Bayar Lebih",
           "customDuesAmount": 15000,
           "paidAmount": 30000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:16:40.663Z"
+          "paidDate": "2026-05-01",
+          "updatedAt": "2026-11-02T23:04:36.062Z"
         },
         "2026-06": {
           "occupancy": "Belum Ditempati",
@@ -251,8 +239,8 @@
           "paidAmount": 0,
           "isAdvanceSubsequentMonth": true,
           "advanceOriginMonth": "Mei 2026",
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:16:40.663Z"
+          "paidDate": "2026-05-01",
+          "updatedAt": "2026-11-02T23:04:36.063Z"
         },
         "Juni 2026": {
           "occupancy": "Belum Ditempati",
@@ -263,148 +251,8 @@
           "paidAmount": 0,
           "isAdvanceSubsequentMonth": true,
           "advanceOriginMonth": "Mei 2026",
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:16:40.663Z"
-        },
-        "2026-07": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Bayar Lebih",
-          "customDuesAmount": 15000,
-          "paidAmount": 90000,
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "Juli 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Bayar Lebih",
-          "customDuesAmount": 15000,
-          "paidAmount": 90000,
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "2026-08": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "isAdvanceSubsequentMonth": true,
-          "advanceOriginMonth": "Juli 2026",
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "Agustus 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "isAdvanceSubsequentMonth": true,
-          "advanceOriginMonth": "Juli 2026",
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "2026-09": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "isAdvanceSubsequentMonth": true,
-          "advanceOriginMonth": "Juli 2026",
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "September 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "isAdvanceSubsequentMonth": true,
-          "advanceOriginMonth": "Juli 2026",
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "2026-10": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "isAdvanceSubsequentMonth": true,
-          "advanceOriginMonth": "Juli 2026",
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "Oktober 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "isAdvanceSubsequentMonth": true,
-          "advanceOriginMonth": "Juli 2026",
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "2026-11": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "isAdvanceSubsequentMonth": true,
-          "advanceOriginMonth": "Juli 2026",
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "November 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "isAdvanceSubsequentMonth": true,
-          "advanceOriginMonth": "Juli 2026",
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "2026-12": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "isAdvanceSubsequentMonth": true,
-          "advanceOriginMonth": "Juli 2026",
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
-        },
-        "Desember 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Ibnu Fauzi",
-          "duesHeadNameOverride": "Ibnu Fauzi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "isAdvanceSubsequentMonth": true,
-          "advanceOriginMonth": "Juli 2026",
-          "paidDate": "2026-07-06",
-          "updatedAt": "2026-11-02T11:37:53.382Z"
+          "paidDate": "2026-05-01",
+          "updatedAt": "2026-11-02T23:04:36.063Z"
         }
       }
     },
@@ -425,7 +273,7 @@
       "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "2026-09-23",
-      "duesMonthNote": "Juli 2026",
+      "duesMonthNote": "Juni 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "members": [
@@ -480,14 +328,12 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:34:45.063Z",
+      "updatedAt": "2026-11-03T06:47:36.121Z",
       "occupancyHistory": {
         "2026-05": "Ditempati",
         "Mei 2026": "Ditempati",
         "2026-06": "Ditempati",
-        "Juni 2026": "Ditempati",
-        "2026-07": "Ditempati",
-        "Juli 2026": "Ditempati"
+        "Juni 2026": "Ditempati"
       },
       "periodHistory": {
         "2026-05": {
@@ -498,7 +344,8 @@
           "customDuesAmount": 40000,
           "paidAmount": 40000,
           "paidDate": "2026-05-02",
-          "updatedAt": "2026-10-30T06:27:41.051Z"
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:32:30.615Z"
         },
         "Mei 2026": {
           "occupancy": "Ditempati",
@@ -508,7 +355,8 @@
           "customDuesAmount": 40000,
           "paidAmount": 40000,
           "paidDate": "2026-05-02",
-          "updatedAt": "2026-10-30T06:27:41.051Z"
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:32:30.615Z"
         },
         "2026-06": {
           "occupancy": "Ditempati",
@@ -517,8 +365,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-06-02",
-          "updatedAt": "2026-11-02T11:29:39.743Z"
+          "paidDate": "2026-06-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:47:36.117Z"
         },
         "Juni 2026": {
           "occupancy": "Ditempati",
@@ -527,30 +376,12 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-06-02",
-          "updatedAt": "2026-11-02T11:29:39.743Z"
-        },
-        "2026-07": {
-          "occupancy": "Ditempati",
-          "headName": "Adi Dwi Juniardi",
-          "duesHeadNameOverride": "Adi Dwi Juniardi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 40000,
-          "paidDate": "2026-07-13",
-          "updatedAt": "2026-11-02T11:34:45.061Z"
-        },
-        "Juli 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Adi Dwi Juniardi",
-          "duesHeadNameOverride": "Adi Dwi Juniardi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 40000,
-          "paidDate": "2026-07-13",
-          "updatedAt": "2026-11-02T11:34:45.061Z"
+          "paidDate": "2026-06-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:47:36.117Z"
         }
-      }
+      },
+      "customBaksosFineAmount": 0
     },
     {
       "id": "warga-k2-28",
@@ -568,7 +399,7 @@
       "duesPaidAmount": 0,
       "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "2026-09-02",
+      "duesPaidDate": "2026-06-01",
       "duesMonthNote": "Juni 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
@@ -615,7 +446,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:29:49.020Z",
+      "updatedAt": "2026-11-03T06:47:54.552Z",
       "occupancyHistory": {
         "2026-05": "Ditempati",
         "Mei 2026": "Ditempati",
@@ -631,7 +462,7 @@
           "customDuesAmount": 40000,
           "paidAmount": 40000,
           "paidDate": "2026-05-02",
-          "updatedAt": "2026-10-30T06:19:11.738Z"
+          "updatedAt": "2026-11-02T11:29:49.020Z"
         },
         "Mei 2026": {
           "occupancy": "Ditempati",
@@ -641,7 +472,7 @@
           "customDuesAmount": 40000,
           "paidAmount": 40000,
           "paidDate": "2026-05-02",
-          "updatedAt": "2026-10-30T06:19:11.738Z"
+          "updatedAt": "2026-11-02T11:29:49.020Z"
         },
         "2026-06": {
           "occupancy": "Ditempati",
@@ -650,8 +481,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-06-02",
-          "updatedAt": "2026-11-02T11:29:49.019Z"
+          "paidDate": "2026-06-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:47:54.548Z"
         },
         "Juni 2026": {
           "occupancy": "Ditempati",
@@ -660,8 +492,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-06-02",
-          "updatedAt": "2026-11-02T11:29:49.019Z"
+          "paidDate": "2026-06-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:47:54.548Z"
         }
       }
     },
@@ -682,7 +515,6 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -698,7 +530,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:18:29.271Z"
+      "updatedAt": "2026-11-02T15:54:29.676Z"
     },
     {
       "id": "warga-k2-30",
@@ -717,7 +549,6 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -733,7 +564,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:18:36.017Z"
+      "updatedAt": "2026-11-02T15:54:33.873Z"
     },
     {
       "id": "warga-k2-31",
@@ -827,7 +658,6 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -843,7 +673,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:18:45.694Z"
+      "updatedAt": "2026-11-02T15:54:41.360Z"
     },
     {
       "id": "warga-k2-33",
@@ -856,12 +686,12 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Pasang",
       "wifiProvider": "Blessnet",
-      "duesStatus": "Belum Bayar",
+      "duesStatus": "Lunas",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
       "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "",
+      "duesPaidDate": "2026-06-07",
       "duesMonthNote": "Juni 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
@@ -908,20 +738,20 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:32:37.394Z",
+      "updatedAt": "2026-11-03T06:48:20.826Z",
       "periodHistory": {
         "2026-05": {
           "duesStatus": "Lunas",
           "paidAmount": 0,
-          "paidDate": "2026-06-17",
-          "updatedAt": "2026-11-02T11:16:07.138Z",
+          "paidDate": "2026-06-07",
+          "updatedAt": "2026-11-03T06:33:38.918Z",
           "settlementMonth": "Juni 2026"
         },
         "Mei 2026": {
           "duesStatus": "Lunas",
           "paidAmount": 0,
-          "paidDate": "2026-06-17",
-          "updatedAt": "2026-11-02T11:16:07.138Z",
+          "paidDate": "2026-06-07",
+          "updatedAt": "2026-11-03T06:33:38.918Z",
           "settlementMonth": "Juni 2026"
         },
         "2026-06": {
@@ -931,8 +761,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-06-17",
-          "updatedAt": "2026-11-02T11:32:37.391Z"
+          "paidDate": "2026-06-07",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:48:20.820Z"
         },
         "Juni 2026": {
           "occupancy": "Ditempati",
@@ -941,8 +772,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-06-17",
-          "updatedAt": "2026-11-02T11:32:37.391Z"
+          "paidDate": "2026-06-07",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:48:20.820Z"
         }
       },
       "occupancyHistory": {
@@ -963,13 +795,13 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Pasang",
       "wifiProvider": "Blessnet",
-      "duesStatus": "Belum Bayar",
+      "duesStatus": "Lunas",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 0,
+      "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
+      "duesPaidDate": "2026-08-01",
+      "duesMonthNote": "Agustus 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -1005,7 +837,21 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-31T07:41:06.723Z"
+      "updatedAt": "2026-11-03T06:48:31.544Z",
+      "periodHistory": {
+        "2026-06": {
+          "duesStatus": "Belum Bayar",
+          "paidAmount": 0,
+          "paidDate": "",
+          "updatedAt": "2026-11-03T06:48:31.543Z"
+        },
+        "Juni 2026": {
+          "duesStatus": "Belum Bayar",
+          "paidAmount": 0,
+          "paidDate": "",
+          "updatedAt": "2026-11-03T06:48:31.543Z"
+        }
+      }
     },
     {
       "id": "warga-k2-35",
@@ -1021,13 +867,13 @@
       "duesStatus": "Belum Bayar",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 1,
+      "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
       "duesMonthNote": "Juni 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
-      "customBaksosFineAmount": 10000,
+      "customBaksosFineAmount": 0,
       "members": [
         {
           "id": "m-K2/35-1-1792646454402",
@@ -1050,7 +896,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:35:06.885Z",
+      "updatedAt": "2026-11-03T06:48:50.879Z",
       "occupancyHistory": {
         "2026-05": "Ditempati",
         "Mei 2026": "Ditempati",
@@ -1065,8 +911,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-05-10",
-          "updatedAt": "2026-10-30T15:47:05.064Z"
+          "paidDate": "2026-05-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:41:41.280Z"
         },
         "Mei 2026": {
           "occupancy": "Ditempati",
@@ -1075,8 +922,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-05-10",
-          "updatedAt": "2026-10-30T15:47:05.064Z"
+          "paidDate": "2026-05-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:41:41.280Z"
         },
         "2026-06": {
           "occupancy": "Ditempati",
@@ -1085,8 +933,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-06-02",
-          "updatedAt": "2026-11-02T11:30:03.929Z"
+          "paidDate": "2026-06-10",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:48:50.874Z"
         },
         "Juni 2026": {
           "occupancy": "Ditempati",
@@ -1095,20 +944,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-06-02",
-          "updatedAt": "2026-11-02T11:30:03.929Z"
-        },
-        "2026-07": {
-          "duesStatus": "Belum Bayar",
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:35:06.884Z"
-        },
-        "Juli 2026": {
-          "duesStatus": "Belum Bayar",
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:35:06.884Z"
+          "paidDate": "2026-06-10",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:48:50.874Z"
         }
       }
     },
@@ -1184,10 +1022,10 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
+      "duesMonthNote": "Mei 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
-      "customBaksosFineAmount": 10000,
+      "customBaksosFineAmount": 0,
       "members": [
         {
           "id": "m-K2/37-1-1792646454402",
@@ -1240,7 +1078,35 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:50:56.589Z"
+      "updatedAt": "2026-11-03T06:41:52.930Z",
+      "occupancyHistory": {
+        "2026-05": "Ditempati",
+        "Mei 2026": "Ditempati"
+      },
+      "periodHistory": {
+        "2026-05": {
+          "occupancy": "Ditempati",
+          "headName": "Rudin Yulianto",
+          "duesHeadNameOverride": "Rudin Yulianto",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 40000,
+          "paidAmount": 40000,
+          "paidDate": "2026-05-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:41:52.926Z"
+        },
+        "Mei 2026": {
+          "occupancy": "Ditempati",
+          "headName": "Rudin Yulianto",
+          "duesHeadNameOverride": "Rudin Yulianto",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 40000,
+          "paidAmount": 40000,
+          "paidDate": "2026-05-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:41:52.926Z"
+        }
+      }
     },
     {
       "id": "warga-k2-38",
@@ -1259,7 +1125,6 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -1275,7 +1140,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:18:54.242Z"
+      "updatedAt": "2026-11-02T15:56:03.277Z"
     },
     {
       "id": "warga-k2-39",
@@ -1284,17 +1149,16 @@
       "duesHeadNameOverride": "Suparman",
       "phone": "085770901240",
       "ownership": "Milik Sendiri",
-      "occupancy": "Ditempati",
+      "occupancy": "Belum Ditempati",
       "rukem": "Ikut Rukem",
       "wifiStatus": "Tidak Pasang",
       "wifiProvider": "-",
-      "duesStatus": "Lunas",
+      "duesStatus": "Belum Bayar",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 1,
+      "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "2026-06-10",
-      "duesMonthNote": "Mei 2026",
+      "duesPaidDate": "",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -1350,33 +1214,66 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:17:43.605Z",
+      "updatedAt": "2026-11-03T08:30:22.656Z",
       "occupancyHistory": {
-        "2026-05": "Ditempati",
-        "Mei 2026": "Ditempati"
+        "2026-05": "Belum Ditempati",
+        "Mei 2026": "Belum Ditempati",
+        "2026-06": "Ditempati",
+        "Juni 2026": "Ditempati"
       },
       "periodHistory": {
         "2026-05": {
-          "occupancy": "Ditempati",
+          "occupancy": "Belum Ditempati",
           "headName": "Suparman",
           "duesHeadNameOverride": "Suparman",
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:17:43.603Z"
+          "paidDate": "2026-05-10",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:35:31.725Z"
         },
         "Mei 2026": {
+          "occupancy": "Belum Ditempati",
+          "headName": "Suparman",
+          "duesHeadNameOverride": "Suparman",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 40000,
+          "paidAmount": 40000,
+          "paidDate": "2026-05-10",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:35:31.725Z"
+        },
+        "2026-06": {
           "occupancy": "Ditempati",
           "headName": "Suparman",
           "duesHeadNameOverride": "Suparman",
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:17:43.603Z"
+          "paidDate": "2026-06-01",
+          "paidBaksosAmount": 10000,
+          "baksosStatus": "Lunas",
+          "baksosPaidDate": "2026-06-10",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T08:30:22.652Z"
+        },
+        "Juni 2026": {
+          "occupancy": "Ditempati",
+          "headName": "Suparman",
+          "duesHeadNameOverride": "Suparman",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 40000,
+          "paidAmount": 40000,
+          "paidDate": "2026-06-01",
+          "paidBaksosAmount": 10000,
+          "baksosStatus": "Lunas",
+          "baksosPaidDate": "2026-06-10",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T08:30:22.652Z"
         }
-      }
+      },
+      "duesMonthNote": "Juni 2026"
     },
     {
       "id": "warga-k2-40",
@@ -1389,13 +1286,13 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Pasang",
       "wifiProvider": "Infotama",
-      "duesStatus": "Belum Bayar",
+      "duesStatus": "Lunas",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 0,
+      "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "",
-      "duesMonthNote": "Juli 2026",
+      "duesPaidDate": "2026-05-10",
+      "duesMonthNote": "Mei 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -1441,14 +1338,10 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:40:29.142Z",
+      "updatedAt": "2026-11-03T06:36:20.713Z",
       "occupancyHistory": {
         "2026-05": "Ditempati",
-        "Mei 2026": "Ditempati",
-        "2026-06": "Ditempati",
-        "Juni 2026": "Ditempati",
-        "2026-07": "Ditempati",
-        "Juli 2026": "Ditempati"
+        "Mei 2026": "Ditempati"
       },
       "periodHistory": {
         "2026-05": {
@@ -1459,7 +1352,8 @@
           "customDuesAmount": 40000,
           "paidAmount": 40000,
           "paidDate": "2026-05-10",
-          "updatedAt": "2026-10-30T13:15:10.298Z"
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:36:20.706Z"
         },
         "Mei 2026": {
           "occupancy": "Ditempati",
@@ -1469,47 +1363,8 @@
           "customDuesAmount": 40000,
           "paidAmount": 40000,
           "paidDate": "2026-05-10",
-          "updatedAt": "2026-10-30T13:15:10.298Z"
-        },
-        "2026-06": {
-          "occupancy": "Ditempati",
-          "headName": "Affriajan Sitohang",
-          "duesHeadNameOverride": "Affriajan Sitohang",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 0,
-          "paidDate": "2026-07-13",
-          "updatedAt": "2026-10-30T13:15:10.298Z"
-        },
-        "Juni 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Affriajan Sitohang",
-          "duesHeadNameOverride": "Affriajan Sitohang",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 0,
-          "paidDate": "2026-07-13",
-          "updatedAt": "2026-10-30T13:15:10.298Z"
-        },
-        "2026-07": {
-          "occupancy": "Ditempati",
-          "headName": "Affriajan Sitohang",
-          "duesHeadNameOverride": "Affriajan Sitohang",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 40000,
-          "paidDate": "2026-07-01",
-          "updatedAt": "2026-11-02T11:40:29.140Z"
-        },
-        "Juli 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Affriajan Sitohang",
-          "duesHeadNameOverride": "Affriajan Sitohang",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 40000,
-          "paidDate": "2026-07-01",
-          "updatedAt": "2026-11-02T11:40:29.140Z"
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:36:20.706Z"
         }
       }
     },
@@ -1566,7 +1421,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:15:37.141Z",
+      "updatedAt": "2026-11-02T23:38:41.829Z",
       "occupancyHistory": {
         "2026-05": "Kosong",
         "Mei 2026": "Kosong"
@@ -1580,7 +1435,7 @@
           "customDuesAmount": 0,
           "paidAmount": 0,
           "paidDate": "",
-          "updatedAt": "2026-11-02T11:15:37.139Z"
+          "updatedAt": "2026-11-02T23:38:41.828Z"
         },
         "Mei 2026": {
           "occupancy": "Kosong",
@@ -1590,7 +1445,7 @@
           "customDuesAmount": 0,
           "paidAmount": 0,
           "paidDate": "",
-          "updatedAt": "2026-11-02T11:15:37.139Z"
+          "updatedAt": "2026-11-02T23:38:41.828Z"
         }
       }
     },
@@ -1601,17 +1456,16 @@
       "duesHeadNameOverride": "Rumah Kosong",
       "phone": "+6289531242048",
       "ownership": "Kontrak",
-      "occupancy": "Ditempati",
+      "occupancy": "Kosong",
       "rukem": "Tidak Ikut",
       "wifiStatus": "Tidak Pasang",
       "wifiProvider": "-",
       "duesStatus": "Belum Bayar",
       "customDuesAmount": 0,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 1,
+      "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -1647,77 +1501,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:35:47.516Z",
-      "occupancyHistory": {
-        "2026-05": "Ditempati",
-        "Mei 2026": "Ditempati",
-        "2026-06": "Kosong",
-        "Juni 2026": "Kosong",
-        "2026-07": "Kosong",
-        "Juli 2026": "Kosong"
-      },
-      "periodHistory": {
-        "2026-05": {
-          "occupancy": "Ditempati",
-          "headName": "Mustolih Safari",
-          "duesHeadNameOverride": "Mustolih Safari",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 30000,
-          "paidAmount": 30000,
-          "paidDate": "2026-05-10",
-          "updatedAt": "2026-11-01T03:52:28.498Z"
-        },
-        "Mei 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Mustolih Safari",
-          "duesHeadNameOverride": "Mustolih Safari",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 30000,
-          "paidAmount": 30000,
-          "paidDate": "2026-05-10",
-          "updatedAt": "2026-11-01T03:52:28.498Z"
-        },
-        "2026-06": {
-          "occupancy": "Kosong",
-          "headName": "Rumah Kosong",
-          "duesHeadNameOverride": "Rumah Kosong",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 0,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:30:40.432Z"
-        },
-        "Juni 2026": {
-          "occupancy": "Kosong",
-          "headName": "Rumah Kosong",
-          "duesHeadNameOverride": "Rumah Kosong",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 0,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:30:40.432Z"
-        },
-        "2026-07": {
-          "occupancy": "Kosong",
-          "headName": "Rumah Kosong",
-          "duesHeadNameOverride": "Rumah Kosong",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 0,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:35:47.515Z"
-        },
-        "Juli 2026": {
-          "occupancy": "Kosong",
-          "headName": "Rumah Kosong",
-          "duesHeadNameOverride": "Rumah Kosong",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 0,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:35:47.515Z"
-        }
-      }
+      "updatedAt": "2026-11-02T16:00:25.109Z"
     },
     {
       "id": "warga-k2-43",
@@ -1730,12 +1514,12 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Pasang",
       "wifiProvider": "Blessnet",
-      "duesStatus": "Belum Bayar",
+      "duesStatus": "Lunas",
       "customDuesAmount": 15000,
       "duesPaidAmount": 0,
       "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "",
+      "duesPaidDate": "2026-09-01",
       "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "Maret, April, Mei, Juni, Juli, Agustus",
@@ -1792,75 +1576,19 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:36:06.699Z",
-      "occupancyHistory": {
-        "2026-05": "Belum Ditempati",
-        "Mei 2026": "Belum Ditempati",
-        "2026-06": "Belum Ditempati",
-        "Juni 2026": "Belum Ditempati",
-        "2026-07": "Belum Ditempati",
-        "Juli 2026": "Belum Ditempati"
-      },
+      "updatedAt": "2026-11-03T06:36:29.970Z",
       "periodHistory": {
         "2026-05": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Aditya Maulana",
-          "duesHeadNameOverride": "Aditya Maulana",
           "duesStatus": "Belum Bayar",
-          "customDuesAmount": 15000,
           "paidAmount": 0,
           "paidDate": "",
-          "updatedAt": "2026-11-02T11:15:56.081Z"
+          "updatedAt": "2026-11-03T06:36:29.967Z"
         },
         "Mei 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Aditya Maulana",
-          "duesHeadNameOverride": "Aditya Maulana",
           "duesStatus": "Belum Bayar",
-          "customDuesAmount": 15000,
           "paidAmount": 0,
           "paidDate": "",
-          "updatedAt": "2026-11-02T11:15:56.081Z"
-        },
-        "2026-06": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Aditya Maulana",
-          "duesHeadNameOverride": "Aditya Maulana",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:31:14.924Z"
-        },
-        "Juni 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Aditya Maulana",
-          "duesHeadNameOverride": "Aditya Maulana",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:31:14.924Z"
-        },
-        "2026-07": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Aditya Maulana",
-          "duesHeadNameOverride": "Aditya Maulana",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:36:06.698Z"
-        },
-        "Juli 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Aditya Maulana",
-          "duesHeadNameOverride": "Aditya Maulana",
-          "duesStatus": "Belum Bayar",
-          "customDuesAmount": 15000,
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:36:06.698Z"
+          "updatedAt": "2026-11-03T06:36:29.967Z"
         }
       }
     },
@@ -1881,7 +1609,6 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -1897,7 +1624,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:19:15.161Z"
+      "updatedAt": "2026-11-02T16:02:59.350Z"
     },
     {
       "id": "warga-k2-45",
@@ -1976,20 +1703,19 @@
       "id": "warga-k2-46",
       "blockNumber": "K2/46",
       "headName": "Kosong",
-      "duesHeadNameOverride": "Rita Damanik",
+      "duesHeadNameOverride": "Rumah Kosong",
       "phone": "Kosong",
       "ownership": "Milik Sendiri",
-      "occupancy": "Ditempati",
+      "occupancy": "Kosong",
       "rukem": "Tidak Ikut",
       "wifiStatus": "Tidak Pasang",
       "wifiProvider": "-",
-      "duesStatus": "Lunas",
-      "customDuesAmount": 30000,
+      "duesStatus": "Belum Bayar",
+      "customDuesAmount": 0,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 1,
+      "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "2026-09-01",
-      "duesMonthNote": "September 2026",
+      "duesPaidDate": "",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -2005,7 +1731,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-31T12:31:47.662Z"
+      "updatedAt": "2026-11-02T16:04:46.751Z"
     },
     {
       "id": "warga-k2-47",
@@ -2024,7 +1750,6 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -2040,7 +1765,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:25:17.341Z"
+      "updatedAt": "2026-11-02T16:03:06.959Z"
     },
     {
       "id": "warga-k2-48",
@@ -2057,8 +1782,8 @@
       "duesPaidAmount": 0,
       "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "2026-09-30",
-      "duesMonthNote": "September 2026",
+      "duesPaidDate": "2026-05-10",
+      "duesMonthNote": "Mei 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -2094,7 +1819,35 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-30T16:09:20.758Z"
+      "updatedAt": "2026-11-03T06:37:05.941Z",
+      "occupancyHistory": {
+        "2026-05": "Ditempati",
+        "Mei 2026": "Ditempati"
+      },
+      "periodHistory": {
+        "2026-05": {
+          "occupancy": "Ditempati",
+          "headName": "Mangaman Rajagukguk",
+          "duesHeadNameOverride": "Mangaman Rajagukguk",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 40000,
+          "paidAmount": 40000,
+          "paidDate": "2026-05-10",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:37:05.937Z"
+        },
+        "Mei 2026": {
+          "occupancy": "Ditempati",
+          "headName": "Mangaman Rajagukguk",
+          "duesHeadNameOverride": "Mangaman Rajagukguk",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 40000,
+          "paidAmount": 40000,
+          "paidDate": "2026-05-10",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:37:05.937Z"
+        }
+      }
     },
     {
       "id": "warga-k3-01",
@@ -2110,7 +1863,7 @@
       "duesStatus": "Belum Bayar",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 1,
+      "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
       "duesMonthNote": "Agustus 2026",
@@ -2169,21 +1922,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:35:15.114Z",
-      "periodHistory": {
-        "2026-07": {
-          "duesStatus": "Belum Bayar",
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:35:15.113Z"
-        },
-        "Juli 2026": {
-          "duesStatus": "Belum Bayar",
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:35:15.113Z"
-        }
-      }
+      "updatedAt": "2026-11-02T15:26:51.252Z"
     },
     {
       "id": "warga-k3-02",
@@ -2328,55 +2067,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:30:15.875Z",
-      "occupancyHistory": {
-        "2026-05": "Ditempati",
-        "Mei 2026": "Ditempati",
-        "2026-06": "Ditempati",
-        "Juni 2026": "Ditempati"
-      },
-      "periodHistory": {
-        "2026-05": {
-          "occupancy": "Ditempati",
-          "headName": "Muhidin",
-          "duesHeadNameOverride": "Muhidin",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 25000,
-          "paidAmount": 25000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:17:27.155Z"
-        },
-        "Mei 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Muhidin",
-          "duesHeadNameOverride": "Muhidin",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 25000,
-          "paidAmount": 25000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:17:27.155Z"
-        },
-        "2026-06": {
-          "occupancy": "Ditempati",
-          "headName": "Muhidin",
-          "duesHeadNameOverride": "Muhidin",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 25000,
-          "paidAmount": 25000,
-          "paidDate": "2026-06-02",
-          "updatedAt": "2026-11-02T11:30:15.873Z"
-        },
-        "Juni 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Muhidin",
-          "duesHeadNameOverride": "Muhidin",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 25000,
-          "paidAmount": 25000,
-          "paidDate": "2026-06-02",
-          "updatedAt": "2026-11-02T11:30:15.873Z"
-        }
-      }
+      "updatedAt": "2026-11-02T11:30:15.875Z"
     },
     {
       "id": "warga-k3-05",
@@ -2394,7 +2085,7 @@
       "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "2026-09-01",
-      "duesMonthNote": "Mei 2026",
+      "duesMonthNote": "Juni 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "members": [
@@ -2409,33 +2100,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:17:35.956Z",
-      "occupancyHistory": {
-        "2026-05": "Ditempati",
-        "Mei 2026": "Ditempati"
-      },
-      "periodHistory": {
-        "2026-05": {
-          "occupancy": "Ditempati",
-          "headName": "Sandita",
-          "duesHeadNameOverride": "Sandita",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 30000,
-          "paidAmount": 30000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:17:35.953Z"
-        },
-        "Mei 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Sandita",
-          "duesHeadNameOverride": "Sandita",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 30000,
-          "paidAmount": 30000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:17:35.953Z"
-        }
-      }
+      "updatedAt": "2026-11-02T13:09:31.532Z"
     },
     {
       "id": "warga-k3-06",
@@ -2451,7 +2116,7 @@
       "duesStatus": "Belum Bayar",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 0,
+      "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
       "duesMonthNote": "September 2026",
@@ -2490,7 +2155,21 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-31T01:23:37.259Z"
+      "updatedAt": "2026-11-03T06:37:27.984Z",
+      "periodHistory": {
+        "2026-05": {
+          "duesStatus": "Belum Bayar",
+          "paidAmount": 0,
+          "paidDate": "",
+          "updatedAt": "2026-11-03T06:37:27.983Z"
+        },
+        "Mei 2026": {
+          "duesStatus": "Belum Bayar",
+          "paidAmount": 0,
+          "paidDate": "",
+          "updatedAt": "2026-11-03T06:37:27.983Z"
+        }
+      }
     },
     {
       "id": "warga-k3-07",
@@ -2558,16 +2237,16 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Pasang",
       "wifiProvider": "Blessnet",
-      "duesStatus": "Belum Bayar",
+      "duesStatus": "Lunas",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
       "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "",
-      "duesMonthNote": "Agustus 2026",
+      "duesPaidDate": "2026-08-01",
+      "duesMonthNote": "Mei 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
-      "customBaksosFineAmount": 10000,
+      "customBaksosFineAmount": 0,
       "members": [
         {
           "id": "m-K3/08-1-1792646454411",
@@ -2630,19 +2309,33 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:35:17.931Z",
+      "updatedAt": "2026-11-03T06:38:11.152Z",
+      "occupancyHistory": {
+        "2026-05": "Ditempati",
+        "Mei 2026": "Ditempati"
+      },
       "periodHistory": {
-        "2026-07": {
-          "duesStatus": "Belum Bayar",
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:35:17.930Z"
+        "2026-05": {
+          "occupancy": "Ditempati",
+          "headName": "Saefulloh",
+          "duesHeadNameOverride": "Saefulloh",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 40000,
+          "paidAmount": 40000,
+          "paidDate": "2026-05-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:38:11.146Z"
         },
-        "Juli 2026": {
-          "duesStatus": "Belum Bayar",
-          "paidAmount": 0,
-          "paidDate": "",
-          "updatedAt": "2026-11-02T11:35:17.930Z"
+        "Mei 2026": {
+          "occupancy": "Ditempati",
+          "headName": "Saefulloh",
+          "duesHeadNameOverride": "Saefulloh",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 40000,
+          "paidAmount": 40000,
+          "paidDate": "2026-05-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:38:11.146Z"
         }
       }
     },
@@ -2708,33 +2401,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:17:56.317Z",
-      "occupancyHistory": {
-        "2026-05": "Ditempati",
-        "Mei 2026": "Ditempati"
-      },
-      "periodHistory": {
-        "2026-05": {
-          "occupancy": "Ditempati",
-          "headName": "Geget Yotama",
-          "duesHeadNameOverride": "Geget Yotama",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 40000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:17:56.315Z"
-        },
-        "Mei 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Geget Yotama",
-          "duesHeadNameOverride": "Geget Yotama",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 40000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:17:56.315Z"
-        }
-      }
+      "updatedAt": "2026-11-02T11:17:56.317Z"
     },
     {
       "id": "warga-k3-10",
@@ -2753,7 +2420,6 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -2769,7 +2435,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:25:31.455Z"
+      "updatedAt": "2026-11-02T16:01:47.571Z"
     },
     {
       "id": "warga-k3-11",
@@ -2887,7 +2553,6 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -2903,7 +2568,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:52:01.568Z"
+      "updatedAt": "2026-11-02T16:01:54.841Z"
     },
     {
       "id": "warga-k3-14",
@@ -2981,13 +2646,13 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Pasang",
       "wifiProvider": "Blessnet",
-      "duesStatus": "Belum Bayar",
+      "duesStatus": "Lunas",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 0,
+      "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
+      "duesPaidDate": "2026-08-01",
+      "duesMonthNote": "Mei 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -3033,7 +2698,35 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-10-31T09:01:43.006Z"
+      "updatedAt": "2026-11-03T06:40:26.627Z",
+      "occupancyHistory": {
+        "2026-05": "Ditempati",
+        "Mei 2026": "Ditempati"
+      },
+      "periodHistory": {
+        "2026-05": {
+          "occupancy": "Ditempati",
+          "headName": "Hendra Dwi Nuryanto",
+          "duesHeadNameOverride": "Hendra Dwi Nuryanto",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 40000,
+          "paidAmount": 40000,
+          "paidDate": "2026-05-10",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:40:26.617Z"
+        },
+        "Mei 2026": {
+          "occupancy": "Ditempati",
+          "headName": "Hendra Dwi Nuryanto",
+          "duesHeadNameOverride": "Hendra Dwi Nuryanto",
+          "duesStatus": "Lunas",
+          "customDuesAmount": 40000,
+          "paidAmount": 40000,
+          "paidDate": "2026-05-10",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:40:26.617Z"
+        }
+      }
     },
     {
       "id": "warga-k3-16",
@@ -3052,7 +2745,6 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -3068,7 +2760,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:25:43.294Z"
+      "updatedAt": "2026-11-02T16:02:04.815Z"
     },
     {
       "id": "warga-k3-17",
@@ -3081,16 +2773,16 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Pasang",
       "wifiProvider": "Blessnet",
-      "duesStatus": "Belum Bayar",
+      "duesStatus": "Lunas",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 0,
+      "duesPaidMonths": 1,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "",
+      "duesPaidDate": "2026-08-01",
       "duesMonthNote": "Mei 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
-      "customBaksosFineAmount": 10000,
+      "customBaksosFineAmount": 0,
       "members": [
         {
           "id": "m-K3/17-1-1792646454412",
@@ -3103,7 +2795,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:18:03.215Z",
+      "updatedAt": "2026-11-03T06:40:54.083Z",
       "occupancyHistory": {
         "2026-05": "Ditempati",
         "Mei 2026": "Ditempati"
@@ -3116,8 +2808,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:18:03.213Z"
+          "paidDate": "2026-05-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:40:54.078Z"
         },
         "Mei 2026": {
           "occupancy": "Ditempati",
@@ -3126,8 +2819,9 @@
           "duesStatus": "Lunas",
           "customDuesAmount": 40000,
           "paidAmount": 40000,
-          "paidDate": "2026-05-02",
-          "updatedAt": "2026-11-02T11:18:03.213Z"
+          "paidDate": "2026-05-01",
+          "customBaksosFineAmount": 0,
+          "updatedAt": "2026-11-03T06:40:54.078Z"
         }
       }
     },
@@ -3135,7 +2829,7 @@
       "id": "warga-k3-18",
       "blockNumber": "K3/18",
       "headName": "Deden Wahyudin",
-      "duesHeadNameOverride": "Aditya Maulana",
+      "duesHeadNameOverride": "Deden Wahyudin",
       "phone": "082297943445",
       "ownership": "Milik Sendiri",
       "occupancy": "Belum Ditempati",
@@ -3145,10 +2839,10 @@
       "duesStatus": "Belum Bayar",
       "customDuesAmount": 15000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 1,
+      "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "Mei 2026",
+      "duesMonthNote": "Juni 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -3184,33 +2878,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:27:43.183Z",
-      "periodHistory": {
-        "2026-05": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Deden Wahyudi",
-          "duesHeadNameOverride": "Deden Wahyudi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 40000,
-          "paidDate": "2026-05-10",
-          "updatedAt": "2026-11-02T11:27:43.181Z"
-        },
-        "Mei 2026": {
-          "occupancy": "Belum Ditempati",
-          "headName": "Deden Wahyudi",
-          "duesHeadNameOverride": "Deden Wahyudi",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 40000,
-          "paidDate": "2026-05-10",
-          "updatedAt": "2026-11-02T11:27:43.181Z"
-        }
-      },
-      "occupancyHistory": {
-        "2026-05": "Belum Ditempati",
-        "Mei 2026": "Belum Ditempati"
-      }
+      "updatedAt": "2026-11-02T16:03:56.578Z"
     },
     {
       "id": "warga-k3-19",
@@ -3229,7 +2897,6 @@
       "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
       "duesPaidDate": "",
-      "duesMonthNote": "September 2026",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -3245,7 +2912,7 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-01T00:25:53.370Z"
+      "updatedAt": "2026-11-02T16:04:12.382Z"
     },
     {
       "id": "warga-k3-20",
@@ -3258,13 +2925,12 @@
       "rukem": "Ikut Rukem",
       "wifiStatus": "Tidak Pasang",
       "wifiProvider": "-",
-      "duesStatus": "Lunas",
+      "duesStatus": "Belum Bayar",
       "customDuesAmount": 40000,
       "duesPaidAmount": 0,
-      "duesPaidMonths": 1,
+      "duesPaidMonths": 0,
       "duesPrepaidBalance": 0,
-      "duesPaidDate": "2026-07-01",
-      "duesMonthNote": "Juli 2026",
+      "duesPaidDate": "",
       "previousArrears": 0,
       "previousArrearsNote": "",
       "customBaksosFineAmount": 0,
@@ -3290,79 +2956,20 @@
           "occupation": ""
         }
       ],
-      "updatedAt": "2026-11-02T11:43:01.904Z",
-      "occupancyHistory": {
-        "2026-05": "Ditempati",
-        "Mei 2026": "Ditempati",
-        "2026-06": "Ditempati",
-        "Juni 2026": "Ditempati",
-        "2026-07": "Ditempati",
-        "Juli 2026": "Ditempati"
-      },
+      "updatedAt": "2026-11-02T18:24:39.872Z",
+      "duesMonthNote": "",
       "periodHistory": {
         "2026-05": {
-          "occupancy": "Ditempati",
-          "headName": "Denny Sanjaya",
-          "duesHeadNameOverride": "Denny Sanjaya",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
+          "duesStatus": "Belum Bayar",
           "paidAmount": 0,
-          "paidDate": "2026-07-01",
-          "updatedAt": "2026-11-01T00:54:48.201Z",
-          "settlementMonth": "Juli 2026"
+          "paidDate": "",
+          "updatedAt": "2026-11-02T18:24:39.871Z"
         },
         "Mei 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Denny Sanjaya",
-          "duesHeadNameOverride": "Denny Sanjaya",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
+          "duesStatus": "Belum Bayar",
           "paidAmount": 0,
-          "paidDate": "2026-07-01",
-          "updatedAt": "2026-11-01T00:54:48.201Z",
-          "settlementMonth": "Juli 2026"
-        },
-        "2026-06": {
-          "occupancy": "Ditempati",
-          "headName": "Denny Sanjaya",
-          "duesHeadNameOverride": "Denny Sanjaya",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 0,
-          "paidDate": "2026-07-01",
-          "updatedAt": "2026-11-01T00:54:48.201Z",
-          "settlementMonth": "Juli 2026"
-        },
-        "Juni 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Denny Sanjaya",
-          "duesHeadNameOverride": "Denny Sanjaya",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 0,
-          "paidDate": "2026-07-01",
-          "updatedAt": "2026-11-01T00:54:48.201Z",
-          "settlementMonth": "Juli 2026"
-        },
-        "2026-07": {
-          "occupancy": "Ditempati",
-          "headName": "Denny Sanjaya",
-          "duesHeadNameOverride": "Denny Sanjaya",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 40000,
-          "paidDate": "2026-07-01",
-          "updatedAt": "2026-11-02T11:43:01.902Z"
-        },
-        "Juli 2026": {
-          "occupancy": "Ditempati",
-          "headName": "Denny Sanjaya",
-          "duesHeadNameOverride": "Denny Sanjaya",
-          "duesStatus": "Lunas",
-          "customDuesAmount": 40000,
-          "paidAmount": 40000,
-          "paidDate": "2026-07-01",
-          "updatedAt": "2026-11-02T11:43:01.902Z"
+          "paidDate": "",
+          "updatedAt": "2026-11-02T18:24:39.871Z"
         }
       }
     },
@@ -3508,67 +3115,40 @@
   ],
   "transactions": [
     {
-      "date": "2026-07-01",
+      "date": "2026-06-01",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Juli 2026) Warga Blok K3/20 (Denny Sanjaya)",
+      "description": "Iuran Bulanan (Juni 2026) Warga Blok K2/39 (Suparman)",
       "amount": 40000,
-      "id": "tx-dues-sync-1793619781904-0-i7ya"
+      "id": "tx-dues-sync-1793694622656-0-dtac"
     },
     {
-      "date": "2026-07-01",
+      "date": "2026-06-10",
       "type": "masuk",
       "pool": "Kas Utama",
-      "category": "Pembayaran Tunggakan",
-      "description": "Pelunasan Tunggakan Lalu Blok K3/20 (Denny Sanjaya) (Iuran Mei, Juni)",
-      "amount": 80000,
-      "id": "tx-dues-sync-1793619781904-1-iypc"
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Rp 10.000) - Blok K2/39 (Suparman)",
+      "amount": 10000,
+      "id": "tx-dues-sync-1793694622657-1-e3fh"
     },
     {
-      "date": "2026-07-01",
+      "date": "2026-06-10",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Juli 2026) Warga Blok K2/40 (Affriajan Sitohang)",
+      "description": "Iuran Bulanan (Juni 2026) Warga Blok K2/35 (Wike F Leatemia)",
       "amount": 40000,
-      "id": "tx-dues-sync-1793619629142-0-sz3l"
+      "id": "tx-dues-sync-1793688530879-0-wccz"
     },
     {
-      "date": "2026-07-13",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Pembayaran Tunggakan",
-      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/40 (Affriajan Sitohang) (Iuran Juni 2026: Rp 40.000)",
-      "amount": 40000,
-      "id": "tx-dues-sync-1793619629142-1-ovut"
-    },
-    {
-      "date": "2026-07-06",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Kas Warga Bayar Lebih (Juli 2026, Agustus 2026, September 2026, Oktober 2026, November 2026, Desember 2026) Warga Blok K2/26 (Ibnu Fauzi)",
-      "amount": 90000,
-      "id": "tx-dues-sync-1793619473384-0-0b74"
-    },
-    {
-      "date": "2026-07-13",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Juli 2026) Warga Blok K2/27 (Adi Dwi Juniardi)",
-      "amount": 40000,
-      "id": "tx-dues-sync-1793619285063-0-cgdk"
-    },
-    {
-      "date": "2026-06-17",
+      "date": "2026-06-07",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
       "description": "Iuran Bulanan (Juni 2026) Warga Blok K2/33 (Rahmat Danu W)",
       "amount": 40000,
-      "id": "tx-dues-sync-1793619157394-0-gp0y"
+      "id": "tx-dues-sync-1793688500826-0-i74o"
     },
     {
       "date": "2026-06-17",
@@ -3577,127 +3157,154 @@
       "category": "Denda Baksos",
       "description": "Denda Baksos Blok K2/33 (Rahmat Danu W)",
       "amount": 10000,
-      "id": "tx-dues-sync-1793619157394-1-fz9c"
+      "id": "tx-dues-sync-1793688500827-1-skwb"
     },
     {
-      "date": "2026-06-17",
+      "date": "2026-06-07",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Pembayaran Tunggakan",
       "description": "Pembayaran Tunggakan (Mei) Blok K2/33 (Rahmat Danu W)",
       "amount": 40000,
-      "id": "tx-dues-sync-1793619157394-2-0dua"
+      "id": "tx-dues-sync-1793688500827-2-hvjr"
     },
     {
-      "date": "2026-06-02",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Juni 2026) Warga Blok K3/04 (Muhidin)",
-      "amount": 25000,
-      "id": "tx-dues-sync-1793619015875-0-36hz"
-    },
-    {
-      "date": "2026-06-02",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Juni 2026) Warga Blok K2/35 (Wike F Leatemia)",
-      "amount": 40000,
-      "id": "tx-dues-sync-1793619003931-0-wg6b"
-    },
-    {
-      "date": "2026-06-02",
+      "date": "2026-06-01",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
       "description": "Iuran Bulanan (Juni 2026) Warga Blok K2/28 (Andri Setiawan)",
       "amount": 40000,
-      "id": "tx-dues-sync-1793618989021-0-b5y0"
+      "id": "tx-dues-sync-1793688474552-0-15wh"
     },
     {
-      "date": "2026-06-02",
+      "date": "2026-06-01",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
       "description": "Iuran Bulanan (Juni 2026) Warga Blok K2/27 (Adi Dwi Juniardi)",
       "amount": 40000,
-      "id": "tx-dues-sync-1793618979747-0-x3oc"
+      "id": "tx-dues-sync-1793688456121-0-ivx8"
+    },
+    {
+      "date": "2026-05-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Mei 2026) Warga Blok K2/37 (Rudin Yulianto)",
+      "amount": 40000,
+      "id": "tx-dues-sync-1793688112931-0-stjt"
+    },
+    {
+      "date": "2026-05-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/17 (Heri Susanto)",
+      "amount": 40000,
+      "id": "tx-dues-sync-1793688054083-0-2lx8"
     },
     {
       "date": "2026-05-10",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/18 (Deden Wahyudi)",
+      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/15 (Hendra Dwi Nuryanto)",
       "amount": 40000,
-      "id": "tx-dues-sync-1793618863184-0-ifw9"
+      "id": "tx-dues-sync-1793688026628-0-j5jd"
     },
     {
       "date": "2026-05-01",
       "type": "masuk",
       "pool": "Kas Utama",
-      "category": "Denda Baksos",
-      "description": "Pelunasan Denda Baksos (Rp 10.000) - Blok K3/18 (Aditya Maulana)",
-      "amount": 10000,
-      "id": "tx-dues-sync-1793618863184-1-1ebr"
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/08 (Saefulloh)",
+      "amount": 40000,
+      "id": "tx-dues-sync-1793687891152-0-3la3"
     },
     {
-      "date": "2026-05-02",
+      "date": "2026-05-10",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/17 (Heri Susanto)",
+      "description": "Iuran Bulanan (Mei 2026) Warga Blok K2/48 (Mangaman Rajagukguk)",
       "amount": 40000,
-      "id": "tx-dues-sync-1793618283215-0-rfgt"
+      "id": "tx-dues-sync-1793687825941-0-js8z"
     },
     {
-      "date": "2026-05-02",
+      "date": "2026-05-10",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/48 (Mangaman Rajagukguk) (Iuran April)",
+      "amount": 40000,
+      "id": "tx-dues-sync-1793687825941-1-pam5"
+    },
+    {
+      "date": "2026-05-10",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/09 (Geget Yotama)",
+      "description": "Iuran Bulanan (Mei 2026) Warga Blok K2/40 (Affriajan Sitohang)",
       "amount": 40000,
-      "id": "tx-dues-sync-1793618276317-0-tp4j"
+      "id": "tx-dues-sync-1793687780714-0-w0q7"
     },
     {
-      "date": "2026-05-02",
+      "date": "2026-05-10",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/40 (Affriajan Sitohang) (Iuran Bulan Maret, April)",
+      "amount": 80000,
+      "id": "tx-dues-sync-1793687780714-1-16ro"
+    },
+    {
+      "date": "2026-05-10",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
       "description": "Iuran Bulanan (Mei 2026) Warga Blok K2/39 (Suparman)",
       "amount": 40000,
-      "id": "tx-dues-sync-1793618263605-0-6vin"
+      "id": "tx-dues-sync-1793687731735-0-4v8t"
     },
     {
-      "date": "2026-05-02",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/05 (Sandita)",
-      "amount": 30000,
-      "id": "tx-dues-sync-1793618255956-0-86m7"
-    },
-    {
-      "date": "2026-05-02",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/04 (Muhidin)",
-      "amount": 25000,
-      "id": "tx-dues-sync-1793618247157-0-hhm7"
-    },
-    {
-      "date": "2026-05-02",
+      "date": "2026-05-01",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
       "description": "Iuran Kas Warga Bayar Lebih (Mei 2026, Juni 2026) Warga Blok K2/26 (Ibnu Fauzi)",
       "amount": 30000,
-      "id": "tx-dues-sync-1793618200669-0-psrd"
+      "id": "tx-dues-sync-1793660676065-0-gqvh"
     },
     {
-      "id": "tx-dues-sync-1793492474949-0-22uv",
+      "id": "tx-dues-sync-1793636058810-0-6a8t",
+      "date": "2026-07-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan Tunggakan Lalu Blok K3/20 (Denny Sanjaya) (Iuran Maret, April, Mei)",
+      "amount": 120000
+    },
+    {
+      "id": "tx-dues-sync-1793635292448-0-g1ya",
+      "date": "2026-09-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (September 2026) Warga Blok K2/43 (Aditya Maulana)",
+      "amount": 15000
+    },
+    {
+      "id": "tx-dues-sync-1793635292448-1-vx78",
+      "date": "2026-09-16",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan Tunggakan Lalu Blok K2/43 (Aditya Maulana) (Iuran Maret, April, Mei, Juni, Juli, Agustus)",
+      "amount": 120000
+    },
+    {
+      "id": "tx-dues-sync-1793635180340-0-4qk9",
       "date": "2026-09-18",
       "type": "masuk",
       "pool": "Kas Utama",
@@ -3706,13 +3313,337 @@
       "amount": 30000
     },
     {
-      "id": "tx-dues-sync-1793492474949-1-47st",
+      "id": "tx-dues-sync-1793635180340-1-3qc2",
       "date": "2026-09-18",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Pembayaran Tunggakan",
-      "description": "Pelunasan Tunggakan Lalu Blok K2/41 (Acim Wiratma)",
+      "description": "Pelunasan Tunggakan Lalu Blok K2/41 (Acim Wiratma) (Iuran Agustus)",
       "amount": 30000
+    },
+    {
+      "id": "tx-dues-sync-1793635141307-0-413d",
+      "date": "2026-09-19",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (September 2026) Warga Blok K2/39 (Suparman)",
+      "amount": 15000
+    },
+    {
+      "id": "tx-dues-sync-1793635112860-0-lo5z",
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Agustus 2026) Warga Blok K2/39 (Suparman)",
+      "amount": 15000
+    },
+    {
+      "id": "tx-dues-sync-1793634929945-0-4wvy",
+      "date": "2026-09-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Rp 10.000) - Blok K2/35 (Wike F Leatemia)",
+      "amount": 10000
+    },
+    {
+      "id": "tx-1793634805212-5mhy",
+      "date": "2026-09-11",
+      "type": "keluar",
+      "pool": "Kas Utama",
+      "category": "Pengeluaran Gang",
+      "description": "Pembayaran Rukem Dan Kas RT",
+      "amount": 189000
+    },
+    {
+      "id": "tx-1793634752934-sqoc",
+      "date": "2026-09-25",
+      "type": "masuk",
+      "pool": "Cashback WiFi",
+      "category": "Cashback WiFi",
+      "description": "Cashback",
+      "amount": 380000
+    },
+    {
+      "id": "tx-1793634700254-ph1s",
+      "date": "2026-09-11",
+      "type": "masuk",
+      "pool": "Cashback Sampah",
+      "category": "Cashback Sampah",
+      "description": "Cashback",
+      "amount": 100000
+    },
+    {
+      "id": "tx-1793634659659-oynv",
+      "date": "2026-09-11",
+      "type": "keluar",
+      "pool": "Kas Utama",
+      "category": "Pengeluaran Gang",
+      "description": "Pembayaran Iuran Sampah",
+      "amount": 700000
+    },
+    {
+      "id": "tx-1793634626815-zn7t",
+      "date": "2026-09-08",
+      "type": "keluar",
+      "pool": "Kas Utama",
+      "category": "Kas Utama",
+      "description": "Pembelian Kenang-Kenangan Suparman",
+      "amount": 120000
+    },
+    {
+      "id": "tx-1793634568627-ob9o",
+      "date": "2026-09-06",
+      "type": "keluar",
+      "pool": "Kas Utama",
+      "category": "Pengeluaran Gang",
+      "description": "Konsumsi Kerja Bakti",
+      "amount": 100000
+    },
+    {
+      "id": "tx-1793634534400-0n6c",
+      "date": "2026-09-01",
+      "type": "keluar",
+      "pool": "Kas Utama",
+      "category": "Kas Utama",
+      "description": "Bingkisan Jenguk Mangaman Rajagukguk (K2/48) ",
+      "amount": 50000
+    },
+    {
+      "id": "tx-dues-sync-1793633211252-0-shvi",
+      "date": "2026-08-06",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Agustus 2026) Warga Blok K3/01 (Adithya MS Dessiri)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633211252-1-bm2h",
+      "date": "2026-08-06",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K3/01 (Adithya MS Dessiri)",
+      "amount": 20000
+    },
+    {
+      "id": "tx-dues-sync-1793633211252-2-xhk8",
+      "date": "2026-08-06",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan Tunggakan Lalu Blok K3/01 (Adithya MS Dessiri) (Iuran Juli)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633053133-0-a1mk",
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Agustus 2026) Warga Blok K3/17 (Heri Susanto)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633053133-1-hnq4",
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan Tunggakan Lalu Blok K3/17 (Heri Susanto) (Iuran Juli)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633048143-0-mq51",
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Agustus 2026) Warga Blok K3/15 (Hendra Dwi Nuryanto)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633048143-1-zj0o",
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan Tunggakan Lalu Blok K3/15 (Hendra Dwi Nuryanto) (Iuran Juli)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633041260-0-yzj2",
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Agustus 2026) Warga Blok K3/08 (Saefulloh)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633041260-1-iv9l",
+      "date": "2026-08-05",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan Tunggakan Lalu Blok K3/08 (Saefulloh) (Iuran Juli)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633021571-0-itpv",
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Agustus 2026) Warga Blok K2/35 (Wike F Leatemia)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633021571-1-9nbc",
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K2/35 (Wike F Leatemia)",
+      "amount": 30000
+    },
+    {
+      "id": "tx-dues-sync-1793633021571-2-irx4",
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan Tunggakan Lalu Blok K2/35 (Wike F Leatemia) (Iuran Juli)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633016546-0-00hf",
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Agustus 2026) Warga Blok K2/34 (Rahmad Sanusi)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793633016546-1-8pw4",
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Denda Baksos",
+      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K2/34 (Rahmad Sanusi)",
+      "amount": 30000
+    },
+    {
+      "id": "tx-dues-sync-1793633016546-2-t7iu",
+      "date": "2026-08-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan Tunggakan Lalu Blok K2/34 (Rahmad Sanusi) (Iuran Juni, Juli)",
+      "amount": 80000
+    },
+    {
+      "id": "tx-dues-sync-1793631859531-0-z9pk",
+      "date": "2026-07-13",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Juli 2026) Warga Blok K2/40 (Affriajan Sitohang)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793631859531-1-ndwm",
+      "date": "2026-07-13",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Pembayaran Tunggakan",
+      "description": "Pelunasan Tunggakan Lalu Blok K2/40 (Affriajan Sitohang) (Iuran Juni)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793631784127-0-2obs",
+      "date": "2026-07-06",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Kas Warga Bayar Lebih (Juli 2026, Agustus 2026, September 2026, Oktober 2026, November 2026, Desember 2026) Warga Blok K2/26 (Ibnu Fauzi)",
+      "amount": 90000
+    },
+    {
+      "id": "tx-dues-sync-1793630314657-0-pvao",
+      "date": "2026-06-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Juni 2026) Warga Blok K3/18 (Deden Wahyudin)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793630193178-0-ou2z",
+      "date": "2026-05-10",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/18 (Deden Wahyudin)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793624971532-0-yure",
+      "date": "2026-06-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Juni 2026) Warga Blok K3/05 (Sandita)",
+      "amount": 30000
+    },
+    {
+      "id": "tx-dues-sync-1793624955314-0-gp5v",
+      "date": "2026-06-01",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Juni 2026) Warga Blok K2/41 (Acim Wiratma)",
+      "amount": 30000
+    },
+    {
+      "id": "tx-dues-sync-1793619015875-0-36hz",
+      "date": "2026-06-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Juni 2026) Warga Blok K3/04 (Muhidin)",
+      "amount": 25000
+    },
+    {
+      "id": "tx-dues-sync-1793618276317-0-tp4j",
+      "date": "2026-05-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/09 (Geget Yotama)",
+      "amount": 40000
+    },
+    {
+      "id": "tx-dues-sync-1793618255956-0-86m7",
+      "date": "2026-05-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/05 (Sandita)",
+      "amount": 30000
+    },
+    {
+      "id": "tx-dues-sync-1793618247157-0-hhm7",
+      "date": "2026-05-02",
+      "type": "masuk",
+      "pool": "Kas Utama",
+      "category": "Iuran Warga",
+      "description": "Iuran Bulanan (Mei 2026) Warga Blok K3/04 (Muhidin)",
+      "amount": 25000
     },
     {
       "id": "tx-dues-sync-1793455992803-0-5nd6",
@@ -3733,48 +3664,12 @@
       "amount": 30000
     },
     {
-      "id": "tx-dues-sync-1793441574411-0-cgx5",
-      "date": "2026-06-07",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Juni 2026) Warga Blok K3/18 (Deden Wahyudi)",
-      "amount": 40000
-    },
-    {
       "id": "tx-dues-sync-1793441269821-0-qtvy",
       "date": "2026-06-02",
       "type": "masuk",
       "pool": "Kas Utama",
       "category": "Iuran Warga",
       "description": "Iuran Bulanan (Juni 2026) Warga Blok K3/13 (Vicky Firdaus)",
-      "amount": 40000
-    },
-    {
-      "id": "tx-dues-sync-1793441216419-0-vx8a",
-      "date": "2026-06-07",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Juni 2026) Warga Blok K2/41 (Acim Wiratma)",
-      "amount": 30000
-    },
-    {
-      "id": "tx-dues-sync-1793440804832-0-dy29",
-      "date": "2026-06-10",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Denda Baksos",
-      "description": "Pelunasan Denda Baksos (Rp 10.000) - Blok K2/39 (Suparman)",
-      "amount": 10000
-    },
-    {
-      "id": "tx-dues-sync-1793440797334-0-2gv9",
-      "date": "2026-06-10",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Juni 2026) Warga Blok K2/39 (Suparman)",
       "amount": 40000
     },
     {
@@ -3794,42 +3689,6 @@
       "category": "Denda Baksos",
       "description": "Pelunasan Denda Baksos (Rp 10.000) - Blok K3/14 (Septiyan Dwi Wibowo)",
       "amount": 10000
-    },
-    {
-      "id": "tx-dues-sync-1793437132282-0-5zxj",
-      "date": "2026-09-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (September 2026) Warga Blok K2/39 (Suparman)",
-      "amount": 15000
-    },
-    {
-      "id": "tx-dues-sync-1793432622311-0-stmr",
-      "date": "2026-08-05",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Pembayaran Tunggakan",
-      "description": "Pelunasan Tunggakan Lalu Blok K3/15 (Hendra Dwi Nuryanto)",
-      "amount": 40000
-    },
-    {
-      "id": "tx-dues-sync-1793432466723-0-p9yy",
-      "date": "2026-08-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Denda Baksos",
-      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K2/34 (Rahmad Sanusi)",
-      "amount": 30000
-    },
-    {
-      "id": "tx-dues-sync-1793432466723-1-wkm1",
-      "date": "2026-08-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Pembayaran Tunggakan",
-      "description": "Pelunasan Tunggakan Lalu Blok K2/34 (Rahmad Sanusi)",
-      "amount": 80000
     },
     {
       "id": "tx-dues-sync-1793432408564-0-867x",
@@ -3911,24 +3770,6 @@
       "category": "Denda Baksos",
       "description": "Pelunasan Denda Baksos (Rp 10.000) - Blok K3/02 (Uri Sahuri)",
       "amount": 20000
-    },
-    {
-      "id": "tx-dues-sync-1793377511007-0-vy6y",
-      "date": "2026-09-16",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (September 2026) Warga Blok K2/43 (Aditya Maulana)",
-      "amount": 15000
-    },
-    {
-      "id": "tx-dues-sync-1793377511007-1-p9z0",
-      "date": "2026-09-16",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Pembayaran Tunggakan",
-      "description": "Pelunasan Tunggakan Lalu Blok K2/43 (Aditya Maulana)",
-      "amount": 120000
     },
     {
       "id": "tx-1793377072963-v0op",
@@ -4030,15 +3871,6 @@
       "amount": 40000
     },
     {
-      "id": "tx-1793376424417-yug4",
-      "date": "2026-09-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (September 2026) Blok K2/46 (Rita Damanik)",
-      "amount": 30000
-    },
-    {
       "id": "tx-1793376403835-a3ro",
       "date": "2026-09-01",
       "type": "masuk",
@@ -4054,15 +3886,6 @@
       "pool": "Kas Utama",
       "category": "Denda Baksos",
       "description": "Pelunasan Denda Baksos (Rp 10.000) - Blok K2/36 (Bagus Adi P)",
-      "amount": 10000
-    },
-    {
-      "id": "tx-dues-sync-1793375225064-0-6xh2",
-      "date": "2026-09-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Denda Baksos",
-      "description": "Pelunasan Denda Baksos (Rp 10.000) - Blok K2/35 (Wike F Leatemia)",
       "amount": 10000
     },
     {
@@ -4111,15 +3934,6 @@
       "amount": 10000
     },
     {
-      "id": "tx-dues-sync-1793366110298-0-pj74",
-      "date": "2026-05-10",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Pembayaran Tunggakan",
-      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/40 (Affriajan Sitohang) (Iuran Bulan Maret, April)",
-      "amount": 80000
-    },
-    {
       "id": "tx-dues-sync-1793365904009-0-bnti",
       "date": "2026-05-04",
       "type": "masuk",
@@ -4156,15 +3970,6 @@
       "amount": 40000
     },
     {
-      "id": "tx-dues-sync-1793339572056-0-oc0w",
-      "date": "2026-08-06",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Denda Baksos",
-      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K3/01 (Adithya MS Dessiri)",
-      "amount": 20000
-    },
-    {
       "id": "tx-dues-sync-1793336944872-0-70o7",
       "date": "2026-08-01",
       "type": "masuk",
@@ -4172,24 +3977,6 @@
       "category": "Denda Baksos",
       "description": "Pelunasan Denda Baksos (Rp 10.000) - Blok K3/11 (Asep Deni Susanto)",
       "amount": 10000
-    },
-    {
-      "id": "tx-dues-sync-1793335659739-0-cgxy",
-      "date": "2026-08-05",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Agustus 2026) Warga Blok K3/17 (Heri Susanto)",
-      "amount": 40000
-    },
-    {
-      "id": "tx-dues-sync-1793335659739-1-c5mm",
-      "date": "2026-08-05",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Pembayaran Tunggakan",
-      "description": "Pelunasan Tunggakan Lalu Blok K3/17 (Heri Susanto)",
-      "amount": 40000
     },
     {
       "id": "tx-dues-sync-1793335597787-0-9qcd",
@@ -4208,33 +3995,6 @@
       "category": "Denda Baksos",
       "description": "Pelunasan Denda Baksos (Rp 10.000) - Blok K3/14 (Septiyan Dwi Wibowo)",
       "amount": 10000
-    },
-    {
-      "id": "tx-dues-sync-1793335447034-0-s045",
-      "date": "2026-08-06",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Agustus 2026) Warga Blok K3/01 (Adithya MS Dessiri)",
-      "amount": 40000
-    },
-    {
-      "id": "tx-dues-sync-1793335366484-0-jtwg",
-      "date": "2026-08-05",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Iuran Bulanan (Agustus 2026) Warga Blok K3/08 (Saefulloh)",
-      "amount": 40000
-    },
-    {
-      "id": "tx-dues-sync-1793335366484-1-bfep",
-      "date": "2026-08-05",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Pembayaran Tunggakan",
-      "description": "Pelunasan Tunggakan Lalu Blok K3/08 (Saefulloh)",
-      "amount": 40000
     },
     {
       "id": "tx-dues-sync-1793316852772-0-ylx6",
@@ -4325,15 +4085,6 @@
       "category": "Pengeluaran Gang",
       "description": "Konsumsi Pembuatan Gapura",
       "amount": 47000
-    },
-    {
-      "id": "tx-1792947017716-qv0k",
-      "date": "2026-08-05",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K3/15 (Hendra Dwi Nuryanto)",
-      "amount": 40000
     },
     {
       "id": "tx-1792946977122-o3mu",
@@ -4453,15 +4204,6 @@
       "amount": 40000
     },
     {
-      "id": "tx-1792946692541-bdww",
-      "date": "2026-08-04",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/39 (Suparman)",
-      "amount": 40000
-    },
-    {
       "id": "tx-1792946670986-uw6k",
       "date": "2026-08-02",
       "type": "masuk",
@@ -4486,33 +4228,6 @@
       "pool": "Kas Utama",
       "category": "Iuran Warga",
       "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/36 (Bagus Adi P)",
-      "amount": 40000
-    },
-    {
-      "id": "tx-1792946642557-pxn2",
-      "date": "2026-08-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Denda Baksos",
-      "description": "Pelunasan Denda Baksos (Agustus 2026) Blok K2/35 (Wike F Leatemia)",
-      "amount": 30000
-    },
-    {
-      "id": "tx-1792946642554-xktl",
-      "date": "2026-08-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/35 (Wike F Leatemia)",
-      "amount": 40000
-    },
-    {
-      "id": "tx-1792946634286-tisp",
-      "date": "2026-08-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (Agustus 2026) Blok K2/34 (Rahmad Sanusi)",
       "amount": 40000
     },
     {
@@ -5011,15 +4726,6 @@
       "amount": 40000
     },
     {
-      "id": "tx-1792833323143-75bg",
-      "date": "2026-06-01",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (Juni 2026) Blok K3/05 (Sandita)",
-      "amount": 30000
-    },
-    {
       "id": "tx-1792833296805-ile5",
       "date": "2026-06-02",
       "type": "masuk",
@@ -5209,15 +4915,6 @@
       "amount": 200000
     },
     {
-      "id": "tx-1792812928013-5k8m",
-      "date": "2026-05-04",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/15 (Hendra Dwi Nuryanto)",
-      "amount": 40000
-    },
-    {
       "id": "tx-1792812879128-1les",
       "date": "2026-05-02",
       "type": "masuk",
@@ -5242,15 +4939,6 @@
       "pool": "Kas Utama",
       "category": "Iuran Warga",
       "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/11 (Asep Deni Susanto)",
-      "amount": 40000
-    },
-    {
-      "id": "tx-1792812711577-ns2n",
-      "date": "2026-05-02",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K3/08 (Saefulloh)",
       "amount": 40000
     },
     {
@@ -5299,24 +4987,6 @@
       "amount": 40000
     },
     {
-      "id": "tx-1792812460113-ac3v",
-      "date": "2026-05-10",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Pelunasan / Cicilan Tunggakan Lalu Blok K2/48 (Mangaman Rajagukguk)",
-      "amount": 40000
-    },
-    {
-      "id": "tx-1792812460106-76hm",
-      "date": "2026-05-10",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/48 (Mangaman Rajagukguk)",
-      "amount": 40000
-    },
-    {
       "id": "tx-1792803760588-5pq1",
       "date": "2026-05-28",
       "type": "masuk",
@@ -5333,24 +5003,6 @@
       "category": "Iuran Warga",
       "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/45 (Rian Wijaya)",
       "amount": 25000
-    },
-    {
-      "id": "tx-1792803423407-lefi",
-      "date": "2026-05-10",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/40 (Affriajan Sitohang)",
-      "amount": 40000
-    },
-    {
-      "id": "tx-1792802862647-t9ng",
-      "date": "2026-05-10",
-      "type": "masuk",
-      "pool": "Kas Utama",
-      "category": "Iuran Warga",
-      "description": "Penarikan Iuran Bulanan (Mei 2026) Blok K2/37 (Rudin Yulianto)",
-      "amount": 40000
     },
     {
       "id": "tx-1792802811691-mobd",
@@ -5407,25 +5059,7 @@
       "amount": 40000
     }
   ],
-  "baksosAgendas": [
-    {
-      "id": "baksos-1793619157393",
-      "title": "Kegiatan Bakti Sosial Periode Juni 2026",
-      "date": "2026-06-17",
-      "location": "Pos & Gang Mandor",
-      "description": "Gotong royong kebersihan Gang Mandor periode Juni 2026.",
-      "fineAmount": 10000,
-      "attendance": {
-        "warga-k2-33": "Tidak Hadir",
-        "K2/33": "Tidak Hadir",
-        "warga-k2-42": "Tidak Wajib"
-      },
-      "finesPaid": {
-        "warga-k2-33": true,
-        "K2/33": true
-      }
-    }
-  ],
+  "baksosAgendas": [],
   "committees": [
     {
       "id": "kom-1",
