@@ -954,7 +954,7 @@ export const INITIAL_RESIDENTS: ResidentHouse[] = [
     "wifiStatus": "Tidak Pasang",
     "wifiProvider": "-",
     "duesStatus": "Belum Bayar",
-    "customDuesAmount": 40000,
+    "customDuesAmount": 15000,
     "duesPaidAmount": 0,
     "duesPaidMonths": 0,
     "duesPrepaidBalance": 0,

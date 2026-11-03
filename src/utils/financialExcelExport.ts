@@ -783,7 +783,8 @@ export function exportFinancialReportToExcel({
       const baksosFineArrears = recapItem ? recapItem.baksosFineArrears : 0;
       const previousArrears = recapItem ? recapItem.previousDuesArrears : 0;
       const previousArrearsNote = recapItem?.previousArrearsNote || house.previousArrearsNote || '-';
-      const totalArrears = recapItem ? recapItem.remainingArrearsTotal : 0;
+      const baksosNote = house.previousBaksosArrearsNote ? ` (${house.previousBaksosArrearsNote})` : '';
+      const totalArrears = duesArrears + baksosFineArrears + previousArrears;
 
       return {
         No: idx + 1,
@@ -791,9 +792,10 @@ export function exportFinancialReportToExcel({
         'Kepala Keluarga': house.headName,
         'No. WhatsApp': house.phone || '-',
         'Status Hunian': house.occupancy,
-        'Tunggakan Iuran Bulan Ini (Rp)': duesArrears,
+        [`Tunggakan Iuran Bulan Ini (${config.duesCurrentMonth || 'Bulan Berjalan'}) (Rp)`]: duesArrears,
         'Jumlah Absen Baksos Belum Lunas': unpaidBaksos.length,
         'Tunggakan Denda Baksos (Rp)': baksosFineArrears,
+        'Keterangan Denda Baksos Lalu': house.previousBaksosArrearsNote || '-',
         'Tunggakan Bulan/Tahun Lalu (Rp)': previousArrears,
         'Keterangan Tunggakan Lalu': previousArrearsNote,
         'TOTAL TUNGGAKAN (Rp)': totalArrears,

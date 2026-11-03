@@ -7,6 +7,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Coins,
   Copy,
   CreditCard,
   Edit2,
@@ -17,6 +18,7 @@ import {
   Pause,
   Phone,
   Play,
+  Plus,
   RotateCcw,
   Search,
   Send,
@@ -71,10 +73,15 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   onMarkFinePaid,
   onOpenConfigModal,
 }) => {
-  // Modal Edit Tunggakan Bulan / Tahun Lalu + Keterangan
+  // Modal Input / Tambah Manual Tunggakan Iuran & Denda Baksos Yang Lalu
   const [editingHouse, setEditingHouse] = useState<ResidentHouse | null>(null);
-  const [editPrevAmount, setEditPrevAmount] = useState<number>(0);
-  const [editPrevNote, setEditPrevNote] = useState<string>('');
+  const [selectedHouseId, setSelectedHouseId] = useState<string>('');
+  const [editDuesMode, setEditDuesMode] = useState<'add' | 'set'>('add');
+  const [editPrevDuesInput, setEditPrevDuesInput] = useState<number>(0);
+  const [editPrevDuesNote, setEditPrevDuesNote] = useState<string>('');
+  const [editBaksosMode, setEditBaksosMode] = useState<'add' | 'set'>('add');
+  const [editPrevBaksosInput, setEditPrevBaksosInput] = useState<number>(0);
+  const [editPrevBaksosNote, setEditPrevBaksosNote] = useState<string>('');
 
   // Modal Pembayaran Sebagian (Cicil) Tunggakan Per Rumah
   const [partialPayItem, setPartialPayItem] = useState<any | null>(null);
@@ -101,26 +108,43 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   const [copiedBankNumber, setCopiedBankNumber] = useState(false);
   const [copiedSingleMsg, setCopiedSingleMsg] = useState(false);
 
+  const currentMonthLabel = config.duesCurrentMonth || 'Bulan Berjalan';
+
   // Rekapitulasi tunggakan bersumber langsung & terpadu dari Tabel Rekapitulasi Keseluruhan Kas Per Kepala Keluarga
-  const { recapList, totalAllArrears } = useMemo(() => {
+  const { recapList } = useMemo(() => {
     return computeOverallKKRecapList(residents, config, transactions, baksosAgendas);
   }, [residents, config, transactions, baksosAgendas]);
 
   const arrearsList = useMemo(() => {
-    return recapList.map((row) => ({
-      house: row.house,
-      houseMonthlyNominal: row.nominalPerMonth,
-      duesArrears: row.currentMonthDuesArrears,
-      unpaidBaksosList: row.unpaidBaksosList,
-      baksosFineArrears: row.baksosFineArrears,
-      previousArrears: row.previousDuesArrears,
-      previousArrearsNote: row.previousArrearsNote,
-      totalArrears: row.remainingArrearsTotal,
-      unpaidPastPeriods: row.unpaidPastPeriods,
-      unpaidPeriods: row.unpaidPeriods,
-      periodsDetail: row.periodsDetail,
-    }));
+    return recapList.map((row) => {
+      const duesArrears = row.currentMonthDuesArrears;
+      const baksosFineArrears = row.baksosFineArrears;
+      const previousArrears = row.previousDuesArrears;
+      const previousBaksosArrears = row.previousBaksosArrears || 0;
+      const previousBaksosArrearsNote = row.previousBaksosArrearsNote || '';
+      const totalArrears = duesArrears + baksosFineArrears + previousArrears;
+
+      return {
+        house: row.house,
+        houseMonthlyNominal: row.nominalPerMonth,
+        duesArrears,
+        unpaidBaksosList: row.unpaidBaksosList,
+        baksosFineArrears,
+        previousArrears,
+        previousArrearsNote: row.previousArrearsNote,
+        previousBaksosArrears,
+        previousBaksosArrearsNote,
+        totalArrears,
+        unpaidPastPeriods: row.unpaidPastPeriods,
+        unpaidPeriods: row.unpaidPeriods,
+        periodsDetail: row.periodsDetail,
+      };
+    });
   }, [recapList]);
+
+  const totalAllArrears = useMemo(() => {
+    return arrearsList.reduce((acc, curr) => acc + curr.totalArrears, 0);
+  }, [arrearsList]);
 
   const housesWithArrears = useMemo(
     () => arrearsList.filter((item) => item.totalArrears > 0),
@@ -134,55 +158,90 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       item.house.blockNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.house.headName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       payerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.previousArrearsNote.toLowerCase().includes(searchQuery.toLowerCase())
+      item.previousArrearsNote.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.previousBaksosArrearsNote.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
 
-  const handleOpenEditPrev = (house: ResidentHouse) => {
+  const activeModalHouse = useMemo(() => {
+    return (
+      residents.find((r) => r.id === selectedHouseId) ||
+      editingHouse ||
+      residents[0] ||
+      null
+    );
+  }, [residents, selectedHouseId, editingHouse]);
+
+  const currentPrevDues = activeModalHouse?.previousArrears || 0;
+  const currentPrevBaksos = activeModalHouse?.previousBaksosArrears || 0;
+
+  const targetPrevDues =
+    editDuesMode === 'add'
+      ? Math.max(0, currentPrevDues + (Number(editPrevDuesInput) || 0))
+      : Math.max(0, Number(editPrevDuesInput) || 0);
+
+  const targetPrevBaksos =
+    editBaksosMode === 'add'
+      ? Math.max(0, currentPrevBaksos + (Number(editPrevBaksosInput) || 0))
+      : Math.max(0, Number(editPrevBaksosInput) || 0);
+
+  const handleOpenManualArrearsModal = (targetHouse?: ResidentHouse) => {
+    const house = targetHouse || residents[0] || null;
     setEditingHouse(house);
-    const foundItem = arrearsList.find((a) => a.house.id === house.id);
-    setEditPrevAmount(foundItem ? foundItem.previousArrears : (house.previousArrears || 0));
-    setEditPrevNote(foundItem ? foundItem.previousArrearsNote : (house.previousArrearsNote || ''));
+    setSelectedHouseId(house ? house.id : '');
+    setEditDuesMode('add');
+    setEditPrevDuesInput(0);
+    setEditPrevDuesNote('');
+    setEditBaksosMode('add');
+    setEditPrevBaksosInput(0);
+    setEditPrevBaksosNote('');
   };
 
-  const handleSavePrev = (e: React.FormEvent) => {
+  const handleSaveManualArrears = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingHouse) return;
-    const oldPrev = editingHouse.previousArrears || 0;
-    const newPrev = Math.max(0, Number(editPrevAmount) || 0);
-    const paidDiff = Math.max(0, oldPrev - newPrev);
+    if (!activeModalHouse) return;
+
+    let finalDuesNote = '';
+    if (editDuesMode === 'add') {
+      const existing = activeModalHouse.previousArrearsNote || '';
+      const added = editPrevDuesNote.trim();
+      finalDuesNote = existing ? (added ? `${existing}; ${added}` : existing) : added;
+    } else {
+      finalDuesNote = editPrevDuesNote.trim();
+    }
+
+    let finalBaksosNote = '';
+    if (editBaksosMode === 'add') {
+      const existing = activeModalHouse.previousBaksosArrearsNote || '';
+      const added = editPrevBaksosNote.trim();
+      finalBaksosNote = existing ? (added ? `${existing}; ${added}` : existing) : added;
+    } else {
+      finalBaksosNote = editPrevBaksosNote.trim();
+    }
 
     onUpdateResident({
-      ...editingHouse,
-      previousArrears: newPrev,
-      previousArrearsNote: editPrevNote.trim(),
+      ...activeModalHouse,
+      previousArrears: targetPrevDues,
+      previousArrearsNote: finalDuesNote,
+      previousBaksosArrears: targetPrevBaksos,
+      previousBaksosArrearsNote: finalBaksosNote,
     });
 
-    if (paidDiff > 0) {
-      try {
-        confetti({ particleCount: 45, spread: 60, origin: { y: 0.7 } });
-      } catch {}
-      onAddTransaction({
-        date: new Date().toISOString().slice(0, 10),
-        type: 'masuk',
-        pool: 'Kas Utama',
-        category: 'Pembayaran Tunggakan',
-        description: `Pembayaran / Pelunasan Tunggakan Lalu Blok ${editingHouse.blockNumber} (${editingHouse.headName})${
-          editPrevNote.trim() ? ` - ${editPrevNote.trim()}` : ''
-        }`,
-        amount: paidDiff,
-      });
-    }
+    try {
+      confetti({ particleCount: 50, spread: 65, origin: { y: 0.7 } });
+    } catch {}
 
     setEditingHouse(null);
   };
 
   const handleResetPrev = (house: ResidentHouse) => {
-    const prevAmt = house.previousArrears || 0;
+    const prevAmt = (house.previousArrears || 0) + (house.previousBaksosArrears || 0);
     onUpdateResident({
       ...house,
       previousArrears: 0,
       previousArrearsNote: '',
+      previousBaksosArrears: 0,
+      previousBaksosArrearsNote: '',
     });
 
     if (prevAmt > 0) {
@@ -194,9 +253,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
         type: 'masuk',
         pool: 'Kas Utama',
         category: 'Pembayaran Tunggakan',
-        description: `Pelunasan Tunggakan Sebelumnya Blok ${house.blockNumber} (${house.headName})${
-          house.previousArrearsNote ? ` - ${house.previousArrearsNote}` : ''
-        }`,
+        description: `Pelunasan Seluruh Tunggakan Sebelumnya Blok ${house.blockNumber} (${house.duesHeadNameOverride || house.headName})`,
         amount: prevAmt,
       });
     }
@@ -237,7 +294,25 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       });
     }
 
-    // 2. Potong Denda Baksos (per kelipatan Rp 10.000 jika cukup)
+    // 1b. Potong Tunggakan Denda Baksos Lalu
+    if (remainingPayment > 0 && (house.previousBaksosArrears || 0) > 0) {
+      const deductBaksosPrev = Math.min(remainingPayment, house.previousBaksosArrears);
+      house.previousBaksosArrears -= deductBaksosPrev;
+      remainingPayment -= deductBaksosPrev;
+
+      onAddTransaction({
+        date: todayStr,
+        type: 'masuk',
+        pool: 'Kas Utama',
+        category: 'Pembayaran Tunggakan',
+        description: `Cicilan / Pembayaran Denda Baksos Lalu Blok ${house.blockNumber} (${house.duesHeadNameOverride || house.headName})${
+          partialNote ? ` - ${partialNote}` : ''
+        }`,
+        amount: deductBaksosPrev,
+      });
+    }
+
+    // 2. Potong Denda Baksos Agenda Berjalan (per kelipatan Rp 10.000 jika cukup)
     if (remainingPayment >= 10000 && partialPayItem.unpaidBaksosList.length > 0) {
       for (const agenda of partialPayItem.unpaidBaksosList) {
         if (remainingPayment >= 10000) {
@@ -327,8 +402,21 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
         type: 'masuk',
         pool: 'Kas Utama',
         category: 'Pembayaran Tunggakan',
-        description: `Pelunasan Tunggakan Sebelumnya Blok ${item.house.blockNumber} (${payerName})`,
+        description: `Pelunasan Tunggakan Iuran Sebelumnya Blok ${item.house.blockNumber} (${payerName})`,
         amount: item.previousArrears,
+      });
+    }
+
+    if (item.previousBaksosArrears > 0) {
+      onAddTransaction({
+        date: new Date().toISOString().slice(0, 10),
+        type: 'masuk',
+        pool: 'Kas Utama',
+        category: 'Pembayaran Tunggakan',
+        description: `Pelunasan Tunggakan Denda Baksos Sebelumnya Blok ${item.house.blockNumber} (${payerName})${
+          item.previousBaksosArrearsNote ? ` - ${item.previousBaksosArrearsNote}` : ''
+        }`,
+        amount: item.previousBaksosArrears,
       });
     }
 
@@ -341,6 +429,9 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
           ? new Date().toISOString().slice(0, 10)
           : item.house.duesPaidDate,
       previousArrears: 0,
+      previousArrearsNote: '',
+      previousBaksosArrears: 0,
+      previousBaksosArrearsNote: '',
     });
 
     try {
@@ -408,14 +499,15 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   const generateSingleBillingMessage = (item: typeof arrearsList[0]) => {
     const payerName = item.house.duesHeadNameOverride || item.house.headName;
     const prevNoteStr = item.previousArrearsNote ? ` (${item.previousArrearsNote})` : '';
+    const baksosNoteStr = item.previousBaksosArrearsNote ? ` (Termasuk denda lalu: ${item.previousBaksosArrearsNote})` : '';
     const monthStr = item.house.duesMonthNote || config.duesCurrentMonth || 'Bulan Berjalan';
     return (
       `Halo Bpk/Ibu *${payerName}* (Blok ${item.house.blockNumber}),\n` +
       `Salam hangat dan rukun warga Gang Mandor.\n\n` +
       `Kami dari pengurus menyampaikan rincian catatan tagihan kas/iuran gang yang perlu diselesaikan:\n` +
       `• Iuran Kas/Sampah (${monthStr}): ${formatRupiah(item.duesArrears)}\n` +
-      `• Denda Baksos (${item.unpaidBaksosList.length}x): ${formatRupiah(item.baksosFineArrears)}\n` +
-      `• Tunggakan Bulan/Tahun Lalu: ${formatRupiah(item.previousArrears)}${prevNoteStr}\n` +
+      `• Denda Baksos: ${formatRupiah(item.baksosFineArrears)}${baksosNoteStr}\n` +
+      `• Tunggakan Iuran Bulan/Tahun Lalu: ${formatRupiah(item.previousArrears)}${prevNoteStr}\n` +
       `────────────────────\n` +
       `*Total Tagihan: ${formatRupiah(item.totalArrears)}*\n\n` +
       `💳 *Rekening Pembayaran Kas Gang (Bendahara):*\n` +
@@ -658,7 +750,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
 
         <div className="bg-gradient-to-br from-amber-500 via-orange-500 to-amber-700 text-white p-5 rounded-2xl shadow-md shadow-amber-500/15">
           <span className="text-xs font-semibold text-amber-100 uppercase tracking-wider block">
-            Tunggakan Iuran Bulan Ini
+            Tunggakan Iuran Bulan Ini ({currentMonthLabel})
           </span>
           <div className="mt-2 text-2xl font-extrabold font-mono tracking-tight tabular-nums">
             {formatRupiah(
@@ -666,7 +758,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
             )}
           </div>
           <span className="text-xs text-amber-100 mt-1 block">
-            {arrearsList.filter((a) => a.duesArrears > 0).length} rumah belum lunas iuran berjalan
+            {arrearsList.filter((a) => a.duesArrears > 0).length} rumah belum lunas iuran {currentMonthLabel}
           </span>
         </div>
 
@@ -799,7 +891,9 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                   {/* Arrears Breakdown Grid */}
                   <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
                     <div>
-                      <span className="text-slate-500 text-[11px] block">Iuran Bulan Ini:</span>
+                      <span className="text-slate-500 text-[11px] block">
+                        Iuran Bulan Ini ({currentMonthLabel}):
+                      </span>
                       {item.house.occupancy === 'Kosong' ? (
                         <span className="text-slate-400 italic text-[11px]">Kosong</span>
                       ) : item.duesArrears > 0 ? (
@@ -916,7 +1010,9 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                 <th className="py-3 px-3 w-10 text-center">No</th>
                 <th className="py-3 px-3">No Blok</th>
                 <th className="py-3 px-3">Kepala Keluarga</th>
-                <th className="py-3 px-3 text-right">Iuran Bulan Ini</th>
+                <th className="py-3 px-3 text-right">
+                  Iuran Bulan Ini ({currentMonthLabel})
+                </th>
                 <th className="py-3 px-3 text-right">Tunggakan Bulan/Thn Lalu</th>
                 <th className="py-3 px-3">Keterangan Tunggakan Lalu</th>
                 <th className="py-3 px-3 text-right">Total Tunggakan</th>
@@ -1980,7 +2076,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-xs pt-1 border-t border-rose-200/60 font-mono">
                     <div className="p-2 rounded-xl bg-white border border-rose-100 text-center">
-                      <span className="text-[10px] text-slate-500 block font-sans">Iuran Kas:</span>
+                      <span className="text-[10px] text-slate-500 block font-sans">Iuran ({currentMonthLabel}):</span>
                       <strong className="text-rose-700">
                         {formatRupiah(singleBillingHouse.duesArrears)}
                       </strong>

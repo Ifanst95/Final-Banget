@@ -925,7 +925,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const isUnoccupied = house.occupancy === 'Belum Ditempati';
       const isAdvancePaid = house.duesStatus === 'Bayar Lebih';
       const isLunas = house.duesStatus === 'Lunas' || isAdvancePaid;
-      const defaultNominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
+      const targetPeriod = selectedKKPeriod !== 'semua' ? selectedKKPeriod : defaultMonthLabel;
+      const defaultNominal = getHouseDuesNominal(house, targetPeriod) || config.duesAmountPerMonth || 25000;
       const hasAnyPaid = isLunas || (house.duesPaidAmount || 0) > 0;
       // Rumah kosong murni default tidak wajib iuran (0 tagihan), namun rumah 'Belum Ditempati' tetap memiliki kewajiban iuran
       const isEmptyHouse = isPureKosong;
@@ -1026,7 +1027,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         historicalTxCount: houseTxs.length,
       };
     });
-  }, [residents, transactions, baksosAgendas, defaultMonthLabel, config.duesAmountPerMonth]);
+  }, [residents, transactions, baksosAgendas, defaultMonthLabel, config.duesAmountPerMonth, selectedKKPeriod]);
 
   // Sorted available periods for Kas Per KK
   // Bersumber langsung dari inputan Data Penarikan Keuangan (config.duesCurrentMonth) & seluruh periode
@@ -1255,8 +1256,15 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           ? getHouseStatusForPeriod(house, selectedKKPeriod)
           : null;
 
-      const defaultNominal = getHouseDuesNominal(house) || config.duesAmountPerMonth || 25000;
-      const nominal = item.nominalPerMonth || defaultNominal;
+      const defaultNominal =
+        getHouseDuesNominal(house, periodStr) ||
+        getHouseDuesNominalForPeriod(house, periodStr, config, transactions) ||
+        config.duesAmountPerMonth ||
+        25000;
+      const nominal =
+        selectedKKPeriod !== 'semua'
+          ? defaultNominal
+          : item.nominalPerMonth || defaultNominal;
       const isAdvanceSubsequent = Boolean(statusInfo?.isAdvanceSubsequentMonth);
 
       // Advance payment metadata enrichment
@@ -2241,6 +2249,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   // Helper untuk mengecek apakah rumah ini memiliki status bayar lebih / iuran lebih dari 1 bulan
   const isHouseAdvancePaid = (house: ResidentHouse, targetPeriod?: string): boolean => {
     if (!house) return false;
+    if (targetPeriod && targetPeriod !== 'semua') {
+      const s = getHouseStatusForPeriod(house, targetPeriod);
+      return Boolean(s.isAdvanceSubsequentMonth || s.status === 'Bayar Lebih');
+    }
     if (house.duesStatus === 'Bayar Lebih') return true;
     if ((house.duesPaidMonths || 0) > 1) return true;
     if ((house.duesPrepaidBalance || 0) > 0) return true;
@@ -2253,10 +2265,6 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         house.duesMonthNote.includes('-'))
     ) {
       return true;
-    }
-    if (targetPeriod && targetPeriod !== 'semua') {
-      const s = getHouseStatusForPeriod(house, targetPeriod);
-      if (s.isAdvanceSubsequentMonth || s.status === 'Bayar Lebih') return true;
     }
     return false;
   };
