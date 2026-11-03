@@ -2331,6 +2331,7 @@ export interface OverallKKRecapItem {
   grandTotalAllPeriods: number;
   totalPeriodsCount: number;
   totalPeriodsPaidCount: number;
+  unpaidPeriodsCount: number;
   currentMonthDuesArrears: number;
   previousDuesArrears: number;
   previousArrearsNote: string;

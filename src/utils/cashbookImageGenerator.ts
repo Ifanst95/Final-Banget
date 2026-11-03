@@ -83,9 +83,10 @@ function fitText(
   text: string,
   maxWidth: number
 ): string {
+  if (!text) return '';
   if (ctx.measureText(text).width <= maxWidth) return text;
   let truncated = text;
-  while (truncated.length > 4 && ctx.measureText(truncated + '...').width > maxWidth) {
+  while (truncated.length > 3 && ctx.measureText(truncated + '...').width > maxWidth) {
     truncated = truncated.slice(0, -1);
   }
   return truncated + '...';
@@ -98,6 +99,13 @@ function fitText(
 export async function generateCashbookImage(
   params: CashbookImageParams
 ): Promise<{ dataUrl: string; blob: Blob }> {
+  // Pastikan seluruh custom fonts (Outfit, Plus Jakarta Sans, JetBrains Mono) selesai dimuat sebelum rendering canvas
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+    try {
+      await document.fonts.ready;
+    } catch {}
+  }
+
   const {
     brandName,
     periodLabel,
@@ -142,12 +150,12 @@ export async function generateCashbookImage(
   const grandBannerH = 125;
   const footerH = 65;
 
-  const totalRowsCount = cashbookRows.length;
+  const rowsToRenderCount = Math.max(1, cashbookRows.length);
   const totalTableH =
     thRowH +
     prevMonthRowH +
     rekapRowH +
-    totalRowsCount * itemRowH +
+    rowsToRenderCount * itemRowH +
     tfRowH;
 
   const canvasHeight =
@@ -401,63 +409,80 @@ export async function generateCashbookImage(
   }
 
   // 2.4 Transaction Rows
-  cashbookRows.forEach((row, idx) => {
+  if (cashbookRows.length === 0) {
     ctx.save();
-    // Alternating rows
-    ctx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(marginX, curY, contentWidth, itemRowH);
-
     drawRowBorder(curY + itemRowH);
-
-    // No
-    ctx.fillStyle = '#64748b';
-    ctx.font = '500 12px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'italic 12px "Plus Jakarta Sans", system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(String(row.no), colX.no + colW.no / 2, curY + 30);
-
-    // Tanggal
-    ctx.fillStyle = '#334155';
-    ctx.fillText(row.date, colX.date + colW.date / 2, curY + 30);
-
-    // Uraian
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#0f172a';
-    ctx.font = '600 12px "Plus Jakarta Sans", system-ui, sans-serif';
-    const fittedDesc = fitText(ctx, row.description, colW.desc - 130);
-    ctx.fillText(fittedDesc, colX.desc + 16, curY + 24);
-
-    // Small category tag
-    ctx.font = '500 10px "Plus Jakarta Sans", system-ui, sans-serif';
-    ctx.fillStyle = row.isMasuk ? '#0284c7' : '#e11d48';
-    ctx.fillText(`[${row.subCategoryLabel || row.pool}]`, colX.desc + 16, curY + 40);
-
-    // Masuk (+)
-    ctx.textAlign = 'right';
-    ctx.font = 'bold 12.5px "JetBrains Mono", monospace';
-    if (row.isMasuk) {
-      ctx.fillStyle = '#059669';
-      ctx.fillText(`+${formatRupiah(row.amount)}`, colX.masuk + colW.masuk - 16, curY + 30);
-    } else {
-      ctx.fillStyle = '#cbd5e1';
-      ctx.fillText('-', colX.masuk + colW.masuk - 16, curY + 30);
-    }
-
-    // Keluar (-)
-    if (!row.isMasuk) {
-      ctx.fillStyle = '#e11d48';
-      ctx.fillText(`-${formatRupiah(row.amount)}`, colX.keluar + colW.keluar - 16, curY + 30);
-    } else {
-      ctx.fillStyle = '#cbd5e1';
-      ctx.fillText('-', colX.keluar + colW.keluar - 16, curY + 30);
-    }
-
-    // Saldo
-    ctx.fillStyle = '#0f172a';
-    ctx.fillText(formatRupiah(row.runningBalance), colX.saldo + colW.saldo - 16, curY + 30);
+    ctx.fillText(
+      '- Tidak ada transaksi mutasi tambahan pada periode ini -',
+      marginX + contentWidth / 2,
+      curY + 30
+    );
     ctx.restore();
-
     curY += itemRowH;
-  });
+  } else {
+    cashbookRows.forEach((row, idx) => {
+      ctx.save();
+      // Alternating rows
+      ctx.fillStyle = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+      ctx.fillRect(marginX, curY, contentWidth, itemRowH);
+
+      drawRowBorder(curY + itemRowH);
+
+      // No
+      ctx.fillStyle = '#64748b';
+      ctx.font = '500 12px "JetBrains Mono", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(row.no), colX.no + colW.no / 2, curY + 30);
+
+      // Tanggal
+      ctx.fillStyle = '#334155';
+      ctx.fillText(row.date, colX.date + colW.date / 2, curY + 30);
+
+      // Uraian
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '600 12px "Plus Jakarta Sans", system-ui, sans-serif';
+      const fittedDesc = fitText(ctx, row.description || '', colW.desc - 32);
+      ctx.fillText(fittedDesc, colX.desc + 16, curY + 24);
+
+      // Small category tag
+      ctx.font = '500 10px "Plus Jakarta Sans", system-ui, sans-serif';
+      ctx.fillStyle = row.isMasuk ? '#0284c7' : '#e11d48';
+      ctx.fillText(`[${row.subCategoryLabel || row.pool}]`, colX.desc + 16, curY + 40);
+
+      // Masuk (+)
+      ctx.textAlign = 'right';
+      ctx.font = 'bold 12.5px "JetBrains Mono", monospace';
+      if (row.isMasuk) {
+        ctx.fillStyle = '#059669';
+        ctx.fillText(`+${formatRupiah(row.amount)}`, colX.masuk + colW.masuk - 16, curY + 30);
+      } else {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText('-', colX.masuk + colW.masuk - 16, curY + 30);
+      }
+
+      // Keluar (-)
+      if (!row.isMasuk) {
+        ctx.fillStyle = '#e11d48';
+        ctx.fillText(`-${formatRupiah(row.amount)}`, colX.keluar + colW.keluar - 16, curY + 30);
+      } else {
+        ctx.fillStyle = '#cbd5e1';
+        ctx.fillText('-', colX.keluar + colW.keluar - 16, curY + 30);
+      }
+
+      // Saldo
+      ctx.fillStyle = '#0f172a';
+      ctx.fillText(formatRupiah(row.runningBalance), colX.saldo + colW.saldo - 16, curY + 30);
+      ctx.restore();
+
+      curY += itemRowH;
+    });
+  }
 
   // 2.5 Table Footer (TF)
   ctx.save();
@@ -538,12 +563,14 @@ export async function generateCashbookImage(
     ctx.fillStyle = '#475569';
     ctx.font = '600 11px "Plus Jakarta Sans", system-ui, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(label, x + 10, y + 18);
+    const fittedLabel = fitText(ctx, label, w * 0.52);
+    ctx.fillText(fittedLabel, x + 10, y + 18);
 
     ctx.fillStyle = valColor;
-    ctx.font = 'bold 11.5px "JetBrains Mono", monospace';
+    ctx.font = 'bold 11px "JetBrains Mono", monospace';
     ctx.textAlign = 'right';
-    ctx.fillText(val, x + w - 10, y + 18);
+    const fittedVal = fitText(ctx, val, w * 0.44);
+    ctx.fillText(fittedVal, x + w - 10, y + 18);
     ctx.restore();
   };
 
@@ -566,9 +593,10 @@ export async function generateCashbookImage(
   ctx.font = '500 10.5px "Plus Jakarta Sans", system-ui, sans-serif';
   ctx.fillText(`Periode: ${prevMonthSummary.prevMonthLabel}`, c1X + cardW / 2, curY + 44);
 
-  drawKvRow('Saldo Kas Utama:', formatRupiah(prevMonthSummary.kasUtama), c1X + 12, curY + 54, cardW - 24, '#047857');
-  drawKvRow('Saldo Cashback WiFi:', formatRupiah(prevMonthSummary.wifiCashback), c1X + 12, curY + 88, cardW - 24, '#1d4ed8');
-  drawKvRow('Saldo Cashback Sampah:', formatRupiah(prevMonthSummary.sampahCashback), c1X + 12, curY + 122, cardW - 24, '#0f766e');
+  drawKvRow('1. Saldo Kas Utama:', formatRupiah(prevMonthSummary.kasUtama), c1X + 12, curY + 54, cardW - 24, '#047857');
+  drawKvRow('2. Saldo Cashback WiFi:', formatRupiah(prevMonthSummary.wifiCashback), c1X + 12, curY + 88, cardW - 24, '#1d4ed8');
+  drawKvRow('3. Saldo Cashback Sampah:', formatRupiah(prevMonthSummary.sampahCashback), c1X + 12, curY + 122, cardW - 24, '#0f766e');
+  drawKvRow('4. Status Kas Awal:', 'Saldo Kas Terverifikasi', c1X + 12, curY + 156, cardW - 24, '#b45309', '#fef9c3');
 
   // Total bottom strip
   ctx.fillStyle = '#d97706'; // amber-600

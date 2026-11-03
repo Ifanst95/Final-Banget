@@ -375,6 +375,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [waRecapMode, setWaRecapMode] = useState<
     'gambar_kas' | 'keluar_masuk' | 'iuran_kk' | 'rekap_total_kk'
   >('gambar_kas');
+  const [waSelectedMonth, setWaSelectedMonth] = useState<string>('');
   const [copiedWaText, setCopiedWaText] = useState<boolean>(false);
   const [waCustomText, setWaCustomText] = useState<string>('');
   const [waImageDataUrl, setWaImageDataUrl] = useState<string | null>(null);
@@ -3470,29 +3471,262 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     setDeletePeriodSelect('');
   };
 
+  // TARGET PERIODE LAPORAN KEUANGAN WHATSAPP (Mendukung pemilihan bulan spesifik atau bulan berjalan)
+  const waTargetMonthKey =
+    waSelectedMonth ||
+    (effectiveMonthKey !== 'semua'
+      ? effectiveMonthKey
+      : parseIndonesianMonthYearToKey(config.duesCurrentMonth || defaultMonthLabel) || '2026-10');
+  const waTargetMonthLabel =
+    waTargetMonthKey !== 'semua'
+      ? formatMonthYearFromKey(waTargetMonthKey)
+      : 'Semua Periode';
+
+  // Sisa saldo awal bulan sebelumnya yang terverifikasi untuk periode target WhatsApp
+  const waPrevMonthSummary = useMemo(() => {
+    return calculatePreviousMonthBalanceSummary(
+      transactions,
+      waTargetMonthKey,
+      residents,
+      config,
+      baksosAgendas
+    );
+  }, [transactions, waTargetMonthKey, residents, config, baksosAgendas]);
+
+  // Seluruh transaksi periode ini (Murni dari buku kas, tanpa terpengaruh filterPool/searchTx di layar luar)
+  const waPeriodTransactions = useMemo(() => {
+    return transactions
+      .filter((t) => {
+        if (waTargetMonthKey === 'semua') return true;
+        return getMonthKeyFromDate(t.date) === waTargetMonthKey;
+      })
+      .sort((a, b) => {
+        const cmp = a.date.localeCompare(b.date);
+        if (cmp !== 0) return cmp;
+        if (a.type !== b.type) return a.type === 'masuk' ? -1 : 1;
+        return a.description.localeCompare(b.description);
+      });
+  }, [transactions, waTargetMonthKey]);
+
+  // Rekap Iuran KK, Denda Baksos, dan Pembayaran Tunggakan untuk periode target WhatsApp
+  const waRekapData = useMemo(() => {
+    let sumIuran = 0;
+    let sumDenda = 0;
+    let sumTunggakan = 0;
+
+    if (waTargetMonthKey === 'semua') {
+      sumIuran = overallTotals.sumIuran;
+      sumDenda = overallTotals.sumDenda;
+      sumTunggakan = overallTotals.sumTunggakan;
+    } else {
+      residents.forEach((house) => {
+        const effectiveOccupancy = getHouseOccupancyForPeriod(house, waTargetMonthLabel, transactions);
+        const isPureKosong = effectiveOccupancy === 'Kosong';
+        const statusInfo = getHouseStatusForPeriod(house, waTargetMonthLabel);
+        const defaultNominal = getHouseDuesNominal(house, waTargetMonthLabel) || config.duesAmountPerMonth || 25000;
+        const nominal = isPureKosong ? 0 : defaultNominal;
+
+        const isAdvancePaid = house.duesStatus === 'Bayar Lebih';
+        const isLunas = house.duesStatus === 'Lunas' || isAdvancePaid;
+
+        const iuranPaid = isPureKosong
+          ? (statusInfo && statusInfo.status === 'Lunas' ? (statusInfo.amount || 0) : 0)
+          : statusInfo
+          ? statusInfo.isAdvanceSubsequentMonth
+            ? 0
+            : statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih'
+            ? (statusInfo.amount !== undefined ? statusInfo.amount : nominal)
+            : statusInfo.amount || 0
+          : isLunas
+          ? nominal * (isAdvancePaid ? Math.max(1, house.duesPaidMonths || 1) : 1)
+          : house.duesPaidAmount || 0;
+
+        const baksosInfo = getHouseBaksosForPeriod(house, waTargetMonthLabel);
+        const dendaPaid = baksosInfo.dendaPaid;
+
+        const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+        const tunggakanTxs = transactions.filter((t) => {
+          if (t.type !== 'masuk' || !isTunggakanTx(t) || !blockRegex.test(t.description)) return false;
+          return getMonthKeyFromDate(t.date) === waTargetMonthKey;
+        });
+        const tunggakanPaid = isPureKosong ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
+
+        sumIuran += iuranPaid;
+        sumDenda += dendaPaid;
+        sumTunggakan += tunggakanPaid;
+      });
+    }
+
+    const totalPenerimaan = sumIuran + sumDenda + sumTunggakan;
+    return {
+      sumIuran,
+      sumDenda,
+      sumTunggakan,
+      totalPenerimaan,
+    };
+  }, [
+    waTargetMonthKey,
+    waTargetMonthLabel,
+    residents,
+    transactions,
+    getHouseOccupancyForPeriod,
+    getHouseStatusForPeriod,
+    getHouseDuesNominal,
+    config.duesAmountPerMonth,
+    getHouseBaksosForPeriod,
+    overallTotals,
+  ]);
+
+  // Transaksi sisa untuk pembukuan kas (pengeluaran gang, WiFi, sampah, kas lainnya)
+  const waRemainingRows = useMemo(() => {
+    let running = waPrevMonthSummary.total + waRekapData.totalPenerimaan;
+    let itemNumber = 2;
+
+    const filteredTxs = waPeriodTransactions.filter((tx) => {
+      const cat = tx.category || '';
+      const desc = (tx.description || '').toLowerCase();
+      if (cat === 'Iuran Warga' || cat === 'Denda Baksos' || cat === 'Pembayaran Tunggakan') return false;
+      if (isPureIuranTx(tx) || isTunggakanTx(tx)) return false;
+      if (desc.includes('iuran bulanan') || desc.includes('pelunasan denda baksos') || desc.includes('pelunasan tunggakan')) return false;
+      return true;
+    });
+
+    return filteredTxs.map((tx) => {
+      const isMasuk = tx.type === 'masuk';
+      const cat = tx.category || '';
+      const isWifi =
+        cat === 'Cashback WiFi' ||
+        cat === 'Pengeluaran Cashback WiFi' ||
+        (tx.pool === 'Cashback WiFi' && cat !== 'Pengeluaran Gang' && cat !== 'Kas Utama');
+      const isSampah =
+        cat === 'Cashback Sampah' ||
+        cat === 'Pengeluaran Cashback Sampah' ||
+        (tx.pool === 'Cashback Sampah' && cat !== 'Pengeluaran Gang' && cat !== 'Kas Utama');
+
+      let masukWifi = 0;
+      let masukSampah = 0;
+      let keluarKasUtama = 0;
+      let keluarWifi = 0;
+      let keluarSampah = 0;
+
+      if (isMasuk) {
+        running += tx.amount;
+        if (isWifi) masukWifi = tx.amount;
+        else if (isSampah) masukSampah = tx.amount;
+      } else {
+        running -= tx.amount;
+        if (isWifi) keluarWifi = tx.amount;
+        else if (isSampah) keluarSampah = tx.amount;
+        else keluarKasUtama = tx.amount;
+      }
+
+      return {
+        tx,
+        no: itemNumber++,
+        date: formatDateDDMMYYYY(tx.date),
+        description: tx.description,
+        subCategoryLabel: isWifi
+          ? isMasuk ? 'Cashback WiFi' : 'Pengeluaran WiFi'
+          : isSampah
+          ? isMasuk ? 'Cashback Sampah' : 'Pengeluaran Sampah'
+          : isMasuk
+          ? cat || 'Kas Masuk'
+          : cat || 'Pengeluaran Gang',
+        pool: tx.pool,
+        isMasuk,
+        isWifi,
+        isSampah,
+        masukWifi,
+        masukSampah,
+        keluarKasUtama,
+        keluarWifi,
+        keluarSampah,
+        amount: tx.amount,
+        runningBalance: running,
+      };
+    });
+  }, [waPrevMonthSummary, waRekapData, waPeriodTransactions]);
+
+  // Total rekapitulasi buku kas WA
+  const waTableTotals = useMemo(() => {
+    let sumMasukKasLain = 0;
+    let sumMasukWifi = 0;
+    let sumMasukSampah = 0;
+    let sumKeluarKasUtama = 0;
+    let sumKeluarWifi = 0;
+    let sumKeluarSampah = 0;
+
+    waRemainingRows.forEach((item) => {
+      sumMasukWifi += item.masukWifi;
+      sumMasukSampah += item.masukSampah;
+      sumKeluarKasUtama += item.keluarKasUtama;
+      sumKeluarWifi += item.keluarWifi;
+      sumKeluarSampah += item.keluarSampah;
+      if (item.isMasuk && !item.isWifi && !item.isSampah) {
+        sumMasukKasLain += item.amount;
+      }
+    });
+
+    const sumMasukKasUtama = waRekapData.sumIuran + waRekapData.sumDenda + waRekapData.sumTunggakan + sumMasukKasLain;
+    const sumMasukCashback = sumMasukWifi + sumMasukSampah;
+    const sumKeluarCashback = sumKeluarWifi + sumKeluarSampah;
+
+    const netKasUtama = sumMasukKasUtama - sumKeluarKasUtama;
+    const netWifi = sumMasukWifi - sumKeluarWifi;
+    const netSampah = sumMasukSampah - sumKeluarSampah;
+    const netCashback = sumMasukCashback - sumKeluarCashback;
+    const netPeriod = (sumMasukKasUtama + sumMasukCashback) - (sumKeluarKasUtama + sumKeluarCashback);
+
+    const finalKasUtama = waPrevMonthSummary.kasUtama + netKasUtama;
+    const finalWifi = waPrevMonthSummary.wifiCashback + netWifi;
+    const finalSampah = waPrevMonthSummary.sampahCashback + netSampah;
+    const finalCashback = finalWifi + finalSampah;
+    const finalSaldo = waPrevMonthSummary.total + netPeriod;
+
+    return {
+      sumMasukKasUtama,
+      sumMasukCashback,
+      sumKeluarKasUtama,
+      sumKeluarCashback,
+      finalKasUtama,
+      finalWifi,
+      finalSampah,
+      finalCashback,
+      finalSaldo,
+      netKasUtama,
+    };
+  }, [waRemainingRows, waRekapData, waPrevMonthSummary]);
+
   // WHATSAPP RECAP BUILDER
   const previewWaText = useMemo(() => {
     const brand = config.brandName || 'Warga Gang Mandor';
-    const periodTitle = selectedTxMonth === 'semua' ? 'Semua Periode' : formatMonthYearFromKey(selectedTxMonth);
     const dateNow = new Date().toLocaleDateString('id-ID', { dateStyle: 'long' });
 
     if (waRecapMode === 'keluar_masuk') {
+      const totalIn = waTableTotals.sumMasukKasUtama + waTableTotals.sumMasukCashback;
+      const totalOut = waTableTotals.sumKeluarKasUtama + waTableTotals.sumKeluarCashback;
+      const net = totalIn - totalOut;
+
       return (
-        `*LAPORAN KAS KELUAR MASUK — ${brand.toUpperCase()}*\n` +
-        `Periode: ${periodTitle} (Per ${dateNow})\n\n` +
-        `*1. RINGKASAN SALDO SAAT INI:*\n` +
-        `• Saldo Kas Utama: ${formatRupiah(balances.kasUtama)}\n` +
-        `• Cashback WiFi: ${formatRupiah(balances.wifiCashback)}\n` +
-        `• Cashback Sampah: ${formatRupiah(balances.sampahCashback)}\n` +
-        `👉 *TOTAL SALDO: ${formatRupiah(balances.total)}*\n\n` +
-        `*2. MUTASI PERIODE INI:*\n` +
-        `• Total Masuk: +${formatRupiah(periodSummary.totalInflow)}\n` +
-        `  - Iuran Kas: ${formatRupiah(periodSummary.iuranInflow)}\n` +
-        `  - WiFi & Sampah: ${formatRupiah(periodSummary.wifiInflow + periodSummary.sampahInflow)}\n` +
-        `  - Denda / Lainnya: ${formatRupiah(periodSummary.dendaInflow + periodSummary.otherInflow)}\n` +
-        `• Total Keluar: -${formatRupiah(periodSummary.totalOutflow)}\n` +
-        `• Arus Kas Bersih: ${periodSummary.netCashflow >= 0 ? '+' : ''}${formatRupiah(periodSummary.netCashflow)}\n\n` +
-        `_Transparansi bersama untuk kemakmuran warga._`
+        `*LAPORAN BUKU KAS KELUAR & MASUK — ${brand.toUpperCase()}*\n` +
+        `Periode: *${waTargetMonthLabel}* (Per ${dateNow})\n\n` +
+        `*1. SISA SALDO AKHIR KESELURUHAN:*\n` +
+        `• Saldo Kas Utama: ${formatRupiah(waTableTotals.finalKasUtama)}\n` +
+        `• Cashback WiFi: ${formatRupiah(waTableTotals.finalWifi)}\n` +
+        `• Cashback Sampah: ${formatRupiah(waTableTotals.finalSampah)}\n` +
+        `👉 *TOTAL SISA SALDO: ${formatRupiah(waTableTotals.finalSaldo)}*\n\n` +
+        `*2. REKAPITULASI PENERIMAAN KAS (${waTargetMonthLabel}):*\n` +
+        `• Total Penerimaan Kas Masuk: +${formatRupiah(totalIn)}\n` +
+        `  - Iuran Rutin Warga: ${formatRupiah(waRekapData.sumIuran)}\n` +
+        (waRekapData.sumDenda > 0 ? `  - Denda Gotong Royong/Baksos: +${formatRupiah(waRekapData.sumDenda)}\n` : '') +
+        (waRekapData.sumTunggakan > 0 ? `  - Pelunasan Tunggakan Lalu: +${formatRupiah(waRekapData.sumTunggakan)}\n` : '') +
+        (waTableTotals.sumMasukCashback > 0 ? `  - Cashback Masuk (WiFi/Sampah): +${formatRupiah(waTableTotals.sumMasukCashback)}\n` : '') +
+        `\n*3. REKAPITULASI PENGELUARAN (${waTargetMonthLabel}):*\n` +
+        `• Total Pengeluaran Kas: -${formatRupiah(totalOut)}\n` +
+        `  - Pengeluaran Kas Utama: -${formatRupiah(waTableTotals.sumKeluarKasUtama)}\n` +
+        (waTableTotals.sumKeluarCashback > 0 ? `  - Pengeluaran Cashback (WiFi/Sampah): -${formatRupiah(waTableTotals.sumKeluarCashback)}\n` : '') +
+        `• Arus Kas Bersih: ${net >= 0 ? '+' : ''}${formatRupiah(net)}\n\n` +
+        `_Laporan resmi pembukuan kas warga yang transparan & akuntabel._`
       );
     } else if (waRecapMode === 'rekap_total_kk') {
       const occupied = residents.filter((r) => r.occupancy !== 'Kosong');
@@ -3545,19 +3779,28 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       );
     } else {
       const occupied = residents.filter((r) => r.occupancy !== 'Kosong');
-      const lunasList = occupied.filter((r) => r.duesStatus === 'Lunas' || r.duesStatus === 'Bayar Lebih');
-      const belumList = occupied.filter((r) => r.duesStatus === 'Belum Bayar');
+      const lunasList = occupied.filter((r) => {
+        const info = getHouseStatusForPeriod(r, waTargetMonthLabel);
+        return info.status === 'Lunas' || info.status === 'Bayar Lebih' || info.isAdvanceSubsequentMonth;
+      });
+      const belumList = occupied.filter((r) => {
+        const info = getHouseStatusForPeriod(r, waTargetMonthLabel);
+        return info.status === 'Belum Bayar';
+      });
 
       return (
         `*REKAP IURAN KAS PER KK — ${brand.toUpperCase()}*\n` +
-        `Bulan: ${defaultMonthLabel} (Per ${dateNow})\n\n` +
+        `Bulan: *${waTargetMonthLabel}* (Per ${dateNow})\n\n` +
         `*Ringkasan:*\n` +
         `• Sudah Bayar: ${lunasList.length} KK\n` +
         `• Belum Bayar: ${belumList.length} KK\n` +
-        `• Total Terkumpul: ${formatRupiah(kkStats.totalCollected)}\n\n` +
+        `• Total Iuran Terkumpul: ${formatRupiah(waRekapData.sumIuran)}\n` +
+        (waRekapData.sumDenda > 0 ? `• Denda Baksos: ${formatRupiah(waRekapData.sumDenda)}\n` : '') +
+        (waRekapData.sumTunggakan > 0 ? `• Tunggakan Lalu Terbayar: ${formatRupiah(waRekapData.sumTunggakan)}\n` : '') +
+        `👉 *Total Penerimaan Kas: ${formatRupiah(waRekapData.totalPenerimaan)}*\n\n` +
         (belumList.length > 0
           ? `*Daftar Belum Bayar (${belumList.length} KK):*\n` +
-            belumList.map((r, i) => `${i + 1}. Blok ${r.blockNumber} (${r.headName})`).join('\n') +
+            belumList.map((r, i) => `${i + 1}. Blok ${r.blockNumber} (${r.duesHeadNameOverride || r.headName})`).join('\n') +
             '\n\n'
           : 'Alhamdulillah seluruh warga telah lunas iuran bulan ini.\n\n') +
         `_Terima kasih atas partisipasi dan kerukunan seluruh warga._`
@@ -3565,62 +3808,62 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     }
   }, [
     config,
-    selectedTxMonth,
-    balances,
-    periodSummary,
-    residents,
-    defaultMonthLabel,
-    kkStats,
+    waTargetMonthLabel,
     waRecapMode,
+    waTableTotals,
+    waRekapData,
+    residents,
+    sortedPeriods,
+    periodSummaries,
     overallTotals,
     overallStats,
     overallKKRecapList,
-    sortedPeriods,
+    getHouseStatusForPeriod,
   ]);
 
   // GENERATOR BENTUK GAMBAR BUKU KAS KELUAR MASUK UNTUK WHATSAPP
   const generateWaImageNow = useCallback(async () => {
     setIsGeneratingImage(true);
     try {
-      const activePeriodTitle =
-        effectiveMonthKey !== 'semua'
-          ? formatMonthYearFromKey(effectiveMonthKey)
-          : defaultMonthLabel;
+      const firstDate = waPeriodTransactions[0]
+        ? formatDateDDMMYYYY(waPeriodTransactions[0].date)
+        : '01/10/2026';
 
       const res = await generateCashbookImage({
         brandName: config.brandName || config.title || 'Warga Gang Mandor Blok K2/25 - K3/24',
-        periodLabel: activePeriodTitle,
+        periodLabel: waTargetMonthLabel,
         prevMonthSummary: {
-          prevMonthLabel: prevMonthSummary.prevMonthLabel,
-          kasUtama: prevMonthSummary.kasUtama,
-          wifiCashback: prevMonthSummary.wifiCashback,
-          sampahCashback: prevMonthSummary.sampahCashback,
-          total: prevMonthSummary.total,
+          prevMonthLabel: waPrevMonthSummary.prevMonthLabel,
+          kasUtama: waPrevMonthSummary.kasUtama,
+          wifiCashback: waPrevMonthSummary.wifiCashback,
+          sampahCashback: waPrevMonthSummary.sampahCashback,
+          total: waPrevMonthSummary.total,
         },
-        rekapIuranRow: simplifiedCashbookData.rekapIuranRow
-          ? {
-              no: simplifiedCashbookData.rekapIuranRow.no,
-              date: simplifiedCashbookData.rekapIuranRow.date,
-              description: simplifiedCashbookData.rekapIuranRow.description,
-              masuk: simplifiedCashbookData.rekapIuranRow.masuk,
-              keluar: 0,
-              runningBalance: simplifiedCashbookData.rekapIuranRow.runningBalance,
-              effectiveTotalIuran: simplifiedCashbookData.effectiveTotalIuran,
-              effectiveTotalDenda: simplifiedCashbookData.effectiveTotalDenda,
-              effectiveTotalTunggakan: simplifiedCashbookData.effectiveTotalTunggakan,
-            }
-          : null,
-        cashbookRows: simplifiedCashbookData.remainingCashbookRows.map((r) => ({
+        rekapIuranRow: {
+          no: 1,
+          date: firstDate,
+          description:
+            waTargetMonthKey === 'semua'
+              ? 'Total Penerimaan Kas'
+              : `Total Penerimaan Kas ${waTargetMonthLabel}`,
+          masuk: waRekapData.totalPenerimaan,
+          keluar: 0,
+          runningBalance: waPrevMonthSummary.total + waRekapData.totalPenerimaan,
+          effectiveTotalIuran: waRekapData.sumIuran,
+          effectiveTotalDenda: waRekapData.sumDenda,
+          effectiveTotalTunggakan: waRekapData.sumTunggakan,
+        },
+        cashbookRows: waRemainingRows.map((r) => ({
           no: r.no,
           date: r.date,
           description: r.description,
           subCategoryLabel: r.subCategoryLabel,
-          pool: r.tx.pool,
+          pool: r.pool,
           isMasuk: r.isMasuk,
-          amount: r.tx.amount,
+          amount: r.amount,
           runningBalance: r.runningBalance,
         })),
-        tableTotals,
+        tableTotals: waTableTotals,
       });
 
       setWaImageDataUrl(res.dataUrl);
@@ -3633,11 +3876,13 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   }, [
     config.brandName,
     config.title,
-    effectiveMonthKey,
-    defaultMonthLabel,
-    prevMonthSummary,
-    simplifiedCashbookData,
-    tableTotals,
+    waTargetMonthLabel,
+    waTargetMonthKey,
+    waPeriodTransactions,
+    waPrevMonthSummary,
+    waRekapData,
+    waRemainingRows,
+    waTableTotals,
   ]);
 
   // Otomatis generate gambar saat modal dibuka atau periode berganti
@@ -3645,15 +3890,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     if (isWaModalOpen && waRecapMode === 'gambar_kas') {
       generateWaImageNow();
     }
-  }, [isWaModalOpen, waRecapMode, generateWaImageNow]);
+  }, [isWaModalOpen, waRecapMode, generateWaImageNow, waTargetMonthKey]);
 
   const handleDownloadWaImage = () => {
     if (!waImageDataUrl) return;
-    const activePeriod =
-      effectiveMonthKey !== 'semua'
-        ? formatMonthYearFromKey(effectiveMonthKey)
-        : defaultMonthLabel;
-    const cleanPeriod = activePeriod.replace(/[^a-zA-Z0-9]/g, '_');
+    const cleanPeriod = waTargetMonthLabel.replace(/[^a-zA-Z0-9]/g, '_');
     const a = document.createElement('a');
     a.href = waImageDataUrl;
     a.download = `Laporan_Buku_Kas_${cleanPeriod}.png`;
@@ -3665,7 +3906,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const handleCopyWaImage = async () => {
     if (!waImageBlob) return;
     try {
-      if (navigator.clipboard && (window as any).ClipboardItem) {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && (window as any).ClipboardItem) {
         await navigator.clipboard.write([
           new (window as any).ClipboardItem({ 'image/png': waImageBlob }),
         ]);
@@ -3680,32 +3921,33 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   };
 
   const handleShareWaImage = async () => {
-    const activePeriod =
-      effectiveMonthKey !== 'semua'
-        ? formatMonthYearFromKey(effectiveMonthKey)
-        : defaultMonthLabel;
-    const cleanPeriod = activePeriod.replace(/[^a-zA-Z0-9]/g, '_');
+    const cleanPeriod = waTargetMonthLabel.replace(/[^a-zA-Z0-9]/g, '_');
     const fileName = `Laporan_Buku_Kas_${cleanPeriod}.png`;
 
-    if (waImageBlob && navigator.canShare && navigator.share) {
+    if (waImageBlob && typeof navigator !== 'undefined' && navigator.canShare && navigator.share) {
       try {
         const file = new File([waImageBlob], fileName, { type: 'image/png' });
         if (navigator.canShare({ files: [file] })) {
           await navigator.share({
             files: [file],
-            title: `Laporan Kas Gang Mandor - ${activePeriod}`,
-            text: `Laporan Buku Kas Keluar & Masuk Gang Mandor Periode ${activePeriod}.\nTotal Sisa Saldo Keseluruhan: ${formatRupiah(tableTotals.finalSaldo)}`,
+            title: `Laporan Kas Gang Mandor - ${waTargetMonthLabel}`,
+            text: `Laporan Buku Kas Keluar & Masuk Gang Mandor Periode ${waTargetMonthLabel}.\nTotal Sisa Saldo Keseluruhan: ${formatRupiah(waTableTotals.finalSaldo)}`,
           });
           return;
         }
-      } catch {
-        // Fallback below
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
       }
     }
 
+    handleCopyWaImage();
     handleDownloadWaImage();
     openWhatsAppShare(
-      `*LAPORAN BUKU KAS KELUAR & MASUK GANG MANDOR*\nPeriode: ${activePeriod}\n👉 *TOTAL SISA SALDO KESELURUHAN: ${formatRupiah(tableTotals.finalSaldo)}*\n(Kas Utama: ${formatRupiah(tableTotals.finalKasUtama)} | Cashback: ${formatRupiah(tableTotals.finalCashback)})\n\n_Gambar laporan kas berhasil diunduh. Silakan lampirkan gambar ini ke chat WhatsApp._`
+      `*LAPORAN BUKU KAS KELUAR & MASUK GANG MANDOR*\n` +
+      `Periode: *${waTargetMonthLabel}*\n` +
+      `👉 *TOTAL SISA SALDO KESELURUHAN: ${formatRupiah(waTableTotals.finalSaldo)}*\n` +
+      `(Kas Utama: ${formatRupiah(waTableTotals.finalKasUtama)} | Cashback: ${formatRupiah(waTableTotals.finalCashback)})\n\n` +
+      `_Gambar laporan kas telah tersalin di clipboard (Ctrl+V) & terunduh. Silakan tempelkan ke chat WhatsApp._`
     );
   };
 
@@ -3765,7 +4007,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
             <button
               type="button"
               onClick={() => {
-                setWaCustomText(previewWaText);
+                setWaSelectedMonth(effectiveMonthKey !== 'semua' ? effectiveMonthKey : defaultMonthKey);
+                setWaCustomText('');
                 setWaRecapMode('gambar_kas');
                 setIsWaModalOpen(true);
               }}
@@ -8442,6 +8685,43 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
 
             {/* Modal Body */}
             <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+              {/* Pilihan Periode Laporan Keuangan */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-emerald-50/80 border border-emerald-200/90 rounded-2xl">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-emerald-600 text-white rounded-lg shrink-0">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-xs font-extrabold text-emerald-950 block leading-tight">
+                      Periode Laporan WhatsApp:
+                    </span>
+                    <span className="text-[11px] text-emerald-700">
+                      Pilih bulan yang ingin dibagikan ke warga
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={waSelectedMonth || waTargetMonthKey}
+                    onChange={(e) => {
+                      setWaSelectedMonth(e.target.value);
+                      setWaCustomText('');
+                    }}
+                    className="w-full sm:w-auto bg-white border-2 border-emerald-400 text-slate-800 font-bold py-1.5 px-3 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500 cursor-pointer shadow-2xs"
+                  >
+                    {sortedPeriods.map((p) => {
+                      const pKey = parseIndonesianMonthYearToKey(p) || p;
+                      return (
+                        <option key={p} value={pKey}>
+                          {p} {p === defaultMonthLabel ? '(Bulan Berjalan)' : ''}
+                        </option>
+                      );
+                    })}
+                    <option value="semua">Semua Periode (Gabungan)</option>
+                  </select>
+                </div>
+              </div>
+
               {/* Tab Selector: 1. Bentuk Gambar Kas | 2. Format Teks Arus Kas | 3. Format Teks Iuran KK | 4. Format Teks Rekap Keseluruhan KK */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-2xl text-xs font-bold">
                 <button
@@ -8515,7 +8795,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     <div className="space-y-0.5">
                       <span className="text-xs font-black text-emerald-950 flex items-center gap-1.5">
                         <LucideImage className="w-4 h-4 text-emerald-600" />
-                        <span>Bentuk Gambar Resmi Buku Keluar &amp; Masuk Kas</span>
+                        <span>Bentuk Gambar Resmi Buku Keluar &amp; Masuk Kas ({waTargetMonthLabel})</span>
                       </span>
                       <p className="text-[11px] text-slate-600 leading-snug">
                         Mencakup seluruh tabel pembukuan kas dari saldo awal, penerimaan iuran, mutasi transaksi, hingga <strong>Total Sisa Saldo Keseluruhan</strong> di paling bawah.
@@ -8546,7 +8826,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             Sedang Merender Gambar Laporan Keuangan...
                           </p>
                           <p className="text-[11px] text-slate-500">
-                            Menyusun tabel buku kas, mutasi transaksi, dan total sisa saldo keseluruhan
+                            Menyusun tabel buku kas {waTargetMonthLabel}, mutasi transaksi, dan total sisa saldo keseluruhan
                           </p>
                         </div>
                       </div>
@@ -8554,7 +8834,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       <div className="w-full h-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-inner flex justify-center">
                         <img
                           src={waImageDataUrl}
-                          alt="Laporan Kas Gang Mandor"
+                          alt={`Laporan Kas Gang Mandor - ${waTargetMonthLabel}`}
                           className="w-full max-w-full h-auto object-contain block shadow-sm"
                         />
                       </div>
@@ -8577,11 +8857,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                     <div className="flex items-center justify-between font-mono font-bold">
                       <span className="text-slate-600 font-sans">Total Sisa Saldo Keseluruhan di Gambar:</span>
                       <span className="text-emerald-800 font-black text-xs sm:text-sm">
-                        {formatRupiah(tableTotals.finalSaldo)}
+                        {formatRupiah(waTableTotals.finalSaldo)}
                       </span>
                     </div>
                     <div className="text-[10px] text-slate-500">
-                      (Kas Utama: {formatRupiah(tableTotals.finalKasUtama)} | Cashback WiFi: {formatRupiah(tableTotals.finalWifi)} | Cashback Sampah: {formatRupiah(tableTotals.finalSampah)})
+                      (Kas Utama: {formatRupiah(waTableTotals.finalKasUtama)} | Cashback WiFi: {formatRupiah(waTableTotals.finalWifi)} | Cashback Sampah: {formatRupiah(waTableTotals.finalSampah)})
                     </div>
                   </div>
                 </div>
