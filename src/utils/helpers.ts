@@ -1032,7 +1032,10 @@ export interface PreviousMonthBalanceSummary {
 
 export function calculatePreviousMonthBalanceSummary(
   transactions: CashTransaction[],
-  referenceMonthKeyOrLabel: string
+  referenceMonthKeyOrLabel: string,
+  residents?: ResidentHouse[],
+  config?: Partial<SiteConfig> | null,
+  baksosAgendas?: BaksosAgenda[]
 ): PreviousMonthBalanceSummary {
   // Jika 'semua' (Semua Periode), saldo awal pembukuan adalah 0 agar tidak menduplikasi transaksi di tabel
   if (
@@ -1094,26 +1097,10 @@ export function calculatePreviousMonthBalanceSummary(
   const prevMonthKey = getPreviousMonthKey(referenceMonthKey);
   const prevMonthLabel = formatMonthYearFromKey(prevMonthKey);
 
-  let kasUtama = 0;
-  let wifiCashback = 0;
-  let sampahCashback = 0;
-
-
-  let prevMonthKasIn = 0;
-  let prevMonthKasOut = 0;
-  let prevMonthWifiIn = 0;
-  let prevMonthWifiOut = 0;
-  let prevMonthSampahIn = 0;
-  let prevMonthSampahOut = 0;
-  let prevMonthTxCount = 0;
-
-  let currentMonthKasNet = 0;
-  let currentMonthWifiNet = 0;
-  let currentMonthSampahNet = 0;
-
-  let closingKasUtama = 0;
-  let closingWifiCashback = 0;
-  let closingSampahCashback = 0;
+  // 1. Hitung Saldo Awal Baseline (sebelum Mei 2026, yaitu transaksi s/d April 2026 / 2026-04-30)
+  let baselineKasUtama = 0;
+  let baselineWifi = 0;
+  let baselineSampah = 0;
 
   transactions.forEach((tx) => {
     const txKey = getMonthKeyFromDate(tx.date);
@@ -1132,46 +1119,392 @@ export function calculatePreviousMonthBalanceSummary(
 
     const signedVal = tx.type === 'masuk' ? tx.amount : -tx.amount;
 
-    // Cumulative balance up to the end of the previous month (<= prevMonthKey)
-    if (txKey <= prevMonthKey) {
-      if (isWifi) wifiCashback += signedVal;
-      else if (isSampah) sampahCashback += signedVal;
-      else kasUtama += signedVal;
-    }
-
-    // Transactions specifically in the previous month (=== prevMonthKey)
-    if (txKey === prevMonthKey) {
-      prevMonthTxCount += 1;
-      if (isWifi) {
-        if (tx.type === 'masuk') prevMonthWifiIn += tx.amount;
-        else prevMonthWifiOut += tx.amount;
-      } else if (isSampah) {
-        if (tx.type === 'masuk') prevMonthSampahIn += tx.amount;
-        else prevMonthSampahOut += tx.amount;
-      } else {
-        if (tx.type === 'masuk') prevMonthKasIn += tx.amount;
-        else prevMonthKasOut += tx.amount;
-      }
-    }
-
-    // Net mutations in the reference/active month (=== referenceMonthKey)
-    if (txKey === referenceMonthKey) {
-      if (isWifi) currentMonthWifiNet += signedVal;
-      else if (isSampah) currentMonthSampahNet += signedVal;
-      else currentMonthKasNet += signedVal;
-    }
-
-    // Cumulative closing balance up to the end of the reference month (<= referenceMonthKey)
-    if (txKey <= referenceMonthKey) {
-      if (isWifi) closingWifiCashback += signedVal;
-      else if (isSampah) closingSampahCashback += signedVal;
-      else closingKasUtama += signedVal;
+    if (txKey <= '2026-04') {
+      if (isWifi) baselineWifi += signedVal;
+      else if (isSampah) baselineSampah += signedVal;
+      else baselineKasUtama += signedVal;
     }
   });
 
-  const total = kasUtama + wifiCashback + sampahCashback;
-  const currentMonthTotalNet =
-    currentMonthKasNet + currentMonthWifiNet + currentMonthSampahNet;
+  // 2. Jika bulan sebelumnya adalah April 2026 (atau sebelum Mei 2026), saldo awal adalah baseline
+  if (prevMonthKey <= '2026-04') {
+    // Hitung mutasi pada bulan referensi
+    let refRecapPenerimaanKas = 0;
+    if (residents && residents.length > 0) {
+      residents.forEach((house) => {
+        const isVacant = isHouseVacantInPeriod(house, referenceMonthLabel, transactions);
+        const statusInfo = getHouseStatusForPeriod(
+          house,
+          referenceMonthLabel,
+          config,
+          transactions,
+          residents,
+          config?.duesCurrentMonth || 'September 2026'
+        );
+        const baksosInfo = getHouseBaksosForPeriod(
+          house,
+          referenceMonthLabel,
+          baksosAgendas || [],
+          transactions,
+          residents
+        );
+        const nominal = isVacant ? 0 : getHouseDuesNominalForPeriod(house, referenceMonthLabel, config, transactions);
+
+        let iuranPaid = 0;
+        if (isVacant) {
+          iuranPaid = statusInfo.status === 'Lunas' ? (statusInfo.amount || 0) : 0;
+        } else if (statusInfo.isAdvanceSubsequentMonth) {
+          iuranPaid = 0;
+        } else if (statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih') {
+          iuranPaid = statusInfo.amount !== undefined ? statusInfo.amount : nominal;
+        } else {
+          iuranPaid = statusInfo.amount || 0;
+        }
+
+        const dendaPaid = isVacant ? 0 : baksosInfo.dendaPaid;
+
+        const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+        const tunggakanTxs = transactions.filter((t) => {
+          if (t.type !== 'masuk') return false;
+          if (!isTunggakanTx(t)) return false;
+          if (!blockRegex.test(t.description)) return false;
+          return getMonthKeyFromDate(t.date) === referenceMonthKey;
+        });
+        const tunggakanPaid = isVacant ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
+
+        refRecapPenerimaanKas += iuranPaid + dendaPaid + tunggakanPaid;
+      });
+    }
+
+    let refKasLainMasuk = 0;
+    let refKasUtamaKeluar = 0;
+    let refWifiMasuk = 0;
+    let refWifiKeluar = 0;
+    let refSampahMasuk = 0;
+    let refSampahKeluar = 0;
+
+    transactions.forEach((tx) => {
+      const txKey = getMonthKeyFromDate(tx.date);
+      if (txKey !== referenceMonthKey) return;
+
+      const cat = tx.category || '';
+      const desc = (tx.description || '').toLowerCase();
+      const isWifi =
+        cat === 'Cashback WiFi' ||
+        cat === 'Pengeluaran Cashback WiFi' ||
+        tx.pool === 'Cashback WiFi';
+
+      const isSampah =
+        cat === 'Cashback Sampah' ||
+        cat === 'Pengeluaran Cashback Sampah' ||
+        tx.pool === 'Cashback Sampah';
+
+      if (tx.type === 'masuk') {
+        if (isWifi) refWifiMasuk += tx.amount;
+        else if (isSampah) refSampahMasuk += tx.amount;
+        else {
+          if (residents && residents.length > 0) {
+            const isDenda = cat === 'Denda Baksos' || desc.includes('denda');
+            if (!isPureIuranTx(tx) && !isTunggakanTx(tx) && !isDenda) {
+              refKasLainMasuk += tx.amount;
+            }
+          } else {
+            refKasLainMasuk += tx.amount;
+          }
+        }
+      } else {
+        if (isWifi) refWifiKeluar += tx.amount;
+        else if (isSampah) refSampahKeluar += tx.amount;
+        else refKasUtamaKeluar += tx.amount;
+      }
+    });
+
+    const currentMonthKasNet = (refRecapPenerimaanKas + refKasLainMasuk) - refKasUtamaKeluar;
+    const currentMonthWifiNet = refWifiMasuk - refWifiKeluar;
+    const currentMonthSampahNet = refSampahMasuk - refSampahKeluar;
+    const currentMonthTotalNet = currentMonthKasNet + currentMonthWifiNet + currentMonthSampahNet;
+
+    const closingKasUtama = baselineKasUtama + currentMonthKasNet;
+    const closingWifiCashback = baselineWifi + currentMonthWifiNet;
+    const closingSampahCashback = baselineSampah + currentMonthSampahNet;
+    const closingTotal = closingKasUtama + closingWifiCashback + closingSampahCashback;
+
+    return {
+      referenceMonthKey,
+      referenceMonthLabel,
+      prevMonthKey,
+      prevMonthLabel,
+      kasUtama: baselineKasUtama,
+      wifiCashback: baselineWifi,
+      sampahCashback: baselineSampah,
+      total: baselineKasUtama + baselineWifi + baselineSampah,
+      prevMonthKasIn: 0,
+      prevMonthKasOut: 0,
+      prevMonthWifiIn: 0,
+      prevMonthWifiOut: 0,
+      prevMonthSampahIn: 0,
+      prevMonthSampahOut: 0,
+      prevMonthTxCount: 0,
+      currentMonthKasNet,
+      currentMonthWifiNet,
+      currentMonthSampahNet,
+      currentMonthTotalNet,
+      closingKasUtama,
+      closingWifiCashback,
+      closingSampahCashback,
+      closingTotal,
+    };
+  }
+
+  // 3. Jika prevMonthKey > '2026-04' (misal Mei 2026, Juni 2026, dsb):
+  // Rantai akumulasi berjalan dari Mei 2026 secara berurutan sehingga SALDO BULAN SEBELUMNYA
+  // otomatis dan mutlak mengambil dari SISA SALDO AKHIR bulan sebelumnya!
+  let runningKasUtama = baselineKasUtama;
+  let runningWifi = baselineWifi;
+  let runningSampah = baselineSampah;
+
+  let lastMonthKasIn = 0;
+  let lastMonthKasOut = 0;
+  let lastMonthWifiIn = 0;
+  let lastMonthWifiOut = 0;
+  let lastMonthSampahIn = 0;
+  let lastMonthSampahOut = 0;
+  let lastMonthTxCount = 0;
+
+  let curKey = '2026-05';
+  while (curKey <= prevMonthKey) {
+    const curLabel = formatMonthYearFromKey(curKey);
+
+    // a) Hitung penerimaan kas dari Tabel Rekap Iuran Per KK pada bulan curKey
+    let curRecapPenerimaanKas = 0;
+    if (residents && residents.length > 0) {
+      residents.forEach((house) => {
+        const isVacant = isHouseVacantInPeriod(house, curLabel, transactions);
+        const statusInfo = getHouseStatusForPeriod(
+          house,
+          curLabel,
+          config,
+          transactions,
+          residents,
+          config?.duesCurrentMonth || 'September 2026'
+        );
+        const baksosInfo = getHouseBaksosForPeriod(
+          house,
+          curLabel,
+          baksosAgendas || [],
+          transactions,
+          residents
+        );
+        const nominal = isVacant ? 0 : getHouseDuesNominalForPeriod(house, curLabel, config, transactions);
+
+        let iuranPaid = 0;
+        if (isVacant) {
+          iuranPaid = statusInfo.status === 'Lunas' ? (statusInfo.amount || 0) : 0;
+        } else if (statusInfo.isAdvanceSubsequentMonth) {
+          iuranPaid = 0;
+        } else if (statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih') {
+          iuranPaid = statusInfo.amount !== undefined ? statusInfo.amount : nominal;
+        } else {
+          iuranPaid = statusInfo.amount || 0;
+        }
+
+        const dendaPaid = isVacant ? 0 : baksosInfo.dendaPaid;
+
+        const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+        const tunggakanTxs = transactions.filter((t) => {
+          if (t.type !== 'masuk') return false;
+          if (!isTunggakanTx(t)) return false;
+          if (!blockRegex.test(t.description)) return false;
+          return getMonthKeyFromDate(t.date) === curKey;
+        });
+        const tunggakanPaid = isVacant ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
+
+        curRecapPenerimaanKas += iuranPaid + dendaPaid + tunggakanPaid;
+      });
+    }
+
+    // b) Hitung mutasi transaksi langsung pada bulan curKey
+    let curKasLainMasuk = 0;
+    let curKasUtamaKeluar = 0;
+    let curWifiMasuk = 0;
+    let curWifiKeluar = 0;
+    let curSampahMasuk = 0;
+    let curSampahKeluar = 0;
+    let curTxCount = 0;
+
+    transactions.forEach((tx) => {
+      const txKey = getMonthKeyFromDate(tx.date);
+      if (txKey !== curKey) return;
+      curTxCount++;
+
+      const cat = tx.category || '';
+      const desc = (tx.description || '').toLowerCase();
+      const isWifi =
+        cat === 'Cashback WiFi' ||
+        cat === 'Pengeluaran Cashback WiFi' ||
+        tx.pool === 'Cashback WiFi';
+
+      const isSampah =
+        cat === 'Cashback Sampah' ||
+        cat === 'Pengeluaran Cashback Sampah' ||
+        tx.pool === 'Cashback Sampah';
+
+      if (tx.type === 'masuk') {
+        if (isWifi) {
+          curWifiMasuk += tx.amount;
+        } else if (isSampah) {
+          curSampahMasuk += tx.amount;
+        } else {
+          if (residents && residents.length > 0) {
+            const isDenda = cat === 'Denda Baksos' || desc.includes('denda');
+            if (!isPureIuranTx(tx) && !isTunggakanTx(tx) && !isDenda) {
+              curKasLainMasuk += tx.amount;
+            }
+          } else {
+            curKasLainMasuk += tx.amount;
+          }
+        }
+      } else {
+        if (isWifi) {
+          curWifiKeluar += tx.amount;
+        } else if (isSampah) {
+          curSampahKeluar += tx.amount;
+        } else {
+          curKasUtamaKeluar += tx.amount;
+        }
+      }
+    });
+
+    const netKasUtama = (curRecapPenerimaanKas + curKasLainMasuk) - curKasUtamaKeluar;
+    const netWifi = curWifiMasuk - curWifiKeluar;
+    const netSampah = curSampahMasuk - curSampahKeluar;
+
+    runningKasUtama += netKasUtama;
+    runningWifi += netWifi;
+    runningSampah += netSampah;
+
+    if (curKey === prevMonthKey) {
+      lastMonthKasIn = curRecapPenerimaanKas + curKasLainMasuk;
+      lastMonthKasOut = curKasUtamaKeluar;
+      lastMonthWifiIn = curWifiMasuk;
+      lastMonthWifiOut = curWifiKeluar;
+      lastMonthSampahIn = curSampahMasuk;
+      lastMonthSampahOut = curSampahKeluar;
+      lastMonthTxCount = curTxCount;
+    }
+
+    // Melangkah ke bulan berikutnya
+    const [yStr, mStr] = curKey.split('-');
+    let y = parseInt(yStr, 10);
+    let m = parseInt(mStr, 10);
+    if (m === 12) {
+      y += 1;
+      m = 1;
+    } else {
+      m += 1;
+    }
+    curKey = `${y}-${String(m).padStart(2, '0')}`;
+  }
+
+  // 4. Hitung mutasi pada bulan referensi berjalan
+  let refRecapPenerimaanKas = 0;
+  if (residents && residents.length > 0) {
+    residents.forEach((house) => {
+      const isVacant = isHouseVacantInPeriod(house, referenceMonthLabel, transactions);
+      const statusInfo = getHouseStatusForPeriod(
+        house,
+        referenceMonthLabel,
+        config,
+        transactions,
+        residents,
+        config?.duesCurrentMonth || 'September 2026'
+      );
+      const baksosInfo = getHouseBaksosForPeriod(
+        house,
+        referenceMonthLabel,
+        baksosAgendas || [],
+        transactions,
+        residents
+      );
+      const nominal = isVacant ? 0 : getHouseDuesNominalForPeriod(house, referenceMonthLabel, config, transactions);
+
+      let iuranPaid = 0;
+      if (isVacant) {
+        iuranPaid = statusInfo.status === 'Lunas' ? (statusInfo.amount || 0) : 0;
+      } else if (statusInfo.isAdvanceSubsequentMonth) {
+        iuranPaid = 0;
+      } else if (statusInfo.status === 'Lunas' || statusInfo.status === 'Bayar Lebih') {
+        iuranPaid = statusInfo.amount !== undefined ? statusInfo.amount : nominal;
+      } else {
+        iuranPaid = statusInfo.amount || 0;
+      }
+
+      const dendaPaid = isVacant ? 0 : baksosInfo.dendaPaid;
+
+      const blockRegex = new RegExp(`\\b${house.blockNumber.replace('/', '\\/')}\\b`, 'i');
+      const tunggakanTxs = transactions.filter((t) => {
+        if (t.type !== 'masuk') return false;
+        if (!isTunggakanTx(t)) return false;
+        if (!blockRegex.test(t.description)) return false;
+        return getMonthKeyFromDate(t.date) === referenceMonthKey;
+      });
+      const tunggakanPaid = isVacant ? 0 : tunggakanTxs.reduce((s, t) => s + t.amount, 0);
+
+      refRecapPenerimaanKas += iuranPaid + dendaPaid + tunggakanPaid;
+    });
+  }
+
+  let refKasLainMasuk = 0;
+  let refKasUtamaKeluar = 0;
+  let refWifiMasuk = 0;
+  let refWifiKeluar = 0;
+  let refSampahMasuk = 0;
+  let refSampahKeluar = 0;
+
+  transactions.forEach((tx) => {
+    const txKey = getMonthKeyFromDate(tx.date);
+    if (txKey !== referenceMonthKey) return;
+
+    const cat = tx.category || '';
+    const desc = (tx.description || '').toLowerCase();
+    const isWifi =
+      cat === 'Cashback WiFi' ||
+      cat === 'Pengeluaran Cashback WiFi' ||
+      tx.pool === 'Cashback WiFi';
+
+    const isSampah =
+      cat === 'Cashback Sampah' ||
+      cat === 'Pengeluaran Cashback Sampah' ||
+      tx.pool === 'Cashback Sampah';
+
+    if (tx.type === 'masuk') {
+      if (isWifi) refWifiMasuk += tx.amount;
+      else if (isSampah) refSampahMasuk += tx.amount;
+      else {
+        if (residents && residents.length > 0) {
+          const isDenda = cat === 'Denda Baksos' || desc.includes('denda');
+          if (!isPureIuranTx(tx) && !isTunggakanTx(tx) && !isDenda) {
+            refKasLainMasuk += tx.amount;
+          }
+        } else {
+          refKasLainMasuk += tx.amount;
+        }
+      }
+    } else {
+      if (isWifi) refWifiKeluar += tx.amount;
+      else if (isSampah) refSampahKeluar += tx.amount;
+      else refKasUtamaKeluar += tx.amount;
+    }
+  });
+
+  const currentMonthKasNet = (refRecapPenerimaanKas + refKasLainMasuk) - refKasUtamaKeluar;
+  const currentMonthWifiNet = refWifiMasuk - refWifiKeluar;
+  const currentMonthSampahNet = refSampahMasuk - refSampahKeluar;
+  const currentMonthTotalNet = currentMonthKasNet + currentMonthWifiNet + currentMonthSampahNet;
+
+  const closingKasUtama = runningKasUtama + currentMonthKasNet;
+  const closingWifiCashback = runningWifi + currentMonthWifiNet;
+  const closingSampahCashback = runningSampah + currentMonthSampahNet;
   const closingTotal = closingKasUtama + closingWifiCashback + closingSampahCashback;
 
   return {
@@ -1179,17 +1512,17 @@ export function calculatePreviousMonthBalanceSummary(
     referenceMonthLabel,
     prevMonthKey,
     prevMonthLabel,
-    kasUtama,
-    wifiCashback,
-    sampahCashback,
-    total,
-    prevMonthKasIn,
-    prevMonthKasOut,
-    prevMonthWifiIn,
-    prevMonthWifiOut,
-    prevMonthSampahIn,
-    prevMonthSampahOut,
-    prevMonthTxCount,
+    kasUtama: runningKasUtama,
+    wifiCashback: runningWifi,
+    sampahCashback: runningSampah,
+    total: runningKasUtama + runningWifi + runningSampah,
+    prevMonthKasIn: lastMonthKasIn,
+    prevMonthKasOut: lastMonthKasOut,
+    prevMonthWifiIn: lastMonthWifiIn,
+    prevMonthWifiOut: lastMonthWifiOut,
+    prevMonthSampahIn: lastMonthSampahIn,
+    prevMonthSampahOut: lastMonthSampahOut,
+    prevMonthTxCount: lastMonthTxCount,
     currentMonthKasNet,
     currentMonthWifiNet,
     currentMonthSampahNet,

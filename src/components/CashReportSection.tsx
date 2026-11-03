@@ -726,10 +726,16 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     };
   }, [filteredTransactions]);
 
-  // Previous month balance summary (Mengambil data akumulasi s/d akhir bulan sebelumnya)
+  // Previous month balance summary (Mengambil data sisa saldo akhir bulan sebelumnya secara otomatis)
   const prevMonthSummary = useMemo(() => {
-    return calculatePreviousMonthBalanceSummary(transactions, effectiveMonthKey);
-  }, [transactions, effectiveMonthKey]);
+    return calculatePreviousMonthBalanceSummary(
+      transactions,
+      effectiveMonthKey,
+      residents,
+      config,
+      baksosAgendas
+    );
+  }, [transactions, effectiveMonthKey, residents, config, baksosAgendas]);
 
 
   // Separate breakdown: Kas Utama vs Cashback (WiFi & Sampah)
@@ -4422,7 +4428,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   </span>
                   {effectiveMonthKey !== 'semua' && (
                     <span className="text-[9px] bg-amber-200/90 text-amber-950 px-2 py-0.5 rounded-md font-bold border border-amber-300/80">
-                      Otomatis Dari Bulan Sebelumnya
+                      Otomatis Dari Sisa Saldo Bulan Sebelumnya
                     </span>
                   )}
                 </div>
@@ -4451,45 +4457,85 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
               </div>
             </div>
 
-            {/* 2. Pemasukan & Pengeluaran Kas Utama (Diberikan Nomor Urut Lengkap 1-8 + Sisa Saldo WiFi & Sampah) */}
+            {/* 2. Pemasukan & Pengeluaran Kas Utama */}
             <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50 via-teal-50/80 to-green-100/70 border-2 border-emerald-300 text-emerald-950 rounded-2xl p-4 sm:p-5 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full blur-xl pointer-events-none" />
               <div>
-                <div className="flex items-center justify-center gap-1.5 text-xs font-black text-emerald-950 pb-2 border-b-2 border-emerald-300">
-                  <Wallet className="w-4 h-4 text-emerald-700" />
-                  <span>KAS UTAMA PERIODE INI</span>
+                <div className="flex items-center justify-between gap-1.5 text-xs font-black text-emerald-950 pb-2 border-b-2 border-emerald-300">
+                  <div className="flex items-center gap-1.5">
+                    <Wallet className="w-4 h-4 text-emerald-700" />
+                    <span>KAS UTAMA PERIODE INI</span>
+                  </div>
+                  <span className="text-[9.5px] bg-emerald-200/90 text-emerald-950 px-2 py-0.5 rounded-md font-extrabold border border-emerald-300/80 shadow-2xs">
+                    Kas Rutin Warga
+                  </span>
                 </div>
-                <div className="mt-3 space-y-1.5 text-xs font-mono text-center">
+
+                <div className="text-[11px] text-emerald-900 mt-1.5 font-medium flex items-center justify-between flex-wrap gap-1">
+                  <span>
+                    {effectiveMonthKey === 'semua'
+                      ? 'Periode: Semua Periode Kas'
+                      : `Periode: ${formatMonthYearFromKey(effectiveMonthKey)}`}
+                  </span>
+                  <span className="text-[9px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold border border-emerald-300">
+                    Sinkron Tabel Rekap KK
+                  </span>
+                </div>
+
+                <div className="mt-3 space-y-2 text-xs font-mono text-center">
                   {/* 1. Sisa Saldo Bulan Sebelumnya */}
-                  <div className="flex justify-between items-center text-slate-800 px-2.5 py-1.5 rounded-xl bg-white/90 border border-amber-200/80 shadow-2xs">
-                    <span className="font-sans text-[11px] font-bold text-amber-900">1. Sisa Saldo Bulan Sebelumnya:</span>
+                  <div className="flex justify-between items-center text-slate-800 px-3 py-2 rounded-xl bg-white/95 border border-emerald-200 shadow-2xs">
+                    <span className="font-sans text-[11px] font-bold text-slate-700">
+                      1. Saldo Bulan Sebelumnya ({effectiveMonthKey === 'semua' ? 'Awal' : prevMonthSummary.prevMonthLabel}):
+                    </span>
                     <span className="font-bold text-emerald-800 tabular-nums">{formatRupiah(prevMonthSummary.kasUtama)}</span>
                   </div>
 
-                  {/* 2. Total Penerimaan Kas */}
-                  <div className="flex justify-between items-center text-emerald-950 px-2.5 py-1.5 rounded-xl bg-white/95 border-2 border-emerald-200 shadow-2xs">
-                    <span className="font-sans text-[11px] font-bold text-emerald-900 flex items-center gap-1">
-                      <span>2. Total Penerimaan Kas (+):</span>
-                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded border border-emerald-200 font-bold">Otomatis Rekap KK</span>
-                    </span>
-                    <span className="font-bold text-emerald-700 tabular-nums">+{formatRupiah(simplifiedCashbookData.effectiveTotalPenerimaanKas)}</span>
+                  {/* 2. Total Penerimaan Kas (Otomatis Rekap KK) */}
+                  <div className="p-2.5 rounded-xl bg-white/95 border-2 border-emerald-300 shadow-2xs space-y-1.5">
+                    <div className="flex justify-between items-center text-emerald-950">
+                      <span className="font-sans text-[11px] font-extrabold text-emerald-950">
+                        2. Total Penerimaan Kas (+):
+                      </span>
+                      <span className="font-bold text-emerald-800 tabular-nums text-xs sm:text-sm">
+                        +{formatRupiah(simplifiedCashbookData.effectiveTotalPenerimaanKas)}
+                      </span>
+                    </div>
+
+                    {/* Rincian Komponen Penerimaan: Iuran, Denda, Tunggakan */}
+                    <div className="flex items-center justify-between gap-1 text-[9.5px] pt-1.5 border-t border-emerald-100 text-slate-600 font-sans flex-wrap">
+                      <span className="truncate" title="Iuran Rutin Warga">
+                        Iuran: <strong className="font-mono text-emerald-900">{formatRupiah(simplifiedCashbookData.effectiveTotalIuran)}</strong>
+                      </span>
+                      {simplifiedCashbookData.effectiveTotalDenda > 0 && (
+                        <span className="truncate" title="Pelunasan Denda Baksos">
+                          Denda: <strong className="font-mono text-teal-900">{formatRupiah(simplifiedCashbookData.effectiveTotalDenda)}</strong>
+                        </span>
+                      )}
+                      {simplifiedCashbookData.effectiveTotalTunggakan > 0 && (
+                        <span className="truncate" title="Pelunasan Tunggakan">
+                          Tunggakan: <strong className="font-mono text-indigo-900">{formatRupiah(simplifiedCashbookData.effectiveTotalTunggakan)}</strong>
+                        </span>
+                      )}
+                    </div>
                   </div>
 
+                  {/* Penerimaan Kas Lain jika ada */}
                   {tableTotals.sumMasukKasLain > 0 && (
-                    <div className="flex justify-between items-center text-slate-800 px-2.5 py-1.5 rounded-xl bg-white/90 border border-emerald-100 shadow-2xs">
+                    <div className="flex justify-between items-center text-slate-800 px-3 py-2 rounded-xl bg-white/95 border border-emerald-200 shadow-2xs">
                       <span className="font-sans text-[11px] font-bold text-slate-700">Penerimaan Kas Lain (+):</span>
                       <span className="font-bold text-emerald-700 tabular-nums">+{formatRupiah(tableTotals.sumMasukKasLain)}</span>
                     </div>
                   )}
 
-                  {/* 3. Pengeluaran Kas */}
-                  <div className="flex justify-between items-center text-slate-800 px-2.5 py-1.5 rounded-xl bg-white/90 border border-amber-200 shadow-2xs">
-                    <span className="font-sans text-[11px] font-bold text-slate-800">3. Pengeluaran Kas (-):</span>
+                  {/* 3. Pengeluaran Kas Utama */}
+                  <div className="flex justify-between items-center text-slate-800 px-3 py-2 rounded-xl bg-white/95 border border-rose-200 shadow-2xs">
+                    <span className="font-sans text-[11px] font-bold text-rose-950">3. Pengeluaran Kas (-):</span>
                     <span className="font-bold text-rose-600 tabular-nums">-{formatRupiah(tableTotals.sumKeluarKasUtama)}</span>
                   </div>
 
-                  {/* 4. Arus Kas Bersih */}
-                  <div className="flex justify-between items-center px-2.5 py-1.5 rounded-xl bg-teal-100/90 border border-teal-300 font-bold shadow-2xs">
+                  {/* 4. Arus Kas Bersih Periode Ini */}
+                  <div className="flex justify-between items-center px-3 py-2 rounded-xl bg-teal-100/90 border border-teal-300 font-bold shadow-2xs">
                     <span className="font-sans text-[11px] text-teal-950">4. Arus Kas Bersih:</span>
                     <span className={`tabular-nums ${tableTotals.netKasUtama >= 0 ? 'text-teal-900' : 'text-rose-700'}`}>
                       {tableTotals.netKasUtama >= 0 ? '+' : ''}{formatRupiah(tableTotals.netKasUtama)}
@@ -4497,6 +4543,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                   </div>
                 </div>
               </div>
+
               <div className="mt-3.5 pt-2.5 border-t border-emerald-300 text-center bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 text-white rounded-xl p-2.5 shadow-sm">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider block text-emerald-100">
                   SISA SALDO KAS UTAMA
