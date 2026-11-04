@@ -795,11 +795,10 @@ export function exportFinancialReportToExcel({
         [`Tunggakan Iuran Bulan Ini (${config.duesCurrentMonth || 'Bulan Berjalan'}) (Rp)`]: duesArrears,
         'Jumlah Absen Baksos Belum Lunas': unpaidBaksos.length,
         'Tunggakan Denda Baksos (Rp)': baksosFineArrears,
-        'Nominal Denda Yang Ditambahkan (Rp)': house.previousBaksosArrears || 0,
-        'Keterangan Denda Baksos (Tampil di tagihan WA)': house.previousBaksosArrearsNote || '-',
+        'Keterangan Denda Baksos': house.previousBaksosArrearsNote || '-',
         'Tunggakan Bulan/Tahun Lalu (Rp)': previousArrears,
-        'Keterangan Tunggakan Iuran (Tampil di tagihan WA)': previousArrearsNote,
-        'Keterangan Tunggakan Lalu': [
+        'Keterangan Tunggakan Lalu': previousArrearsNote || '-',
+        'Rincian Kompilasi Tunggakan Lalu': [
           previousArrearsNote && previousArrearsNote !== '-' ? `Iuran: ${previousArrearsNote}` : '',
           (house.previousBaksosArrears || 0) > 0 ? `Denda: Rp ${(house.previousBaksosArrears || 0).toLocaleString('id-ID')}` : '',
           house.previousBaksosArrearsNote ? `Ket Denda: ${house.previousBaksosArrearsNote}` : ''
