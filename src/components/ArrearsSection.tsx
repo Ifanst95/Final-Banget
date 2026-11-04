@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   Banknote,
   Building2,
+  Calendar,
   Check,
   CheckCircle2,
   Clock,
@@ -86,14 +87,14 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   // Modal Input / Tambah Manual Tunggakan Iuran & Denda Baksos
   const [editingHouse, setEditingHouse] = useState<ResidentHouse | null>(null);
   const [selectedHouseId, setSelectedHouseId] = useState<string>('');
-  const [editDuesMode, setEditDuesMode] = useState<'add' | 'set'>('add');
+  const [editDuesMode, setEditDuesMode] = useState<'add' | 'set'>('set');
   const [editPrevDuesInput, setEditPrevDuesInput] = useState<number>(0);
   const [editPrevDuesNote, setEditPrevDuesNote] = useState<string>('');
-  const [editBaksosMode, setEditBaksosMode] = useState<'add' | 'set'>('add');
+  const [noteInputMode, setNoteInputMode] = useState<'integrated' | 'manual'>('integrated');
+  const [selectedRecapMonths, setSelectedRecapMonths] = useState<string[]>([]);
+  const [editBaksosMode, setEditBaksosMode] = useState<'add' | 'set'>('set');
   const [editPrevBaksosInput, setEditPrevBaksosInput] = useState<number>(0);
   const [editPrevBaksosNote, setEditPrevBaksosNote] = useState<string>('');
-
-
 
   // Modal Pembayaran Sebagian (Cicil) Tunggakan Per Rumah
   const [partialPayItem, setPartialPayItem] = useState<any | null>(null);
@@ -123,7 +124,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   const currentMonthLabel = config.duesCurrentMonth || 'Bulan Berjalan';
 
   // Rekapitulasi tunggakan bersumber langsung & terpadu dari Tabel Rekapitulasi Keseluruhan Kas Per Kepala Keluarga
-  const { recapList } = useMemo(() => {
+  const { recapList, sortedPeriods } = useMemo(() => {
     return computeOverallKKRecapList(residents, config, transactions, baksosAgendas);
   }, [residents, config, transactions, baksosAgendas]);
 
@@ -188,7 +189,10 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   }, [residents, selectedHouseId, editingHouse]);
 
   const currentPrevDues = activeModalHouse?.previousArrears || 0;
-  const currentPrevBaksos = activeModalHouse?.previousBaksosArrears || 0;
+  const currentPrevBaksos =
+    activeModalHouse?.customBaksosFineAmount !== undefined && activeModalHouse?.customBaksosFineAmount !== null
+      ? activeModalHouse.customBaksosFineAmount
+      : (activeModalHouse?.previousBaksosArrears || 0);
 
   const targetPrevDues =
     editDuesMode === 'add'
@@ -204,11 +208,29 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
     const house = targetHouse || residents.find((r) => r.id === selectedHouseId) || residents[0] || null;
     setEditingHouse(house);
     setSelectedHouseId(house ? house.id : '');
-    setEditDuesMode('add');
-    setEditPrevDuesInput(0);
+
+    const rItem = recapList.find((r) => r.house.id === house?.id);
+    const pastUnpaid = rItem?.unpaidPastPeriods || [];
+    const allUnpaid = rItem?.unpaidPeriods || [];
+    const defaultMonths = pastUnpaid.length > 0 ? pastUnpaid : allUnpaid;
+    setSelectedRecapMonths(defaultMonths);
+
+    setEditDuesMode('set');
+    setEditPrevDuesInput(house?.previousArrears || 0);
     setEditPrevDuesNote(house?.previousArrearsNote || '');
-    setEditBaksosMode('add');
-    setEditPrevBaksosInput(0);
+
+    if (defaultMonths.length > 0 && !house?.previousArrearsNote) {
+      setNoteInputMode('integrated');
+    } else {
+      setNoteInputMode(defaultMonths.length > 0 ? 'integrated' : 'manual');
+    }
+
+    setEditBaksosMode('set');
+    const existingBaksos =
+      house?.customBaksosFineAmount !== undefined && house?.customBaksosFineAmount !== null
+        ? house.customBaksosFineAmount
+        : (house?.previousBaksosArrears || 0) + (rItem?.baksosFineArrears || 0);
+    setEditPrevBaksosInput(existingBaksos);
     setEditPrevBaksosNote(house?.previousBaksosArrearsNote || '');
   };
 
@@ -216,9 +238,23 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
     setSelectedHouseId(houseId);
     const house = residents.find((r) => r.id === houseId) || null;
     setEditingHouse(house);
-    setEditPrevDuesInput(0);
+
+    const rItem = recapList.find((r) => r.house.id === houseId);
+    const pastUnpaid = rItem?.unpaidPastPeriods || [];
+    const allUnpaid = rItem?.unpaidPeriods || [];
+    const defaultMonths = pastUnpaid.length > 0 ? pastUnpaid : allUnpaid;
+    setSelectedRecapMonths(defaultMonths);
+
+    setEditDuesMode('set');
+    setEditPrevDuesInput(house?.previousArrears || 0);
     setEditPrevDuesNote(house?.previousArrearsNote || '');
-    setEditPrevBaksosInput(0);
+
+    setEditBaksosMode('set');
+    const existingBaksos =
+      house?.customBaksosFineAmount !== undefined && house?.customBaksosFineAmount !== null
+        ? house.customBaksosFineAmount
+        : (house?.previousBaksosArrears || 0) + (rItem?.baksosFineArrears || 0);
+    setEditPrevBaksosInput(existingBaksos);
     setEditPrevBaksosNote(house?.previousBaksosArrearsNote || '');
   };
 
@@ -254,6 +290,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       previousArrearsNote: finalDuesNote,
       previousBaksosArrears: targetPrevBaksos,
       previousBaksosArrearsNote: finalBaksosNote,
+      customBaksosFineAmount: targetPrevBaksos,
     });
 
     try {
@@ -264,13 +301,17 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   };
 
   const handleResetPrev = (house: ResidentHouse) => {
-    const prevAmt = (house.previousArrears || 0) + (house.previousBaksosArrears || 0);
+    const prevAmt =
+      (house.previousArrears || 0) +
+      (house.previousBaksosArrears || 0) +
+      (house.customBaksosFineAmount || 0);
     onUpdateResident({
       ...house,
       previousArrears: 0,
       previousArrearsNote: '',
       previousBaksosArrears: 0,
       previousBaksosArrearsNote: '',
+      customBaksosFineAmount: 0,
     });
 
     if (prevAmt > 0) {
@@ -822,32 +863,51 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
 
       {/* Arrears Detailed Table */}
       <div className="bg-gradient-to-br from-rose-50/60 via-amber-50/40 to-orange-50/50 dark:from-slate-900 dark:to-rose-950/30 rounded-2xl border border-rose-200 dark:border-rose-800/60 overflow-hidden shadow-md">
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-rose-600 via-orange-600 to-amber-600 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="font-bold text-sm sm:text-base text-white">
-              Daftar Rincian Tunggakan Per Rumah (Blok K2/25 - K3/24)
-            </h3>
-            <span className="text-xs text-amber-100">
-              Otomatis terakumulasi & tersinkronisasi dengan Kas Utama
-            </span>
-          </div>
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-rose-600 via-orange-600 to-amber-600 text-white">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-white/20 text-white shrink-0">
+                  <CreditCard className="w-5 h-5 text-amber-300" />
+                </div>
+                <h3 className="font-extrabold text-base sm:text-lg text-white tracking-tight">
+                  Daftar Rincian Tunggakan Per Rumah (Blok K2/25 - K3/24)
+                </h3>
+              </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-              <input
-                type="text"
-                placeholder="Cari blok / warga..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-1 text-xs bg-white border border-white/40 text-slate-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 shadow-2xs"
-              />
+              {/* Detail Bulan Ditempatkan Tepat di Bawah Judul */}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 font-black text-xs shadow-xs">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Bulan Berjalan: {currentMonthLabel}</span>
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/25 text-amber-200 text-xs font-semibold border border-white/20">
+                  <Clock className="w-3 h-3 text-amber-300" />
+                  <span>Periode Aktif Rekap Kas Warga</span>
+                </span>
+                <span className="text-xs text-amber-100 hidden lg:inline">
+                  • Otomatis terakumulasi & tersinkronisasi dengan Rekap Kas Per KK
+                </span>
+              </div>
             </div>
 
-            {/* Indikator Khusus Warga Menunggak */}
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/25 rounded-xl border border-white/20 text-xs font-bold text-amber-200 shadow-2xs">
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-300" />
-              <span>Khusus Warga Menunggak ({housesWithArrears.length} Rumah)</span>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Cari blok / warga..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 text-xs bg-white border border-white/40 text-slate-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 shadow-2xs w-48 sm:w-56"
+                />
+              </div>
+
+              {/* Indikator Khusus Warga Menunggak */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/30 rounded-xl border border-white/25 text-xs font-bold text-amber-200 shadow-2xs">
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-300" />
+                <span>Khusus Warga Menunggak ({housesWithArrears.length} Rumah)</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1252,54 +1312,68 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                               type="button"
                               onClick={() => handleOpenManualArrearsModal(item.house)}
                               className="p-1 text-slate-400 hover:text-emerald-700 rounded transition-colors cursor-pointer"
-                              title="Edit / Tambah Tunggakan Iuran & Denda"
+                              title="Edit / Sesuaikan Jumlah Tunggakan Bulan/Tahun Lalu"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
+                              <Edit3 className="w-3.5 h-3.5 text-emerald-600" />
                             </button>
                           )}
                         </div>
                       </td>
                       <td className="py-3 px-3.5 whitespace-normal break-words min-w-[250px] max-w-[480px]">
-                        {hasAnyArrearsDetail ? (
-                          <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-950 text-xs shadow-2xs leading-relaxed space-y-2">
-                            {duesNote ? (
-                              <div className="flex items-start gap-1.5">
-                                <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-[10px] font-bold text-rose-800 block uppercase tracking-wider">
-                                    Keterangan Tunggakan Iuran (Tampil di tagihan WA):
-                                  </span>
-                                  <span className="font-semibold text-slate-800 break-words select-text">
-                                    {duesNote}
-                                  </span>
-                                </div>
-                              </div>
-                            ) : null}
-
-                            {hasAddedBaksos ? (
-                              <div className={`flex items-start gap-1.5 ${duesNote ? 'pt-1.5 border-t border-amber-200/70' : ''}`}>
-                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-[10px] font-bold text-amber-800 block uppercase tracking-wider">
-                                    Nominal Denda Yang Ditambahkan (Rp):
-                                  </span>
-                                  <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                                    <span className="font-extrabold font-mono text-amber-950 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300">
-                                      {formatRupiah(addedBaksosNominal)}
-                                    </span>
-                                    {baksosNote && (
-                                      <span className="text-[11px] text-amber-900 italic font-medium">
-                                        ({baksosNote})
+                        <div className="flex items-start justify-between gap-1.5">
+                          <div className="flex-1">
+                            {hasAnyArrearsDetail ? (
+                              <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-950 text-xs shadow-2xs leading-relaxed space-y-2">
+                                {duesNote ? (
+                                  <div className="flex items-start gap-1.5">
+                                    <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                                    <div className="flex-1 min-w-0">
+                                      <span className="text-[10px] font-bold text-rose-800 block uppercase tracking-wider">
+                                        Keterangan Tunggakan Iuran (Tampil di tagihan WA):
                                       </span>
-                                    )}
+                                      <span className="font-semibold text-slate-800 break-words select-text">
+                                        {duesNote}
+                                      </span>
+                                    </div>
                                   </div>
-                                </div>
+                                ) : null}
+
+                                {hasAddedBaksos ? (
+                                  <div className={`flex items-start gap-1.5 ${duesNote ? 'pt-1.5 border-t border-amber-200/70' : ''}`}>
+                                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                    <div className="flex-1 min-w-0">
+                                      <span className="text-[10px] font-bold text-amber-800 block uppercase tracking-wider">
+                                        Nominal Denda Yang Ditambahkan (Rp):
+                                      </span>
+                                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                        <span className="font-extrabold font-mono text-amber-950 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300">
+                                          {formatRupiah(addedBaksosNominal)}
+                                        </span>
+                                        {baksosNote && (
+                                          <span className="text-[11px] text-amber-900 italic font-medium">
+                                            ({baksosNote})
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
-                            ) : null}
+                            ) : (
+                              <span className="text-slate-400 font-mono text-[11px]">-</span>
+                            )}
                           </div>
-                        ) : (
-                          <span className="text-slate-400 font-mono text-[11px]">-</span>
-                        )}
+                          {isAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenManualArrearsModal(item.house)}
+                              className="p-1 text-slate-400 hover:text-blue-700 rounded transition-colors cursor-pointer shrink-0"
+                              title="Edit Keterangan Tunggakan Lalu (Manual / Rekap Kas)"
+                            >
+                              <Edit2 className="w-3.5 h-3.5 text-blue-600" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                       {/* Denda Baksos Column */}
                       <td className="py-3 px-3 text-right font-mono tabular-nums">
@@ -1318,9 +1392,9 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                               type="button"
                               onClick={() => handleOpenManualArrearsModal(item.house)}
                               className="p-1 text-slate-400 hover:text-amber-700 rounded transition-colors cursor-pointer"
-                              title="Edit / Tambah Denda Baksos & Tunggakan"
+                              title="Edit Jumlah Denda Baksos"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
+                              <Edit3 className="w-3.5 h-3.5 text-amber-600" />
                             </button>
                           )}
                         </div>
@@ -1365,10 +1439,10 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                               type="button"
                               onClick={() => handleOpenManualArrearsModal(item.house)}
                               className="flex items-center gap-1 px-2.5 py-1 bg-amber-50 text-amber-800 hover:bg-amber-100 border border-amber-300 rounded-lg text-[11px] font-bold transition-colors cursor-pointer shadow-2xs"
-                              title="Edit / Tambah Tunggakan Iuran & Denda Baksos Manual"
+                              title="Edit Tunggakan Lalu, Keterangan & Denda Baksos"
                             >
                               <Edit3 className="w-3.5 h-3.5 text-amber-700" />
-                              <span>Edit / Tambah</span>
+                              <span>Edit / Sesuaikan</span>
                             </button>
 
                             {hasDebt && (
@@ -1423,371 +1497,660 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       </div>
 
       {/* Modal Edit / Tambah Manual Tunggakan Iuran & Denda Baksos Per Rumah */}
-      {editingHouse && activeModalHouse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-amber-600 via-rose-600 to-teal-700 p-4 text-white flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-white/20 rounded-lg">
-                  <Edit3 className="w-4 h-4 text-amber-200" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm sm:text-base leading-tight">
-                    Edit / Tambah Tunggakan & Denda Baksos
-                  </h4>
-                  <p className="text-[11px] text-amber-100">
-                    Input manual tagihan iuran dan denda gotong royong warga
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setEditingHouse(null)}
-                className="p-1 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {editingHouse && activeModalHouse && (() => {
+        const activeRecap = recapList.find((r) => r.house.id === activeModalHouse.id);
+        const activePeriods = activeRecap?.periodsDetail || [];
+        const unpaidPeriodsFromKas = activePeriods.filter((p) => !p.isLunasThisPeriod && !p.isPeriodVacant);
+        const houseNominal = activeRecap?.nominalPerMonth || 25000;
 
-            <form onSubmit={handleSaveManualArrears} className="p-4 sm:p-5 space-y-4 max-h-[85vh] overflow-y-auto">
-              {/* Dropdown Pemilihan Rumah / Kepala Keluarga */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Pilih Rumah / Kepala Keluarga:</span>
-                </label>
-                <select
-                  value={activeModalHouse.id}
-                  onChange={(e) => handleSelectHouseInModal(e.target.value)}
-                  className="w-full px-3 py-2 text-xs font-semibold border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50"
-                >
-                  {residents.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      Blok {r.blockNumber} — {r.duesHeadNameOverride || r.headName}{' '}
-                      {r.occupancy === 'Kosong' ? '(Kosong)' : ''}
-                      {((r.previousArrears || 0) > 0 || (r.previousBaksosArrears || 0) > 0)
-                        ? ` • Ada Tanggungan: ${formatRupiah((r.previousArrears || 0) + (r.previousBaksosArrears || 0))}`
-                        : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Status & Ringkasan Tanggungan Saat Ini */}
-              <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200 grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-[11px] text-slate-500 block">Tunggakan Iuran Lalu Saat Ini:</span>
-                  <span className="font-mono font-bold text-rose-700">
-                    {formatRupiah(currentPrevDues)}
-                  </span>
-                  {activeModalHouse.previousArrearsNote && (
-                    <span className="block text-[10px] text-slate-500 italic truncate" title={activeModalHouse.previousArrearsNote}>
-                      Ket: {activeModalHouse.previousArrearsNote}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <span className="text-[11px] text-slate-500 block">Denda Baksos Lalu Saat Ini:</span>
-                  <span className="font-mono font-bold text-amber-800">
-                    {formatRupiah(currentPrevBaksos)}
-                  </span>
-                  {activeModalHouse.previousBaksosArrearsNote && (
-                    <span className="block text-[10px] text-slate-500 italic truncate" title={activeModalHouse.previousBaksosArrearsNote}>
-                      Ket: {activeModalHouse.previousBaksosArrearsNote}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* CARD 1: Edit / Tambah Tunggakan Iuran */}
-              <div className="p-3.5 bg-rose-50/40 rounded-xl border border-rose-200/90 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
-                    <Coins className="w-3.5 h-3.5 text-rose-600" />
-                    <span>1. Tunggakan Iuran (Kas / Sampah)</span>
-                  </span>
-                  {/* Mode switch */}
-                  <div className="flex items-center bg-rose-100 p-0.5 rounded-lg border border-rose-200 text-[11px] font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditDuesMode('add');
-                        setEditPrevDuesInput(0);
-                      }}
-                      className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                        editDuesMode === 'add'
-                          ? 'bg-rose-600 text-white shadow-2xs font-bold'
-                          : 'text-rose-700 hover:bg-rose-200/60'
-                      }`}
-                    >
-                      + Tambah
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditDuesMode('set');
-                        setEditPrevDuesInput(currentPrevDues);
-                      }}
-                      className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                        editDuesMode === 'set'
-                          ? 'bg-rose-600 text-white shadow-2xs font-bold'
-                          : 'text-rose-700 hover:bg-rose-200/60'
-                      }`}
-                    >
-                      = Atur Total
-                    </button>
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl my-auto overflow-hidden">
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-amber-600 via-rose-600 to-teal-700 p-4 text-white flex justify-between items-center">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-white/20 rounded-xl shadow-inner">
+                    <Edit3 className="w-5 h-5 text-amber-200" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm sm:text-base leading-tight">
+                      Edit & Penyesuaian Tunggakan Per Rumah
+                    </h4>
+                    <p className="text-[11px] text-amber-100 mt-0.5">
+                      Sesuaikan tunggakan iuran kas lalu, denda baksos, dan keterangannya
+                    </p>
                   </div>
                 </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-semibold text-slate-700">
-                      {editDuesMode === 'add' ? 'Nominal Yang Ditambahkan (Rp):' : 'Atur Total Tunggakan Iuran (Rp):'}
-                    </label>
-                    <span className="text-[11px] font-mono font-bold text-rose-700">
-                      Hasil: {formatRupiah(targetPrevDues)}
-                    </span>
-                  </div>
-                  <input
-                    type="number"
-                    min={0}
-                    step={5000}
-                    value={editPrevDuesInput || ''}
-                    onChange={(e) => setEditPrevDuesInput(Math.max(0, Number(e.target.value)))}
-                    placeholder={editDuesMode === 'add' ? 'Contoh: 25000' : String(currentPrevDues)}
-                    className="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-none bg-white"
-                  />
-                  {/* Quick Preset Buttons for Dues */}
-                  <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                    {editDuesMode === 'add' ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevDuesInput((prev) => (Number(prev) || 0) + 25000)}
-                          className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
-                        >
-                          +25rb
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevDuesInput((prev) => (Number(prev) || 0) + 50000)}
-                          className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
-                        >
-                          +50rb
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevDuesInput((prev) => (Number(prev) || 0) + 75000)}
-                          className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
-                        >
-                          +75rb
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevDuesInput(0)}
-                          className="px-2 py-0.5 text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded font-semibold cursor-pointer"
-                        >
-                          Nol-kan (Rp 0 / Lunas)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevDuesInput(25000)}
-                          className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
-                        >
-                          Rp 25.000 (1 Bln)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevDuesInput(50000)}
-                          className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
-                        >
-                          Rp 50.000 (2 Bln)
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Keterangan Tunggakan Iuran (Tampil di tagihan WA):
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Misal: Iuran Agustus & September 2026..."
-                    value={editPrevDuesNote}
-                    onChange={(e) => setEditPrevDuesNote(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-none bg-white"
-                  />
-                </div>
-              </div>
-
-              {/* CARD 2: Edit / Tambah Denda Baksos */}
-              <div className="p-3.5 bg-amber-50/40 rounded-xl border border-amber-200/90 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                    <span>2. Denda Bakti Sosial (Baksos)</span>
-                  </span>
-                  {/* Mode switch */}
-                  <div className="flex items-center bg-amber-100 p-0.5 rounded-lg border border-amber-200 text-[11px] font-semibold">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditBaksosMode('add');
-                        setEditPrevBaksosInput(0);
-                      }}
-                      className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                        editBaksosMode === 'add'
-                          ? 'bg-amber-600 text-white shadow-2xs font-bold'
-                          : 'text-amber-800 hover:bg-amber-200/60'
-                      }`}
-                    >
-                      + Tambah
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditBaksosMode('set');
-                        setEditPrevBaksosInput(currentPrevBaksos);
-                      }}
-                      className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
-                        editBaksosMode === 'set'
-                          ? 'bg-amber-600 text-white shadow-2xs font-bold'
-                          : 'text-amber-800 hover:bg-amber-200/60'
-                      }`}
-                    >
-                      = Atur Total
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-semibold text-slate-700">
-                      {editBaksosMode === 'add' ? 'Nominal Denda Yang Ditambahkan (Rp):' : 'Atur Total Denda Baksos (Rp):'}
-                    </label>
-                    <span className="text-[11px] font-mono font-bold text-amber-800">
-                      Hasil: {formatRupiah(targetPrevBaksos)}
-                    </span>
-                  </div>
-                  <input
-                    type="number"
-                    min={0}
-                    step={5000}
-                    value={editPrevBaksosInput || ''}
-                    onChange={(e) => setEditPrevBaksosInput(Math.max(0, Number(e.target.value)))}
-                    placeholder={editBaksosMode === 'add' ? 'Contoh: 10000' : String(currentPrevBaksos)}
-                    className="w-full px-3 py-1.5 text-xs font-mono border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                  />
-                  {/* Quick Preset Buttons for Baksos */}
-                  <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                    {editBaksosMode === 'add' ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevBaksosInput((prev) => (Number(prev) || 0) + 10000)}
-                          className="px-2 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 rounded font-semibold cursor-pointer"
-                        >
-                          +10rb (1x absen)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevBaksosInput((prev) => (Number(prev) || 0) + 20000)}
-                          className="px-2 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 rounded font-semibold cursor-pointer"
-                        >
-                          +20rb (2x absen)
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevBaksosInput(0)}
-                          className="px-2 py-0.5 text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded font-semibold cursor-pointer"
-                        >
-                          Nol-kan (Rp 0 / Bebas)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevBaksosInput(10000)}
-                          className="px-2 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 rounded font-semibold cursor-pointer"
-                        >
-                          Rp 10.000
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditPrevBaksosInput(20000)}
-                          className="px-2 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 rounded font-semibold cursor-pointer"
-                        >
-                          Rp 20.000
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Keterangan Denda Baksos (Tampil di tagihan WA):
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Misal: Denda absen baksos gorong-gorong 18 Okt..."
-                    value={editPrevBaksosNote}
-                    onChange={(e) => setEditPrevBaksosNote(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                  />
-                </div>
-              </div>
-
-              {/* Total Keseluruhan Baru */}
-              <div className="p-3 bg-gradient-to-r from-rose-100 via-amber-100 to-teal-100 rounded-xl border border-rose-300 flex items-center justify-between text-xs font-bold text-slate-800">
-                <span>Total Tunggakan Baru (Lalu + Denda):</span>
-                <span className="font-mono text-base text-rose-700">
-                  {formatRupiah(targetPrevDues + targetPrevBaksos)}
-                </span>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
                 <button
                   type="button"
-                  onClick={() => {
-                    handleResetPrev(activeModalHouse);
-                    setEditingHouse(null);
-                  }}
-                  className="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-lg cursor-pointer font-semibold"
-                  title="Nol-kan semua tunggakan & denda lalu rumah ini"
+                  onClick={() => setEditingHouse(null)}
+                  className="p-1.5 text-white/80 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
                 >
-                  Nol-kan Semua
+                  <X className="w-5 h-5" />
                 </button>
+              </div>
 
-                <div className="flex items-center gap-2">
+              <form onSubmit={handleSaveManualArrears} className="p-4 sm:p-5 space-y-4 max-h-[85vh] overflow-y-auto">
+                {/* 1. Pilih Rumah / Kepala Keluarga */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Pilih Rumah / Kepala Keluarga:</span>
+                  </label>
+                  <select
+                    value={activeModalHouse.id}
+                    onChange={(e) => handleSelectHouseInModal(e.target.value)}
+                    className="w-full px-3 py-2 text-xs font-semibold border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-slate-50"
+                  >
+                    {residents.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        Blok {r.blockNumber} — {r.duesHeadNameOverride || r.headName}{' '}
+                        {r.occupancy === 'Kosong' ? '(Kosong)' : ''}
+                        {((r.previousArrears || 0) > 0 || (r.previousBaksosArrears || 0) > 0 || (r.customBaksosFineAmount || 0) > 0)
+                          ? ` • Tanggungan: ${formatRupiah((r.previousArrears || 0) + (r.previousBaksosArrears || 0) + (r.customBaksosFineAmount || 0))}`
+                          : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Status & Ringkasan Tanggungan Saat Ini */}
+                <div className="p-3 bg-amber-50/80 rounded-xl border border-amber-200 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-[11px] text-slate-500 block">Tunggakan Iuran Lalu Tercatat:</span>
+                    <span className="font-mono font-bold text-rose-700 text-sm">
+                      {formatRupiah(currentPrevDues)}
+                    </span>
+                    {activeModalHouse.previousArrearsNote && (
+                      <span className="block text-[10px] text-slate-500 italic truncate" title={activeModalHouse.previousArrearsNote}>
+                        Ket: {activeModalHouse.previousArrearsNote}
+                      </span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-slate-500 block">Denda Baksos Tercatat:</span>
+                    <span className="font-mono font-bold text-amber-800 text-sm">
+                      {formatRupiah(currentPrevBaksos)}
+                    </span>
+                    {activeModalHouse.previousBaksosArrearsNote && (
+                      <span className="block text-[10px] text-slate-500 italic truncate" title={activeModalHouse.previousBaksosArrearsNote}>
+                        Ket: {activeModalHouse.previousBaksosArrearsNote}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* CARD 1: Edit / Sesuaikan Jumlah Tunggakan Bulan / Tahun Lalu */}
+                <div className="p-3.5 bg-rose-50/50 rounded-xl border border-rose-200 space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                    <div>
+                      <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5 text-rose-600" />
+                        <span>1. Edit Jumlah Tunggakan Bulan/Tahun Lalu (Rp)</span>
+                      </span>
+                      <p className="text-[10px] text-slate-500">
+                        Sesuaikan jika ada tunggakan lalu yang belum terinput
+                      </p>
+                    </div>
+
+                    {/* Mode switch: Atur Total vs Tambah */}
+                    <div className="flex items-center bg-rose-100 p-0.5 rounded-lg border border-rose-200 text-[11px] font-semibold self-start sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditDuesMode('set');
+                          setEditPrevDuesInput(currentPrevDues);
+                        }}
+                        className={`px-2.5 py-0.5 rounded transition-colors cursor-pointer ${
+                          editDuesMode === 'set'
+                            ? 'bg-rose-600 text-white shadow-2xs font-bold'
+                            : 'text-rose-700 hover:bg-rose-200/60'
+                        }`}
+                      >
+                        = Atur Total
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditDuesMode('add');
+                          setEditPrevDuesInput(0);
+                        }}
+                        className={`px-2.5 py-0.5 rounded transition-colors cursor-pointer ${
+                          editDuesMode === 'add'
+                            ? 'bg-rose-600 text-white shadow-2xs font-bold'
+                            : 'text-rose-700 hover:bg-rose-200/60'
+                        }`}
+                      >
+                        + Tambah
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-slate-700">
+                        {editDuesMode === 'set'
+                          ? 'Nominal Tunggakan Lalu yang Disesuaikan (Rp):'
+                          : 'Nominal yang Ditambahkan ke Tunggakan Lalu (Rp):'}
+                      </label>
+                      <span className="text-[11px] font-mono font-bold text-rose-700 bg-rose-100/80 px-2 py-0.5 rounded border border-rose-200">
+                        Hasil: {formatRupiah(targetPrevDues)}
+                      </span>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      step={5000}
+                      value={editPrevDuesInput === 0 && editDuesMode === 'add' ? '' : editPrevDuesInput}
+                      onChange={(e) => setEditPrevDuesInput(Math.max(0, Number(e.target.value)))}
+                      placeholder={editDuesMode === 'set' ? String(currentPrevDues) : 'Contoh: 25000'}
+                      className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:outline-none bg-white"
+                    />
+
+                    {/* Quick Preset Buttons for Dues */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      {editDuesMode === 'set' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevDuesInput(0)}
+                            className="px-2 py-0.5 text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded font-semibold cursor-pointer"
+                          >
+                            Nol-kan (Rp 0 / Lunas)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevDuesInput(houseNominal)}
+                            className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
+                          >
+                            1 Bulan ({formatRupiah(houseNominal)})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevDuesInput(houseNominal * 2)}
+                            className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
+                          >
+                            2 Bulan ({formatRupiah(houseNominal * 2)})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevDuesInput(houseNominal * 3)}
+                            className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
+                          >
+                            3 Bulan ({formatRupiah(houseNominal * 3)})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevDuesInput(houseNominal * 4)}
+                            className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
+                          >
+                            4 Bulan ({formatRupiah(houseNominal * 4)})
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevDuesInput((prev) => (Number(prev) || 0) + houseNominal)}
+                            className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
+                          >
+                            +{formatRupiah(houseNominal)}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevDuesInput((prev) => (Number(prev) || 0) + houseNominal * 2)}
+                            className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
+                          >
+                            +{formatRupiah(houseNominal * 2)}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevDuesInput((prev) => (Number(prev) || 0) + houseNominal * 3)}
+                            className="px-2 py-0.5 text-[10px] bg-rose-100 hover:bg-rose-200 text-rose-800 rounded font-semibold cursor-pointer"
+                          >
+                            +{formatRupiah(houseNominal * 3)}
+                          </button>
+                        </>
+                      )}
+
+                      {/* Tombol Sinkronisasi dari Rekap Kas */}
+                      {selectedRecapMonths.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditDuesMode('set');
+                            const totalUnpaidSelected = selectedRecapMonths.reduce((sum, m) => {
+                              const p = activePeriods.find((x) => x.periodLabel === m);
+                              return sum + (p?.unpaidAmount || houseNominal);
+                            }, 0);
+                            setEditPrevDuesInput(totalUnpaidSelected);
+                          }}
+                          className="px-2 py-0.5 text-[10px] bg-amber-200 hover:bg-amber-300 text-amber-950 rounded font-bold cursor-pointer flex items-center gap-1 border border-amber-300"
+                          title="Set nominal sesuai bulan yang dipilih dari Rekap Kas"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-700" />
+                          <span>Sinkronkan {selectedRecapMonths.length} Bln Terpilih</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 2: Keterangan Tunggakan Lalu (Manual atau Terintegrasi dari Rekap Kas) */}
+                <div className="p-3.5 bg-blue-50/50 rounded-xl border border-blue-200 space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                    <div>
+                      <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-blue-600" />
+                        <span>2. Keterangan Tunggakan Lalu</span>
+                      </span>
+                      <p className="text-[10px] text-slate-500">
+                        Input manual atau terintegrasi otomatis dari rekap kas per KK
+                      </p>
+                    </div>
+
+                    {/* Mode Toggle: Terintegrasi Rekap Kas vs Input Manual */}
+                    <div className="flex items-center bg-blue-100 p-0.5 rounded-lg border border-blue-200 text-[11px] font-semibold self-start sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setNoteInputMode('integrated')}
+                        className={`px-2 py-0.5 rounded transition-colors cursor-pointer flex items-center gap-1 ${
+                          noteInputMode === 'integrated'
+                            ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                            : 'text-blue-700 hover:bg-blue-200/60'
+                        }`}
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>Rekap Kas Per KK</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNoteInputMode('manual')}
+                        className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
+                          noteInputMode === 'manual'
+                            ? 'bg-blue-600 text-white shadow-2xs font-bold'
+                            : 'text-blue-700 hover:bg-blue-200/60'
+                        }`}
+                      >
+                        ✍️ Input Manual
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Mode A: Terintegrasi dari Rekap Kas Per KK */}
+                  {noteInputMode === 'integrated' ? (
+                    <div className="p-2.5 bg-white rounded-xl border border-blue-200 space-y-2 text-xs">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                        <span>Pilih Bulan Tertunggak dari Rekap Kas Per KK:</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const allMonths = unpaidPeriodsFromKas.map((p) => p.periodLabel);
+                              setSelectedRecapMonths(allMonths);
+                              setEditPrevDuesNote(allMonths.length > 0 ? `Iuran ${allMonths.join(', ')}` : '');
+                            }}
+                            className="text-[10px] text-blue-700 hover:underline cursor-pointer"
+                          >
+                            Pilih Semua
+                          </button>
+                          <span>·</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedRecapMonths([]);
+                              setEditPrevDuesNote('');
+                            }}
+                            className="text-[10px] text-slate-500 hover:underline cursor-pointer"
+                          >
+                            Kosongkan
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Checklist Bulan-Bulan dari Rekap Kas */}
+                      <div className="space-y-1 max-h-36 overflow-y-auto pr-1">
+                        {activePeriods.length === 0 ? (
+                          <div className="p-2 text-center text-slate-400 italic text-[11px]">
+                            Tidak ada data periode kas tercatat untuk rumah ini.
+                          </div>
+                        ) : (
+                          activePeriods.map((p) => {
+                            const isChecked = selectedRecapMonths.includes(p.periodLabel);
+                            const isUnpaid = !p.isLunasThisPeriod && !p.isPeriodVacant;
+                            return (
+                              <label
+                                key={p.periodLabel}
+                                className={`flex items-center justify-between p-2 rounded-lg border text-xs cursor-pointer transition-all ${
+                                  isChecked
+                                    ? 'bg-rose-50/90 border-rose-300 font-bold text-rose-950'
+                                    : 'bg-slate-50/60 border-slate-200 hover:bg-slate-100/70 text-slate-700'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={(e) => {
+                                      const next = e.target.checked
+                                        ? [...selectedRecapMonths, p.periodLabel]
+                                        : selectedRecapMonths.filter((m) => m !== p.periodLabel);
+                                      setSelectedRecapMonths(next);
+                                      setEditPrevDuesNote(next.length > 0 ? `Iuran ${next.join(', ')}` : '');
+                                    }}
+                                    className="rounded text-rose-600 focus:ring-rose-500 w-3.5 h-3.5"
+                                  />
+                                  <span>{p.periodLabel}</span>
+                                  {p.periodLabel === currentMonthLabel && (
+                                    <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 text-[9px] font-bold">
+                                      Bulan Ini
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-2 font-mono text-[11px]">
+                                  <span
+                                    className={
+                                      isUnpaid
+                                        ? 'text-rose-700 font-bold'
+                                        : 'text-emerald-700 font-medium'
+                                    }
+                                  >
+                                    {p.statusBadge}
+                                  </span>
+                                  <span className="text-slate-500">
+                                    ({formatRupiah(p.unpaidAmount > 0 ? p.unpaidAmount : houseNominal)})
+                                  </span>
+                                </div>
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* Tombol Otomatis Terapkan ke Keterangan & Nominal */}
+                      <div className="pt-1.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-1.5">
+                        <span className="text-[11px] text-slate-500">
+                          {selectedRecapMonths.length} bulan terpilih ({formatRupiah(selectedRecapMonths.length * houseNominal)})
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (selectedRecapMonths.length > 0) {
+                                setEditPrevDuesNote(`Iuran ${selectedRecapMonths.join(', ')}`);
+                              }
+                            }}
+                            className="px-2.5 py-1 text-[11px] bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold cursor-pointer shadow-2xs"
+                          >
+                            Terapkan ke Keterangan
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Text Input Keterangan Tunggakan Lalu (selalu bisa diedit / disesuaikan langsung) */}
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Teks Keterangan Tunggakan (Tampil di tagihan WA & tabel):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Misal: Iuran Mei, Juni & Juli 2026..."
+                      value={editPrevDuesNote}
+                      onChange={(e) => setEditPrevDuesNote(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white font-medium text-slate-800"
+                    />
+
+                    {/* Quick Helper Chips for Manual Input */}
+                    <div className="flex flex-wrap items-center gap-1 mt-1.5 text-[10px]">
+                      <span className="text-slate-500 text-[10px]">Sisipkan cepat:</span>
+                      {sortedPeriods.slice(-5).map((p) => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => {
+                            setEditPrevDuesNote((prev) =>
+                              prev ? (prev.includes(p) ? prev : `${prev}, ${p}`) : `Iuran ${p}`
+                            );
+                          }}
+                          className="px-1.5 py-0.5 bg-slate-100 hover:bg-blue-100 text-slate-700 rounded border border-slate-200 cursor-pointer"
+                        >
+                          +{p}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditPrevDuesNote((prev) =>
+                            prev ? `${prev}; Tunggakan Tahun Lalu` : 'Tunggakan Tahun Lalu'
+                          );
+                        }}
+                        className="px-1.5 py-0.5 bg-slate-100 hover:bg-blue-100 text-slate-700 rounded border border-slate-200 cursor-pointer"
+                      >
+                        +Thn Lalu
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* CARD 3: Edit / Tambah Jumlah Denda Baksos */}
+                <div className="p-3.5 bg-amber-50/50 rounded-xl border border-amber-200 space-y-2.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                    <div>
+                      <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                        <span>3. Edit Jumlah Denda Bakti Sosial (Baksos)</span>
+                      </span>
+                      <p className="text-[10px] text-slate-500">
+                        Atur nominal denda ketidakhadiran baksos / gotong royong
+                      </p>
+                    </div>
+
+                    {/* Mode switch */}
+                    <div className="flex items-center bg-amber-100 p-0.5 rounded-lg border border-amber-200 text-[11px] font-semibold self-start sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditBaksosMode('set');
+                          setEditPrevBaksosInput(currentPrevBaksos);
+                        }}
+                        className={`px-2.5 py-0.5 rounded transition-colors cursor-pointer ${
+                          editBaksosMode === 'set'
+                            ? 'bg-amber-600 text-white shadow-2xs font-bold'
+                            : 'text-amber-800 hover:bg-amber-200/60'
+                        }`}
+                      >
+                        = Atur Total
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditBaksosMode('add');
+                          setEditPrevBaksosInput(0);
+                        }}
+                        className={`px-2.5 py-0.5 rounded transition-colors cursor-pointer ${
+                          editBaksosMode === 'add'
+                            ? 'bg-amber-600 text-white shadow-2xs font-bold'
+                            : 'text-amber-800 hover:bg-amber-200/60'
+                        }`}
+                      >
+                        + Tambah
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-semibold text-slate-700">
+                        {editBaksosMode === 'set'
+                          ? 'Nominal Total Denda Baksos (Rp):'
+                          : 'Nominal Denda Yang Ditambahkan (Rp):'}
+                      </label>
+                      <span className="text-[11px] font-mono font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded border border-amber-300">
+                        Hasil: {formatRupiah(targetPrevBaksos)}
+                      </span>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      step={5000}
+                      value={editPrevBaksosInput === 0 && editBaksosMode === 'add' ? '' : editPrevBaksosInput}
+                      onChange={(e) => setEditPrevBaksosInput(Math.max(0, Number(e.target.value)))}
+                      placeholder={editBaksosMode === 'set' ? String(currentPrevBaksos) : 'Contoh: 10000'}
+                      className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                    />
+
+                    {/* Quick Presets for Baksos */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                      {editBaksosMode === 'set' ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevBaksosInput(0)}
+                            className="px-2 py-0.5 text-[10px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 rounded font-semibold cursor-pointer"
+                          >
+                            Nol-kan (Rp 0 / Bebas Denda)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevBaksosInput(10000)}
+                            className="px-2 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 rounded font-semibold cursor-pointer"
+                          >
+                            Rp 10.000 (1x)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevBaksosInput(20000)}
+                            className="px-2 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 rounded font-semibold cursor-pointer"
+                          >
+                            Rp 20.000 (2x)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevBaksosInput(30000)}
+                            className="px-2 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 rounded font-semibold cursor-pointer"
+                          >
+                            Rp 30.000 (3x)
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevBaksosInput((prev) => (Number(prev) || 0) + 10000)}
+                            className="px-2 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 rounded font-semibold cursor-pointer"
+                          >
+                            +10.000 (1x)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditPrevBaksosInput((prev) => (Number(prev) || 0) + 20000)}
+                            className="px-2 py-0.5 text-[10px] bg-amber-100 hover:bg-amber-200 text-amber-900 rounded font-semibold cursor-pointer"
+                          >
+                            +20.000 (2x)
+                          </button>
+                        </>
+                      )}
+
+                      {/* Tombol sesuai agenda absen */}
+                      {(activeRecap?.unpaidBaksosList?.length || 0) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditBaksosMode('set');
+                            setEditPrevBaksosInput((activeRecap?.unpaidBaksosList?.length || 1) * 10000);
+                          }}
+                          className="px-2 py-0.5 text-[10px] bg-amber-200 hover:bg-amber-300 text-amber-950 rounded font-bold cursor-pointer flex items-center gap-1 border border-amber-300"
+                        >
+                          <Sparkles className="w-3 h-3 text-amber-700" />
+                          <span>Sesuai {activeRecap?.unpaidBaksosList?.length}x Absen ({formatRupiah((activeRecap?.unpaidBaksosList?.length || 1) * 10000)})</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                      Keterangan Denda Baksos (Tampil di tagihan WA):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Misal: Denda absen baksos gorong-gorong 18 Okt..."
+                      value={editPrevBaksosNote}
+                      onChange={(e) => setEditPrevBaksosNote(e.target.value)}
+                      className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white font-medium text-slate-800"
+                    />
+                    <div className="flex flex-wrap items-center gap-1 mt-1 text-[10px]">
+                      <span className="text-slate-500 text-[10px]">Sisipkan cepat:</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditPrevBaksosNote('Denda Absen Baksos Gotong Royong')}
+                        className="px-1.5 py-0.5 bg-slate-100 hover:bg-amber-100 text-slate-700 rounded border border-slate-200 cursor-pointer"
+                      >
+                        +Absen Baksos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditPrevBaksosNote('Denda Gotong Royong Saluran Air')}
+                        className="px-1.5 py-0.5 bg-slate-100 hover:bg-amber-100 text-slate-700 rounded border border-slate-200 cursor-pointer"
+                      >
+                        +Saluran Air
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Total Keseluruhan Baru */}
+                <div className="p-3 bg-gradient-to-r from-rose-100 via-amber-100 to-teal-100 rounded-xl border border-rose-300 flex items-center justify-between text-xs font-bold text-slate-800">
+                  <div>
+                    <span>Total Tunggakan Baru Disesuaikan:</span>
+                    <span className="block text-[10px] text-slate-500 font-normal">
+                      Tunggakan Lalu ({formatRupiah(targetPrevDues)}) + Denda Baksos ({formatRupiah(targetPrevBaksos)})
+                    </span>
+                  </div>
+                  <span className="font-mono text-base font-extrabold text-rose-700">
+                    {formatRupiah(targetPrevDues + targetPrevBaksos)}
+                  </span>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200">
                   <button
                     type="button"
-                    onClick={() => setEditingHouse(null)}
-                    className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer font-semibold"
+                    onClick={() => {
+                      handleResetPrev(activeModalHouse);
+                      setEditingHouse(null);
+                    }}
+                    className="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 border border-rose-200 rounded-xl cursor-pointer font-semibold"
+                    title="Nol-kan semua tunggakan & denda lalu rumah ini"
                   >
-                    Batal
+                    Nol-kan Semua
                   </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-xs bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Simpan Perubahan</span>
-                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingHouse(null)}
+                      className="px-3.5 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer font-semibold"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-xs bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Simpan Perubahan</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Modal Pembayaran Sebagian (Cicilan) Tunggakan Per Rumah */}
       {partialPayItem && (

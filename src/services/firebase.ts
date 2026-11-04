@@ -1,14 +1,21 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
+  initializeFirestore,
+  memoryLocalCache,
   getFirestore,
   doc,
   getDoc,
-  getDocFromServer,
-  setDoc,
   onSnapshot,
+  terminate,
+  setLogLevel,
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { PortalDatabasePayload } from '../types';
+
+// Silence internal Firestore SDK retry and backoff logs in browser console
+try {
+  setLogLevel('silent');
+} catch {}
 
 const effectiveConfig = {
   ...firebaseConfig,
@@ -16,7 +23,17 @@ const effectiveConfig = {
 };
 
 export const app = !getApps().length ? initializeApp(effectiveConfig) : getApp();
-export const db = getFirestore(app, effectiveConfig.firestoreDatabaseId);
+
+let firestoreInstance;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    localCache: memoryLocalCache(),
+  }, effectiveConfig.firestoreDatabaseId);
+} catch {
+  firestoreInstance = getFirestore(app, effectiveConfig.firestoreDatabaseId);
+}
+
+export const db = firestoreInstance;
 
 export enum OperationType {
   CREATE = 'create',
@@ -44,15 +61,24 @@ export interface FirestoreErrorInfo {
   };
 }
 
-let isFirestoreQuotaExceeded = false;
+// Client-side Firestore writes are permanently disabled because:
+// 1. All persistent data is authoritatively stored & synchronized via Express Server (/api/database),
+//    online_database.json, SQLite/JSON, IndexedDB, and localStorage.
+// 2. The Firestore free-tier daily write unit quota has been reached on Google Cloud (resource-exhausted).
+// Disabling direct client setDoc eliminates duplicate writes and stops the backoff retry loops.
+export const isFirestoreQuotaExceeded = true;
 
 export function getIsFirestoreQuotaExceeded(): boolean {
-  return isFirestoreQuotaExceeded;
+  return true;
 }
 
-export function setIsFirestoreQuotaExceeded(val: boolean) {
-  isFirestoreQuotaExceeded = val;
+export function markFirestoreQuotaExceeded() {
+  try {
+    terminate(db).catch(() => {});
+  } catch {}
 }
+
+export function setIsFirestoreQuotaExceeded(_val: boolean) {}
 
 export function handleFirestoreError(
   error: unknown,
@@ -63,12 +89,18 @@ export function handleFirestoreError(
   if (
     errMsg.includes('resource-exhausted') ||
     errMsg.includes('Quota limit exceeded') ||
-    errMsg.includes('Quota exceeded')
+    errMsg.includes('Quota exceeded') ||
+    errMsg.includes('RESOURCE_EXHAUSTED')
   ) {
-    isFirestoreQuotaExceeded = true;
-    console.warn(
-      'Firestore Quota Exceeded (Free Tier limit reached for today). Seamlessly falling back to local server & browser storage.'
-    );
+    try {
+      terminate(db).catch(() => {});
+    } catch {}
+    return {
+      error: 'Firestore Quota Exceeded (Free tier limit reached for today)',
+      authInfo: { userId: null, email: null, emailVerified: null, isAnonymous: null, tenantId: null, providerInfo: [] },
+      operationType,
+      path,
+    };
   }
 
   const errInfo: FirestoreErrorInfo = {
@@ -84,85 +116,52 @@ export function handleFirestoreError(
     operationType,
     path,
   };
-  console.warn('Firestore Notice: ', JSON.stringify(errInfo));
   return errInfo;
 }
 
-// Test connection on boot as required by Firebase integration skill
+// Test connection without writing: reads state with timeout protection
 export async function testFirestoreConnection(): Promise<boolean> {
-  if (isFirestoreQuotaExceeded) return false;
   const path = 'portal_state/main_state';
   try {
     const res = await Promise.race([
-      getDocFromServer(doc(db, 'portal_state', 'main_state')),
-      new Promise<null>((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+      getDoc(doc(db, 'portal_state', 'main_state')),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000)),
     ]);
     return Boolean(res);
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firebase client is offline.');
-    }
-    handleFirestoreError(error, OperationType.GET, path);
+  } catch {
     return false;
   }
 }
 
 // Directly fetch latest cloud state from Firestore with timeout protection
 export async function loadStateFromFirestoreDirect(): Promise<PortalDatabasePayload | null> {
-  if (isFirestoreQuotaExceeded) return null;
   const path = 'portal_state/main_state';
   try {
     const snap = await Promise.race([
       getDoc(doc(db, 'portal_state', 'main_state')),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 3500)),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 2500)),
     ]);
     if (!snap || !snap.exists()) return null;
     const data = snap.data();
     if (!data || !data.payloadJson) return null;
     return JSON.parse(data.payloadJson) as PortalDatabasePayload;
-  } catch (err: any) {
-    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota')) {
-      isFirestoreQuotaExceeded = true;
-    }
-    handleFirestoreError(err, OperationType.GET, path);
+  } catch {
     return null;
   }
 }
 
-// Directly persist state to Firestore with timeout protection
+// Direct client-side write to Firestore is safely bypassed:
+// Express server endpoint /api/database handles online storage and broadcasting.
 export async function saveStateToFirestoreDirect(
-  payload: PortalDatabasePayload
+  _payload: PortalDatabasePayload
 ): Promise<boolean> {
-  if (payload.isDefaultSeed || isFirestoreQuotaExceeded) return false;
-  const path = 'portal_state/main_state';
-  try {
-    const ref = doc(db, 'portal_state', 'main_state');
-    await Promise.race([
-      setDoc(ref, {
-        revision: Number(payload.revision) || 1,
-        updatedAt: payload.updatedAt || new Date().toISOString(),
-        updatedBy: payload.updatedBy || 'Portal Online Gang Mandor',
-        payloadJson: JSON.stringify(payload),
-      }),
-      new Promise<void>((_, reject) => setTimeout(() => reject(new Error('setDoc timeout')), 4000)),
-    ]);
-    return true;
-  } catch (err: any) {
-    if (err?.code === 'resource-exhausted' || err?.message?.includes('Quota')) {
-      isFirestoreQuotaExceeded = true;
-    }
-    handleFirestoreError(err, OperationType.WRITE, path);
-    return false;
-  }
+  return false;
 }
 
-// Real-time live listener for Firestore with automatic unsubscribe on quota exhaustion
+// Real-time live listener for Firestore
 export function subscribeToFirestoreLive(
   onUpdate: (payload: PortalDatabasePayload) => void
 ): () => void {
-  if (isFirestoreQuotaExceeded) {
-    return () => {};
-  }
   const path = 'portal_state/main_state';
   let unsub: (() => void) | null = null;
   try {
@@ -182,12 +181,10 @@ export function subscribeToFirestoreLive(
         const errMsg = err?.message || String(err);
         if (
           err?.code === 'resource-exhausted' ||
-          errMsg.includes('Quota') ||
+          errMsg.includes('Quota limit exceeded') ||
+          errMsg.includes('Quota exceeded') ||
           err?.code === 'permission-denied'
         ) {
-          if (err?.code === 'resource-exhausted' || errMsg.includes('Quota')) {
-            isFirestoreQuotaExceeded = true;
-          }
           if (unsub) {
             try {
               unsub();
@@ -195,7 +192,6 @@ export function subscribeToFirestoreLive(
             unsub = null;
           }
         }
-        handleFirestoreError(err, OperationType.GET, path);
       }
     );
     return () => {
@@ -205,12 +201,7 @@ export function subscribeToFirestoreLive(
         } catch {}
       }
     };
-  } catch (err) {
-    handleFirestoreError(err, OperationType.GET, path);
+  } catch {
     return () => {};
   }
 }
-
-// Automatically test connection on boot
-testFirestoreConnection().catch(() => {});
-

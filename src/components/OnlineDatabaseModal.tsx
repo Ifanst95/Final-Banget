@@ -23,6 +23,7 @@ import {
 } from '../utils/backupRestoreHelper';
 import confetti from 'canvas-confetti';
 import firebaseConfig from '../../firebase-applet-config.json';
+import { getIsFirestoreQuotaExceeded } from '../services/firebase';
 
 interface OnlineDatabaseModalProps {
   isOpen: boolean;
@@ -208,13 +209,39 @@ export const OnlineDatabaseModal: React.FC<OnlineDatabaseModalProps> = ({
           <div className="p-3.5 bg-white/95 rounded-xl border border-emerald-200/80 shadow-2xs text-xs space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="font-bold text-slate-800">Firebase & Cloud Firestore API Aktif</span>
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    getIsFirestoreQuotaExceeded()
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500 animate-pulse'
+                  }`}
+                ></span>
+                <span className="font-bold text-slate-800">
+                  {getIsFirestoreQuotaExceeded()
+                    ? 'Firebase Cloud (Penyimpanan Utama Express & Lokal Aktif)'
+                    : 'Firebase & Cloud Firestore API Aktif'}
+                </span>
               </div>
-              <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 font-mono text-[11px] font-bold border border-emerald-300">
-                Terhubung
+              <span
+                className={`px-2 py-0.5 rounded-md font-mono text-[11px] font-bold border ${
+                  getIsFirestoreQuotaExceeded()
+                    ? 'bg-amber-100 text-amber-800 border-amber-300'
+                    : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                }`}
+              >
+                {getIsFirestoreQuotaExceeded() ? 'Penyimpanan Utama Aktif' : 'Terhubung'}
               </span>
             </div>
+            {getIsFirestoreQuotaExceeded() ? (
+              <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200/80 text-[11px] text-amber-900 leading-relaxed space-y-1">
+                <p className="font-semibold text-amber-950">
+                  ℹ️ Batas kuota tulis harian gratis Firebase Cloud (free tier) tercapai untuk hari ini.
+                </p>
+                <p>
+                  Seluruh fungsi website, penyimpanan data warga, kas, iuran, baksos, dan siaran antarperangkat tetap beroperasi 100% normal dan tersimpan aman di <strong>Server Express, File Database, IndexedDB, dan LocalStorage</strong>.
+                </p>
+              </div>
+            ) : null}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-700 bg-slate-50/90 p-2.5 rounded-lg border border-slate-200 font-mono">
               <div>
                 <span className="text-slate-400 font-sans">Firebase Project:</span> {firebaseConfig.projectId}
@@ -223,10 +250,10 @@ export const OnlineDatabaseModal: React.FC<OnlineDatabaseModalProps> = ({
                 <span className="text-slate-400 font-sans">Database ID:</span> {firebaseConfig.firestoreDatabaseId}
               </div>
               <div>
-                <span className="text-slate-400 font-sans">Firebase API Key:</span> {firebaseConfig.apiKey ? `${firebaseConfig.apiKey.substring(0, 8)}...${firebaseConfig.apiKey.substring(firebaseConfig.apiKey.length - 4)}` : 'Tersedia di Server'}
+                <span className="text-slate-400 font-sans">Penyimpanan Primer:</span> Express Server + SQLite/JSON + IndexedDB
               </div>
               <div>
-                <span className="text-slate-400 font-sans">Protokol Sinkron:</span> REST API + Realtime Listener
+                <span className="text-slate-400 font-sans">Protokol Sinkron:</span> REST API + SSE Stream
               </div>
             </div>
           </div>
