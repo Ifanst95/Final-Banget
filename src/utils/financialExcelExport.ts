@@ -814,9 +814,9 @@ export function exportFinancialReportToExcel({
       { wch: 24 },
       { wch: 24 },
       { wch: 26 },
-      { wch: 32 },
+      { wch: 45 },
       { wch: 22 },
-      { wch: 18 },
+      { wch: 20 },
     ];
     XLSX.utils.book_append_sheet(wb, wsArrears, 'Rincian Tunggakan');
   }

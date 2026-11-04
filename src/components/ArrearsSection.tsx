@@ -982,33 +982,44 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       )}
                     </div>
 
-                    <div className="col-span-2 pt-1 border-t border-slate-200/60 flex items-center justify-between">
-                      <div>
-                        <span className="text-slate-500 text-[11px]">Tunggakan Lalu:</span>{' '}
-                        <strong
-                          className={
-                            item.previousArrears > 0
-                              ? 'text-rose-700 font-mono'
-                              : 'text-slate-400 font-mono'
-                          }
-                        >
-                          {formatRupiah(item.previousArrears)}
-                        </strong>
-                        {item.previousArrearsNote && (
-                          <span className="text-[11px] text-slate-500 italic ml-1.5">
-                            ({item.previousArrearsNote})
-                          </span>
+                    <div className="col-span-2 pt-1.5 border-t border-slate-200/60 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-slate-500 text-[11px]">Tunggakan Lalu:</span>{' '}
+                          <strong
+                            className={
+                              item.previousArrears > 0
+                                ? 'text-rose-700 font-mono'
+                                : 'text-slate-400 font-mono'
+                            }
+                          >
+                            {formatRupiah(item.previousArrears)}
+                          </strong>
+                        </div>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenManualArrearsModal(item.house)}
+                            className="text-[11px] text-emerald-700 hover:text-emerald-800 underline font-semibold cursor-pointer flex items-center gap-1"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            <span>Edit / Tambah</span>
+                          </button>
                         )}
                       </div>
-                      {isAdmin && (
-                        <button
-                          type="button"
-                          onClick={() => handleOpenManualArrearsModal(item.house)}
-                          className="text-[11px] text-emerald-700 hover:text-emerald-800 underline font-semibold cursor-pointer flex items-center gap-1"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          <span>Edit / Tambah</span>
-                        </button>
+
+                      {item.previousArrearsNote && (
+                        <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 flex items-start gap-1.5 leading-relaxed shadow-2xs">
+                          <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[10px] font-bold text-amber-900 block uppercase tracking-wider">
+                              Keterangan Tunggakan Lalu Lengkap:
+                            </span>
+                            <p className="font-semibold text-slate-800 whitespace-normal break-words mt-0.5 select-text">
+                              {item.previousArrearsNote}
+                            </p>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1083,7 +1094,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                   Iuran Bulan Ini ({currentMonthLabel})
                 </th>
                 <th className="py-3 px-3 text-right">Tunggakan Bulan/Thn Lalu</th>
-                <th className="py-3 px-3">Keterangan Tunggakan Lalu</th>
+                <th className="py-3 px-3 min-w-[220px]">Keterangan Tunggakan Lalu</th>
                 <th className="py-3 px-3 text-right">Denda Baksos</th>
                 <th className="py-3 px-3 text-right">Total Tunggakan</th>
                 <th className="py-3 px-3 text-center">Status</th>
@@ -1203,14 +1214,18 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-3 max-w-[220px] truncate">
+                      <td className="py-3 px-3.5 whitespace-normal break-words min-w-[220px] max-w-[460px]">
                         {item.previousArrearsNote ? (
-                          <span className="text-slate-700 italic flex items-center gap-1">
-                            <FileText className="w-3 h-3 text-amber-600 shrink-0" />
-                            <span className="truncate">{item.previousArrearsNote}</span>
-                          </span>
+                          <div className="p-2 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-950 text-xs shadow-2xs leading-relaxed flex items-start gap-1.5">
+                            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                              <span className="font-semibold text-slate-800 break-words select-text">
+                                {item.previousArrearsNote}
+                              </span>
+                            </div>
+                          </div>
                         ) : (
-                          <span className="text-slate-400">-</span>
+                          <span className="text-slate-400 font-mono text-[11px]">-</span>
                         )}
                       </td>
                       {/* Denda Baksos Column */}
@@ -2503,9 +2518,17 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                     </div>
                   </div>
                   {singleBillingHouse.previousArrearsNote && (
-                    <p className="text-[11px] text-slate-600 italic">
-                      *Ket. Lalu: {singleBillingHouse.previousArrearsNote}
-                    </p>
+                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-start gap-2 leading-relaxed">
+                      <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wide">
+                          Keterangan Tunggakan Lalu:
+                        </span>
+                        <span className="font-semibold text-slate-800 whitespace-normal break-words">
+                          {singleBillingHouse.previousArrearsNote}
+                        </span>
+                      </div>
+                    </div>
                   )}
                 </div>
 

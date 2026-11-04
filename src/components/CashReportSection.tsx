@@ -6463,7 +6463,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                 </span>
                                 {row.previousArrearsNote ? (
                                   <span
-                                    className="block text-[9.5px] text-amber-800 font-bold max-w-[130px] ml-auto truncate"
+                                    className="block text-[9.5px] text-amber-800 font-bold whitespace-normal break-words max-w-[240px] ml-auto leading-tight mt-0.5"
                                     title={`Tunggakan: ${row.previousArrearsNote}`}
                                   >
                                     ({row.previousArrearsNote})
