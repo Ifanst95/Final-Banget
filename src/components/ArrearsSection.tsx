@@ -868,6 +868,16 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                     ? item.house.duesHeadNameOverride
                     : 'Rumah Kosong')
                 : (item.house.duesHeadNameOverride || item.house.headName);
+              const duesNote = item.previousArrearsNote || item.house.previousArrearsNote || '';
+              const addedBaksosNominal =
+                (item.previousBaksosArrears || 0) > 0
+                  ? item.previousBaksosArrears
+                  : (item.house.previousBaksosArrears || 0) > 0
+                  ? (item.house.previousBaksosArrears || 0)
+                  : (item.baksosFineArrears || 0);
+              const baksosNote = item.previousBaksosArrearsNote || item.house.previousBaksosArrearsNote || '';
+              const hasAddedBaksos = addedBaksosNominal > 0 || Boolean(baksosNote);
+              const hasAnyArrearsDetail = Boolean(duesNote || hasAddedBaksos);
 
               return (
                 <div
@@ -1008,17 +1018,42 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                         )}
                       </div>
 
-                      {item.previousArrearsNote && (
-                        <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 flex items-start gap-1.5 leading-relaxed shadow-2xs">
-                          <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                          <div className="flex-1 min-w-0">
-                            <span className="text-[10px] font-bold text-amber-900 block uppercase tracking-wider">
-                              Keterangan Tunggakan Lalu Lengkap:
-                            </span>
-                            <p className="font-semibold text-slate-800 whitespace-normal break-words mt-0.5 select-text">
-                              {item.previousArrearsNote}
-                            </p>
-                          </div>
+                      {hasAnyArrearsDetail && (
+                        <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 leading-relaxed shadow-2xs space-y-2">
+                          {duesNote ? (
+                            <div className="flex items-start gap-1.5">
+                              <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[10px] font-bold text-rose-800 block uppercase tracking-wider">
+                                  Keterangan Tunggakan Iuran (Tampil di tagihan WA):
+                                </span>
+                                <p className="font-semibold text-slate-800 whitespace-normal break-words mt-0.5 select-text">
+                                  {duesNote}
+                                </p>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {hasAddedBaksos ? (
+                            <div className={`flex items-start gap-1.5 ${duesNote ? 'pt-1.5 border-t border-amber-200/70' : ''}`}>
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[10px] font-bold text-amber-800 block uppercase tracking-wider">
+                                  Nominal Denda Yang Ditambahkan (Rp):
+                                </span>
+                                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                  <span className="font-extrabold font-mono text-amber-950 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300">
+                                    {formatRupiah(addedBaksosNominal)}
+                                  </span>
+                                  {baksosNote && (
+                                    <span className="text-[11px] text-amber-900 italic font-medium">
+                                      ({baksosNote})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       )}
                     </div>
@@ -1125,6 +1160,16 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                         ? item.house.duesHeadNameOverride
                         : 'Rumah Kosong')
                     : (item.house.duesHeadNameOverride || item.house.headName);
+                  const duesNote = item.previousArrearsNote || item.house.previousArrearsNote || '';
+                  const addedBaksosNominal =
+                    (item.previousBaksosArrears || 0) > 0
+                      ? item.previousBaksosArrears
+                      : (item.house.previousBaksosArrears || 0) > 0
+                      ? (item.house.previousBaksosArrears || 0)
+                      : (item.baksosFineArrears || 0);
+                  const baksosNote = item.previousBaksosArrearsNote || item.house.previousBaksosArrearsNote || '';
+                  const hasAddedBaksos = addedBaksosNominal > 0 || Boolean(baksosNote);
+                  const hasAnyArrearsDetail = Boolean(duesNote || hasAddedBaksos);
 
                   return (
                     <tr
@@ -1214,15 +1259,43 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                           )}
                         </div>
                       </td>
-                      <td className="py-3 px-3.5 whitespace-normal break-words min-w-[220px] max-w-[460px]">
-                        {item.previousArrearsNote ? (
-                          <div className="p-2 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-950 text-xs shadow-2xs leading-relaxed flex items-start gap-1.5">
-                            <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <span className="font-semibold text-slate-800 break-words select-text">
-                                {item.previousArrearsNote}
-                              </span>
-                            </div>
+                      <td className="py-3 px-3.5 whitespace-normal break-words min-w-[250px] max-w-[480px]">
+                        {hasAnyArrearsDetail ? (
+                          <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-950 text-xs shadow-2xs leading-relaxed space-y-2">
+                            {duesNote ? (
+                              <div className="flex items-start gap-1.5">
+                                <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-[10px] font-bold text-rose-800 block uppercase tracking-wider">
+                                    Keterangan Tunggakan Iuran (Tampil di tagihan WA):
+                                  </span>
+                                  <span className="font-semibold text-slate-800 break-words select-text">
+                                    {duesNote}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : null}
+
+                            {hasAddedBaksos ? (
+                              <div className={`flex items-start gap-1.5 ${duesNote ? 'pt-1.5 border-t border-amber-200/70' : ''}`}>
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-[10px] font-bold text-amber-800 block uppercase tracking-wider">
+                                    Nominal Denda Yang Ditambahkan (Rp):
+                                  </span>
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                    <span className="font-extrabold font-mono text-amber-950 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300">
+                                      {formatRupiah(addedBaksosNominal)}
+                                    </span>
+                                    {baksosNote && (
+                                      <span className="text-[11px] text-amber-900 italic font-medium">
+                                        ({baksosNote})
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
                         ) : (
                           <span className="text-slate-400 font-mono text-[11px]">-</span>
@@ -2028,6 +2101,56 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                               </div>
                             </div>
 
+                            {(() => {
+                              const ctDuesNote = currentTarget.previousArrearsNote || currentTarget.house.previousArrearsNote || '';
+                              const ctAddedBaksos =
+                                (currentTarget.previousBaksosArrears || 0) > 0
+                                  ? currentTarget.previousBaksosArrears
+                                  : (currentTarget.house.previousBaksosArrears || 0) > 0
+                                  ? (currentTarget.house.previousBaksosArrears || 0)
+                                  : (currentTarget.baksosFineArrears || 0);
+                              const ctBaksosNote = currentTarget.previousBaksosArrearsNote || currentTarget.house.previousBaksosArrearsNote || '';
+                              const ctHasAddedBaksos = ctAddedBaksos > 0 || Boolean(ctBaksosNote);
+
+                              if (!ctDuesNote && !ctHasAddedBaksos) return null;
+
+                              return (
+                                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-1.5 leading-relaxed">
+                                  {ctDuesNote ? (
+                                    <div className="flex items-start gap-1.5">
+                                      <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-[10px] font-bold text-rose-800 block uppercase tracking-wider">
+                                          Keterangan Tunggakan Iuran (Tampil di tagihan WA):
+                                        </span>
+                                        <span className="font-semibold text-slate-800">{ctDuesNote}</span>
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  {ctHasAddedBaksos ? (
+                                    <div className={`flex items-start gap-1.5 ${ctDuesNote ? 'pt-1.5 border-t border-amber-200/70' : ''}`}>
+                                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                                      <div className="flex-1 min-w-0">
+                                        <span className="text-[10px] font-bold text-amber-800 block uppercase tracking-wider">
+                                          Nominal Denda Yang Ditambahkan (Rp):
+                                        </span>
+                                        <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                          <span className="font-extrabold font-mono text-amber-950 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300">
+                                            {formatRupiah(ctAddedBaksos)}
+                                          </span>
+                                          {ctBaksosNote && (
+                                            <span className="text-[11px] text-amber-900 italic font-medium">
+                                              ({ctBaksosNote})
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })()}
+
                             {/* Kartu Rekening Bendahara Resmi */}
                             <div className="rounded-2xl p-3.5 sm:p-4 text-white shadow-md border border-blue-400/40 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                               <div className="space-y-1">
@@ -2517,19 +2640,59 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       </strong>
                     </div>
                   </div>
-                  {singleBillingHouse.previousArrearsNote && (
-                    <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-start gap-2 leading-relaxed">
-                      <FileText className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wide">
-                          Keterangan Tunggakan Lalu:
-                        </span>
-                        <span className="font-semibold text-slate-800 whitespace-normal break-words">
-                          {singleBillingHouse.previousArrearsNote}
-                        </span>
+                  {(() => {
+                    const sbDuesNote = singleBillingHouse.previousArrearsNote || singleBillingHouse.house.previousArrearsNote || '';
+                    const sbAddedBaksosNominal =
+                      (singleBillingHouse.previousBaksosArrears || 0) > 0
+                        ? singleBillingHouse.previousBaksosArrears
+                        : (singleBillingHouse.house.previousBaksosArrears || 0) > 0
+                        ? (singleBillingHouse.house.previousBaksosArrears || 0)
+                        : (singleBillingHouse.baksosFineArrears || 0);
+                    const sbBaksosNote = singleBillingHouse.previousBaksosArrearsNote || singleBillingHouse.house.previousBaksosArrearsNote || '';
+                    const sbHasAddedBaksos = sbAddedBaksosNominal > 0 || Boolean(sbBaksosNote);
+                    const sbHasDetail = Boolean(sbDuesNote || sbHasAddedBaksos);
+
+                    if (!sbHasDetail) return null;
+
+                    return (
+                      <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 leading-relaxed space-y-2">
+                        {sbDuesNote ? (
+                          <div className="flex items-start gap-2">
+                            <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold text-rose-900 block text-[10px] uppercase tracking-wide">
+                                Keterangan Tunggakan Iuran (Tampil di tagihan WA):
+                              </span>
+                              <span className="font-semibold text-slate-800 whitespace-normal break-words">
+                                {sbDuesNote}
+                              </span>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {sbHasAddedBaksos ? (
+                          <div className={`flex items-start gap-2 ${sbDuesNote ? 'pt-1.5 border-t border-amber-200/70' : ''}`}>
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                            <div>
+                              <span className="font-bold text-amber-900 block text-[10px] uppercase tracking-wide">
+                                Nominal Denda Yang Ditambahkan (Rp):
+                              </span>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                <span className="font-extrabold font-mono text-amber-950 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300">
+                                  {formatRupiah(sbAddedBaksosNominal)}
+                                </span>
+                                {sbBaksosNote && (
+                                  <span className="text-[11px] text-amber-900 italic font-medium">
+                                    ({sbBaksosNote})
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* KARTU REKENING BENDAHARA RESMI */}

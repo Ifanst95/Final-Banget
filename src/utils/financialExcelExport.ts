@@ -795,9 +795,15 @@ export function exportFinancialReportToExcel({
         [`Tunggakan Iuran Bulan Ini (${config.duesCurrentMonth || 'Bulan Berjalan'}) (Rp)`]: duesArrears,
         'Jumlah Absen Baksos Belum Lunas': unpaidBaksos.length,
         'Tunggakan Denda Baksos (Rp)': baksosFineArrears,
-        'Keterangan Denda Baksos Lalu': house.previousBaksosArrearsNote || '-',
+        'Nominal Denda Yang Ditambahkan (Rp)': house.previousBaksosArrears || 0,
+        'Keterangan Denda Baksos (Tampil di tagihan WA)': house.previousBaksosArrearsNote || '-',
         'Tunggakan Bulan/Tahun Lalu (Rp)': previousArrears,
-        'Keterangan Tunggakan Lalu': previousArrearsNote,
+        'Keterangan Tunggakan Iuran (Tampil di tagihan WA)': previousArrearsNote,
+        'Keterangan Tunggakan Lalu': [
+          previousArrearsNote && previousArrearsNote !== '-' ? `Iuran: ${previousArrearsNote}` : '',
+          (house.previousBaksosArrears || 0) > 0 ? `Denda: Rp ${(house.previousBaksosArrears || 0).toLocaleString('id-ID')}` : '',
+          house.previousBaksosArrearsNote ? `Ket Denda: ${house.previousBaksosArrearsNote}` : ''
+        ].filter(Boolean).join(' | ') || '-',
         'TOTAL TUNGGAKAN (Rp)': totalArrears,
         'Status Tagihan': totalArrears > 0 ? 'TERTUNGGAK' : 'LUNAS / BERSIH',
       };
