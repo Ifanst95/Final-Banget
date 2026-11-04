@@ -1925,6 +1925,21 @@ export function getHouseStatusForPeriod(
       };
     }
 
+    // JIKA BULAN INI MERUPAKAN BULAN TUNGGAKAN YANG DILUNASI DI BULAN LAIN:
+    if (periodSnapshot.settlementMonth) {
+      return {
+        status: 'Lunas',
+        amount: 0,
+        isAdvanceSubsequentMonth: false,
+        label: `Lunas Bulan ${periodSnapshot.settlementMonth}`,
+        badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold shadow-xs',
+        paidDate: periodSnapshot.paidDate,
+        note: `Tunggakan dilunasi pada bulan ${periodSnapshot.settlementMonth}`,
+        isArrearSettledLater: true,
+        settlementMonth: periodSnapshot.settlementMonth,
+      };
+    }
+
     if (periodSnapshot.duesStatus === 'Belum Bayar') {
       const paidPart = periodSnapshot.paidAmount || 0;
       if (paidPart > 0) {
@@ -1936,20 +1951,6 @@ export function getHouseStatusForPeriod(
           badgeClass: 'bg-rose-100 text-rose-800 border border-rose-300 font-bold',
           paidDate: periodSnapshot.paidDate,
           note: `Sisa ${formatRupiah(Math.max(0, snapNominal - paidPart))}`,
-        };
-      }
-
-      if (periodSnapshot.settlementMonth) {
-        return {
-          status: 'Lunas',
-          amount: 0,
-          isAdvanceSubsequentMonth: false,
-          label: `Lunas Bulan ${periodSnapshot.settlementMonth}`,
-          badgeClass: 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold shadow-xs',
-          paidDate: periodSnapshot.paidDate,
-          note: `Tunggakan dilunasi pada bulan ${periodSnapshot.settlementMonth}`,
-          isArrearSettledLater: true,
-          settlementMonth: periodSnapshot.settlementMonth,
         };
       }
 

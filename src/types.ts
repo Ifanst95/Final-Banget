@@ -63,6 +63,7 @@ export interface ResidentHouse {
     advanceOriginMonth?: string;
     paidDate?: string;
     settlementMonth?: string;
+    isArrearSettledLater?: boolean;
     customBaksosFineAmount?: number;
     paidBaksosAmount?: number;
     baksosStatus?: string;

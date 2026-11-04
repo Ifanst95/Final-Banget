@@ -349,6 +349,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
   const [houseDuesTunggakanDateInput, setHouseDuesTunggakanDateInput] = useState<string>('');
   const [houseDuesTunggakanNoteInput, setHouseDuesTunggakanNoteInput] = useState<string>('');
   const [houseDuesAutoDeductArrears, setHouseDuesAutoDeductArrears] = useState<boolean>(true);
+  const [houseDuesTunggakanMonths, setHouseDuesTunggakanMonths] = useState<string[]>([]);
+  const [houseDuesCustomArrearsMonth, setHouseDuesCustomArrearsMonth] = useState<string>('');
   const [preserveExistingDues, setPreserveExistingDues] = useState<boolean>(true);
 
   // Transaction form state
@@ -1267,6 +1269,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
           ? defaultNominal
           : item.nominalPerMonth || defaultNominal;
       const isAdvanceSubsequent = Boolean(statusInfo?.isAdvanceSubsequentMonth);
+      const isArrearSettledLater = Boolean(statusInfo?.isArrearSettledLater);
+      const settlementMonth = statusInfo?.settlementMonth || '';
 
       // Advance payment metadata enrichment
       const paidMonthsCount =
@@ -1347,6 +1351,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
       const isBayarLebih =
         !isRumahKosongHitam &&
         !isAdvanceSubsequent &&
+        !isArrearSettledLater &&
         ((statusInfo && statusInfo.status === 'Bayar Lebih') ||
          (selectedKKPeriod === 'semua' && isAdvancePaid) ||
          ((house.duesPaidMonths || 0) > 1 && !statusInfo));
@@ -1359,12 +1364,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         !isBayarLebih &&
         !isAdvanceSubsequent &&
         (statusInfo
-          ? statusInfo.status === 'Lunas' || (statusInfo.amount || 0) > 0
+          ? statusInfo.status === 'Lunas' || (statusInfo.amount || 0) > 0 || isArrearSettledLater
           : selectedKKPeriod === 'semua'
           ? isLunas || iuranPaid > 0
           : iuranPaid > 0);
 
-      const isMenunggak = !isRumahKosongHitam && !isNeutralKosong && !isBayarLebih && !isAdvanceSubsequent && !isSudahBayar;
+      const isMenunggak = !isRumahKosongHitam && !isNeutralKosong && !isBayarLebih && !isAdvanceSubsequent && !isArrearSettledLater && !isSudahBayar;
 
       const rowCellClass = isRumahKosongHitam
         ? '!bg-black !text-white border-neutral-800 font-medium'
@@ -1372,7 +1377,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         ? 'bg-slate-100/80 text-slate-700 border-slate-200/90 font-medium'
         : isBayarLebih
         ? 'bg-sky-50/70 text-sky-950 border-sky-200/80 font-medium'
-        : isAdvanceSubsequent
+        : isAdvanceSubsequent || isArrearSettledLater
         ? 'bg-emerald-50/70 text-emerald-950 border-emerald-200/80 font-medium'
         : isSudahBayar
         ? 'bg-emerald-50/40 text-emerald-950 border-emerald-200/80 font-medium'
@@ -1390,6 +1395,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         statusInfo,
         nominal,
         isAdvanceSubsequent,
+        isArrearSettledLater,
+        settlementMonth,
         paidMonthsCount,
         basePaymentMonth,
         coveredMonthsList,
@@ -2754,11 +2761,38 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
     );
 
     // Tunggakan states
+    const initialTunggakanMonths: string[] = [];
+    sortedPeriods.forEach((p) => {
+      const pKey = parseIndonesianMonthYearToKey(p);
+      const hist = (pKey && house.periodHistory?.[pKey]) || house.periodHistory?.[p];
+      if (
+        hist &&
+        (hist.settlementMonth === currentPeriodStr ||
+          hist.settlementMonth === activePeriodForModal ||
+          (hist.isArrearSettledLater && (hist.settlementMonth === currentPeriodStr || hist.settlementMonth === activePeriodForModal)))
+      ) {
+        if (!initialTunggakanMonths.includes(p)) initialTunggakanMonths.push(p);
+      }
+    });
+
+    existingTunggakanTxs.forEach((t) => {
+      const desc = t.description || '';
+      sortedPeriods.forEach((p) => {
+        const pMonth = p.split(' ')[0];
+        if (pMonth && desc.toLowerCase().includes(pMonth.toLowerCase())) {
+          if (!initialTunggakanMonths.includes(p)) initialTunggakanMonths.push(p);
+        }
+      });
+    });
+
+    setHouseDuesTunggakanMonths(initialTunggakanMonths);
     setHouseDuesTunggakanPaidInput(currentTunggakanPaid);
     setHouseDuesTunggakanDateInput(existingTunggakanTxs[0]?.date || defaultPaidDate);
     setHouseDuesTunggakanNoteInput(
       existingTunggakanTxs[0]?.description ||
-      `Pelunasan Tunggakan Lalu Blok ${house.blockNumber} (${currentDisplayName})`
+      (initialTunggakanMonths.length > 0
+        ? `Pelunasan Tunggakan (${initialTunggakanMonths.join(', ')}) Blok ${house.blockNumber} (${currentDisplayName})`
+        : `Pelunasan Tunggakan Lalu Blok ${house.blockNumber} (${currentDisplayName})`)
     );
     setHouseDuesAutoDeductArrears(true);
   };
@@ -2926,19 +2960,82 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         });
       }
 
-      // Jika ada pembayaran tunggakan, tandai pelunasan pada bulan-bulan sebelumnya yang belum bayar
-      if (tunggakanPaidNum > 0) {
+      // Jika ada pilihan bulan tunggakan yang dipilih, otomatis berikan tanda lunas di setiap bulan yang dibayar!
+      if (houseDuesTunggakanMonths.length > 0 && tunggakanPaidNum > 0) {
+        houseDuesTunggakanMonths.forEach((settledMonth) => {
+          const mKey = parseIndonesianMonthYearToKey(settledMonth);
+          if (mKey) {
+            const pastHist = newPeriodHistory[mKey] || newPeriodHistory[settledMonth] || {};
+            newPeriodHistory[mKey] = {
+              ...pastHist,
+              occupancy: pastHist.occupancy || houseDuesOccupancyInput,
+              headName: pastHist.headName || finalHeadName,
+              duesHeadNameOverride: pastHist.duesHeadNameOverride || finalHeadName,
+              duesStatus: 'Lunas',
+              settlementMonth: activeEditPeriod,
+              paidDate: houseDuesTunggakanDateInput || paidDateVal,
+              isArrearSettledLater: true,
+              paidAmount: 0,
+              updatedAt: new Date().toISOString(),
+            };
+            newPeriodHistory[settledMonth] = { ...newPeriodHistory[mKey] };
+          }
+        });
+
+        // Revert any past months previously marked settled by this period if now unchecked
         sortedPeriods.forEach((p) => {
           const pKey = parseIndonesianMonthYearToKey(p);
           if (pKey && editPeriodKey && pKey < editPeriodKey) {
+            const pastHist = newPeriodHistory[pKey];
+            if (pastHist && pastHist.settlementMonth === activeEditPeriod && !houseDuesTunggakanMonths.includes(p)) {
+              newPeriodHistory[pKey] = {
+                ...pastHist,
+                duesStatus: 'Belum Bayar',
+                paidAmount: 0,
+              };
+              delete (newPeriodHistory[pKey] as any).settlementMonth;
+              delete (newPeriodHistory[pKey] as any).isArrearSettledLater;
+              newPeriodHistory[p] = { ...newPeriodHistory[pKey] };
+            }
+          }
+        });
+      } else if (tunggakanPaidNum > 0) {
+        // Fallback jika tidak memilih bulan lewat checklist: otomatis tandai bulan-bulan menunggak tertua hingga nominal terpenuhi
+        let remainingPaid = tunggakanPaidNum;
+        sortedPeriods.forEach((p) => {
+          const pKey = parseIndonesianMonthYearToKey(p);
+          if (pKey && editPeriodKey && pKey < editPeriodKey && remainingPaid > 0) {
             const pastHist = newPeriodHistory[pKey] || newPeriodHistory[p];
             if (pastHist && (pastHist.duesStatus === 'Belum Bayar' || !pastHist.duesStatus)) {
+              const pNom = pastHist.customDuesAmount || getHouseDuesNominal(editingHouseDues, p) || 25000;
               newPeriodHistory[pKey] = {
                 ...pastHist,
                 duesStatus: 'Lunas',
                 settlementMonth: activeEditPeriod,
-                paidDate: paidDateVal,
+                paidDate: houseDuesTunggakanDateInput || paidDateVal,
+                isArrearSettledLater: true,
+                paidAmount: 0,
+                updatedAt: new Date().toISOString(),
               };
+              newPeriodHistory[p] = { ...newPeriodHistory[pKey] };
+              remainingPaid -= pNom;
+            }
+          }
+        });
+      } else if (tunggakanPaidNum === 0) {
+        // Jika pembayaran tunggakan dinolkan, bersihkan status settlementMonth pada bulan lalu
+        sortedPeriods.forEach((p) => {
+          const pKey = parseIndonesianMonthYearToKey(p);
+          if (pKey && editPeriodKey && pKey < editPeriodKey) {
+            const pastHist = newPeriodHistory[pKey];
+            if (pastHist && pastHist.settlementMonth === activeEditPeriod) {
+              newPeriodHistory[pKey] = {
+                ...pastHist,
+                duesStatus: 'Belum Bayar',
+                paidAmount: 0,
+              };
+              delete (newPeriodHistory[pKey] as any).settlementMonth;
+              delete (newPeriodHistory[pKey] as any).isArrearSettledLater;
               newPeriodHistory[p] = { ...newPeriodHistory[pKey] };
             }
           }
@@ -3158,7 +3255,9 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         category: 'Pembayaran Tunggakan',
         description:
           houseDuesTunggakanNoteInput.trim() ||
-          `Pelunasan Tunggakan Lalu Blok ${finalBlockNumber} (${displayName})`,
+          (houseDuesTunggakanMonths.length > 0
+            ? `Pelunasan Tunggakan (${houseDuesTunggakanMonths.join(', ')}) Blok ${finalBlockNumber} (${displayName})`
+            : `Pelunasan Tunggakan Lalu Blok ${finalBlockNumber} (${displayName})`),
         amount: tunggakanPaidNum,
       });
     }
@@ -5270,6 +5369,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           isBayarLebih,
                           isSudahBayar,
                           isMenunggak,
+                          isArrearSettledLater,
+                          settlementMonth,
                           rowCellClass,
                         } = row;
 
@@ -5283,7 +5384,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                 ? 'bg-slate-100/70 text-slate-700 border-slate-200 hover:bg-slate-100'
                                 : isBayarLebih
                                 ? 'bg-sky-50/60 text-slate-900 border-sky-200/70 hover:bg-sky-100/50'
-                                : isAdvanceSubsequent
+                                : isAdvanceSubsequent || isArrearSettledLater
                                 ? 'bg-emerald-50/60 text-slate-900 border-emerald-200/70 hover:bg-emerald-100/50'
                                 : isSudahBayar
                                 ? 'bg-emerald-50/30 text-slate-900 border-emerald-200/60 hover:bg-emerald-50/60'
@@ -5307,7 +5408,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     ? 'bg-slate-200 text-slate-800 border-slate-300'
                                     : isBayarLebih
                                     ? 'bg-sky-100 text-sky-950 border-sky-300 ring-1 ring-sky-300/60'
-                                    : isAdvanceSubsequent
+                                    : isAdvanceSubsequent || isArrearSettledLater
                                     ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
                                     : isSudahBayar
                                     ? 'bg-emerald-100 text-emerald-950 border-emerald-300'
@@ -5331,7 +5432,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                           ? 'text-slate-700 italic'
                                           : isBayarLebih
                                           ? 'text-sky-950 font-black'
-                                          : isAdvanceSubsequent || isSudahBayar
+                                          : isAdvanceSubsequent || isArrearSettledLater || isSudahBayar
                                           ? 'text-emerald-950'
                                           : 'text-rose-950'
                                       }`}
@@ -5347,6 +5448,12 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                       <span className={`inline-flex items-center gap-1 ${kkViewFit ? 'text-[9px]' : 'text-[11px]'} font-semibold text-emerald-800 mt-0.5`}>
                                         <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
                                         <span>Lunas via Pembayaran di Bulan {basePaymentMonth}</span>
+                                      </span>
+                                    )}
+                                    {isArrearSettledLater && (
+                                      <span className={`inline-flex items-center gap-1 ${kkViewFit ? 'text-[9px]' : 'text-[11px]'} font-semibold text-emerald-800 mt-0.5`}>
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                        <span>Lunas di Bulan {settlementMonth || 'Lalu'} (Pelunasan Tunggakan)</span>
                                       </span>
                                     )}
                                   </div>
@@ -5380,6 +5487,11 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     Lunas di {basePaymentMonth}
                                   </span>
                                 )}
+                                {isArrearSettledLater && (
+                                  <span className="text-[9px] text-emerald-800 font-semibold mt-0.5">
+                                    Lunas di {settlementMonth}
+                                  </span>
+                                )}
                               </div>
                             </td>
 
@@ -5389,7 +5501,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               className={`${kkViewFit ? 'py-1 px-2.5' : 'py-3 px-4'} text-right font-mono tabular-nums border-r border-slate-200/60 ${
                                 isAdmin ? 'cursor-pointer hover:bg-emerald-100/40 transition-colors' : ''
                               }`}
-                              title={isAdmin ? (isAdvanceSubsequent ? `Iuran periode ini lunas dibayar di muka pada bulan ${basePaymentMonth}. Klik untuk edit.` : 'Klik untuk edit Iuran Bulanan KK ini') : ''}
+                              title={isAdmin ? (isAdvanceSubsequent ? `Iuran periode ini lunas dibayar di muka pada bulan ${basePaymentMonth}. Klik untuk edit.` : isArrearSettledLater ? `Iuran periode ini lunas dibayar via pelunasan tunggakan pada bulan ${settlementMonth}. Klik untuk edit.` : 'Klik untuk edit Iuran Bulanan KK ini') : ''}
                             >
                               <div className="flex items-center justify-end">
                                 {isNeutralKosong ? (
@@ -5404,6 +5516,18 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                     </span>
                                     <span className="text-[9px] text-emerald-800 font-medium mt-0.5 whitespace-nowrap">
                                       (Bayar &gt;1 Bln di {basePaymentMonth})
+                                    </span>
+                                  </div>
+                                ) : isArrearSettledLater ? (
+                                  <div className="flex flex-col items-end">
+                                    <span className={`inline-flex items-center gap-1 font-sans font-bold text-emerald-950 bg-emerald-100/90 rounded-md border border-emerald-300 shadow-2xs whitespace-nowrap ${
+                                      kkViewFit ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2.5 py-1'
+                                    }`}>
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                      <span>Lunas di Bulan {settlementMonth}</span>
+                                    </span>
+                                    <span className="text-[9px] text-emerald-800 font-medium mt-0.5 whitespace-nowrap">
+                                      (Pelunasan Tunggakan)
                                     </span>
                                   </div>
                                 ) : isBayarLebih ? (
@@ -5483,7 +5607,23 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             >
                               <div className="flex items-center justify-end">
                                 {tunggakanPaid > 0 ? (
-                                  <span className={`text-amber-800 font-bold tabular-nums ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>+{formatRupiah(tunggakanPaid)}</span>
+                                  <div className="flex flex-col items-end">
+                                    <span className={`text-amber-800 font-bold tabular-nums ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
+                                      +{formatRupiah(tunggakanPaid)}
+                                    </span>
+                                    {house.previousArrears > 0 && (
+                                      <span className="text-[9px] font-sans font-semibold text-rose-700 bg-rose-50 px-1 py-0.2 rounded border border-rose-200 mt-0.5" title={`Saldo Tunggakan Pokok: ${formatRupiah(house.previousArrears)}`}>
+                                        Saldo: {formatRupiah(house.previousArrears)}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : house.previousArrears > 0 && !isNeutralKosong ? (
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-slate-400 font-mono text-[11px]">-</span>
+                                    <span className="text-[9px] font-sans font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200 mt-0.5" title={`Saldo Tunggakan Pokok: ${formatRupiah(house.previousArrears)}`}>
+                                      Saldo: {formatRupiah(house.previousArrears)}
+                                    </span>
+                                  </div>
                                 ) : (
                                   <span className="text-slate-400 font-mono text-[11px]">-</span>
                                 )}
@@ -5497,6 +5637,10 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                               ) : isAdvanceSubsequent ? (
                                 <span className="text-[10px] font-semibold text-emerald-800">
                                   Lunas di {basePaymentMonth}
+                                </span>
+                              ) : isArrearSettledLater ? (
+                                <span className="text-[10px] font-semibold text-emerald-800">
+                                  Lunas di {settlementMonth}
                                 </span>
                               ) : (
                                 <span className="text-slate-400 font-mono text-[11px]">-</span>
@@ -5551,6 +5695,29 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                         </span>
                                         <span className="text-[9px] text-emerald-800 font-medium mt-0.5 whitespace-nowrap">
                                           (Bayar &gt;1 Bln di {basePaymentMonth})
+                                        </span>
+                                      </div>
+                                    )
+                                  ) : isArrearSettledLater ? (
+                                    totalSemua > 0 ? (
+                                      <>
+                                        <span className={`font-mono font-black text-emerald-950 ${kkViewFit ? 'text-[11px]' : 'text-xs sm:text-sm'}`}>
+                                          +{formatRupiah(totalSemua)}
+                                        </span>
+                                        <span className="text-[9px] font-sans text-emerald-800 font-semibold mt-0.5 whitespace-nowrap">
+                                          (Lunas Tunggakan di {settlementMonth})
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <div className="flex flex-col items-end">
+                                        <span className={`inline-flex items-center gap-1 font-sans font-bold text-emerald-950 bg-emerald-100/90 rounded-md border border-emerald-300 shadow-2xs whitespace-nowrap ${
+                                          kkViewFit ? 'text-[10px] px-1.5 py-0.5' : 'text-xs px-2.5 py-1'
+                                        }`}>
+                                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                                          <span>Lunas di Bulan {settlementMonth}</span>
+                                        </span>
+                                        <span className="text-[9px] text-emerald-800 font-medium mt-0.5 whitespace-nowrap">
+                                          (Pelunasan Tunggakan)
                                         </span>
                                       </div>
                                     )
@@ -8025,6 +8192,259 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                         )}
                       </div>
                     </div>
+
+                    {/* PILIHAN BULAN YANG DIBAYARKAN (OTOMATIS DITANDAI LUNAS) */}
+                    {(() => {
+                      const activeEditPeriod = (
+                        selectedKKPeriod && selectedKKPeriod !== 'semua'
+                          ? selectedKKPeriod
+                          : config.duesCurrentMonth || defaultMonthLabel || 'Oktober 2026'
+                      ).trim();
+                      const editPeriodKey = parseIndonesianMonthYearToKey(activeEditPeriod);
+                      const monthNominal =
+                        editingHouseDues.customDuesAmount || config.duesAmountPerMonth || 25000;
+
+                      // Kumpulkan kandidat bulan yang belum lunas atau pernah ditandai lunas oleh periode ini
+                      const candidateSet = new Set<string>();
+
+                      // 1. Bulan-bulan dari sortedPeriods yang sebelum atau sama dengan periode aktif
+                      sortedPeriods.forEach((p) => {
+                        const pKey = parseIndonesianMonthYearToKey(p);
+                        if (pKey && editPeriodKey && pKey < editPeriodKey) {
+                          candidateSet.add(p);
+                        } else if (p !== activeEditPeriod) {
+                          candidateSet.add(p);
+                        }
+                      });
+
+                      // 2. Bulan yang saat ini tersimpan dalam houseDuesTunggakanMonths
+                      houseDuesTunggakanMonths.forEach((m) => candidateSet.add(m));
+
+                      // 3. Bulan dari periodHistory yang berstatus Belum Bayar atau settlementMonth === activeEditPeriod
+                      if (editingHouseDues.periodHistory) {
+                        Object.entries(editingHouseDues.periodHistory).forEach(([k, snap]) => {
+                          if (snap && (snap.settlementMonth === activeEditPeriod || snap.duesStatus === 'Belum Bayar')) {
+                            const label = formatMonthYearFromKey(k) || k;
+                            if (label !== activeEditPeriod) candidateSet.add(label);
+                          }
+                        });
+                      }
+
+                      // Jika daftar kandidat masih kosong atau sedikit, sediakan 6 bulan sebelum activeEditPeriod
+                      if (candidateSet.size === 0) {
+                        let prev = getPreviousMonthLabel(activeEditPeriod);
+                        for (let i = 0; i < 6; i++) {
+                          if (prev) {
+                            candidateSet.add(prev);
+                            prev = getPreviousMonthLabel(prev);
+                          }
+                        }
+                      }
+
+                      const candidateList = Array.from(candidateSet).sort((a, b) => {
+                        const ka = parseIndonesianMonthYearToKey(a) || '';
+                        const kb = parseIndonesianMonthYearToKey(b) || '';
+                        return ka.localeCompare(kb);
+                      });
+
+                      const toggleMonth = (mLabel: string) => {
+                        let nextList: string[];
+                        if (houseDuesTunggakanMonths.includes(mLabel)) {
+                          nextList = houseDuesTunggakanMonths.filter((m) => m !== mLabel);
+                        } else {
+                          nextList = [...houseDuesTunggakanMonths, mLabel];
+                        }
+                        nextList.sort((a, b) => {
+                          const ka = parseIndonesianMonthYearToKey(a) || '';
+                          const kb = parseIndonesianMonthYearToKey(b) || '';
+                          return ka.localeCompare(kb);
+                        });
+                        setHouseDuesTunggakanMonths(nextList);
+
+                        const calculatedAmount = nextList.length * monthNominal;
+                        setHouseDuesTunggakanPaidInput(calculatedAmount);
+                        if (calculatedAmount > 0) {
+                          setHouseDuesAutoDeductArrears(true);
+                        }
+                        const displayName =
+                          houseDuesHeadNameInput ||
+                          editingHouseDues.duesHeadNameOverride ||
+                          editingHouseDues.headName ||
+                          '';
+                        if (nextList.length > 0) {
+                          setHouseDuesTunggakanNoteInput(
+                            `Pelunasan Tunggakan (${nextList.join(', ')}) Blok ${editingHouseDues.blockNumber} (${displayName})`
+                          );
+                        } else {
+                          setHouseDuesTunggakanNoteInput('');
+                        }
+                      };
+
+                      const selectAllCandidates = () => {
+                        const allMonths = [...candidateList];
+                        setHouseDuesTunggakanMonths(allMonths);
+                        const calculatedAmount = allMonths.length * monthNominal;
+                        setHouseDuesTunggakanPaidInput(calculatedAmount);
+                        if (calculatedAmount > 0) {
+                          setHouseDuesAutoDeductArrears(true);
+                        }
+                        const displayName =
+                          houseDuesHeadNameInput ||
+                          editingHouseDues.duesHeadNameOverride ||
+                          editingHouseDues.headName ||
+                          '';
+                        setHouseDuesTunggakanNoteInput(
+                          `Pelunasan Tunggakan (${allMonths.join(', ')}) Blok ${editingHouseDues.blockNumber} (${displayName})`
+                        );
+                      };
+
+                      const resetSelection = () => {
+                        setHouseDuesTunggakanMonths([]);
+                        setHouseDuesTunggakanPaidInput(0);
+                        setHouseDuesTunggakanNoteInput('');
+                      };
+
+                      const handleAddCustomMonth = () => {
+                        if (!houseDuesCustomArrearsMonth.trim()) return;
+                        const trimmed = houseDuesCustomArrearsMonth.trim();
+                        if (!houseDuesTunggakanMonths.includes(trimmed)) {
+                          toggleMonth(trimmed);
+                        }
+                        setHouseDuesCustomArrearsMonth('');
+                      };
+
+                      return (
+                        <div className="p-3 bg-gradient-to-br from-rose-100/90 via-amber-50 to-emerald-50 border-2 border-rose-300 rounded-2xl space-y-2.5 shadow-2xs">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <label className="text-xs font-black text-rose-950 flex items-center gap-1.5">
+                              <Sparkles className="w-4 h-4 text-rose-600 shrink-0" />
+                              <span>Pilihan Bulan yang Dibayarkan (Otomatis Ditandai Lunas):</span>
+                            </label>
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={selectAllCandidates}
+                                className="px-2 py-0.5 text-[10px] font-bold bg-rose-200/90 hover:bg-rose-300 text-rose-950 rounded-md cursor-pointer transition-all border border-rose-300 shadow-2xs"
+                              >
+                                Pilih Semua ({candidateList.length})
+                              </button>
+                              {houseDuesTunggakanMonths.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={resetSelection}
+                                  className="px-2 py-0.5 text-[10px] font-bold bg-white hover:bg-slate-100 text-slate-700 rounded-md cursor-pointer transition-all border border-slate-300 shadow-2xs"
+                                >
+                                  Reset Pilihan
+                                </button>
+                              )}
+                            </div>
+                          </div>
+
+                          <p className="text-[11px] text-rose-900 leading-relaxed font-medium">
+                            Centang bulan yang dibayarkan dari tunggakan. Setiap bulan terpilih otomatis berstatus <strong>Lunas (Hijau)</strong> di Rekap Kas KK dengan keterangan <em>Pelunasan Tunggakan</em> dan nominal otomatis dijumlahkan!
+                          </p>
+
+                          {/* List Pilihan Bulan Interaktif */}
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-48 overflow-y-auto p-1 bg-white/70 rounded-xl border border-rose-200">
+                            {candidateList.map((m) => {
+                              const isChecked = houseDuesTunggakanMonths.includes(m);
+                              const mStatus = getHouseStatusForPeriod(
+                                editingHouseDues,
+                                m
+                              );
+                              const isSettledByThis =
+                                mStatus.settlementMonth === activeEditPeriod || isChecked;
+                              const isAlreadyLunasOther =
+                                mStatus.status === 'Lunas' && !isSettledByThis;
+
+                              return (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => toggleMonth(m)}
+                                  className={`p-2 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between ${
+                                    isChecked
+                                      ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-2xs ring-1 ring-emerald-400'
+                                      : isAlreadyLunasOther
+                                      ? 'bg-slate-50 border-slate-200 text-slate-500 opacity-70'
+                                      : 'bg-white hover:bg-rose-50 border-slate-200 text-slate-800'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-bold text-[11px] truncate">{m}</span>
+                                    <div
+                                      className={`w-4 h-4 rounded-md flex items-center justify-center shrink-0 text-[10px] font-black ${
+                                        isChecked
+                                          ? 'bg-emerald-600 text-white'
+                                          : 'border border-slate-300 bg-white'
+                                      }`}
+                                    >
+                                      {isChecked ? '✓' : ''}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between text-[10px] mt-1 pt-1 border-t border-slate-100">
+                                    <span className="font-mono text-slate-600 font-semibold">
+                                      {formatRupiah(monthNominal)}
+                                    </span>
+                                    <span
+                                      className={`font-semibold ${
+                                        isChecked
+                                          ? 'text-emerald-700 font-bold'
+                                          : isAlreadyLunasOther
+                                          ? 'text-slate-400'
+                                          : 'text-rose-600'
+                                      }`}
+                                    >
+                                      {isChecked
+                                        ? 'Ditandai Lunas'
+                                        : isAlreadyLunasOther
+                                        ? 'Sudah Lunas'
+                                        : 'Belum Bayar'}
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Ringkasan Bulan Terpilih */}
+                          {houseDuesTunggakanMonths.length > 0 && (
+                            <div className="p-2 bg-emerald-100/80 rounded-xl border border-emerald-300 text-[11px] text-emerald-950 flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center gap-1.5 font-bold">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                                <span>
+                                  {houseDuesTunggakanMonths.length} Bulan Terpilih:{' '}
+                                  <span className="font-mono font-black text-emerald-900">
+                                    {houseDuesTunggakanMonths.join(', ')}
+                                  </span>
+                                </span>
+                              </div>
+                              <span className="font-mono font-black text-emerald-900 bg-white px-2 py-0.5 rounded-lg border border-emerald-300">
+                                Total: {formatRupiah(houseDuesTunggakanMonths.length * monthNominal)}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Input Tambah Bulan Lainnya */}
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <input
+                              type="text"
+                              value={houseDuesCustomArrearsMonth}
+                              onChange={(e) => setHouseDuesCustomArrearsMonth(e.target.value)}
+                              placeholder="Tambah bulan lain (cth: April 2026)..."
+                              className="flex-1 px-2.5 py-1 text-[11px] bg-white border border-rose-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-rose-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddCustomMonth}
+                              className="px-2.5 py-1 text-[11px] font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg cursor-pointer transition-all shadow-2xs"
+                            >
+                              + Tambah
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Input Nominal Pembayaran Tunggakan */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
