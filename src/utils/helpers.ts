@@ -2263,9 +2263,11 @@ export function getHouseBaksosForPeriod(
       ? 0
       : periodHistFine !== undefined
       ? periodHistFine
-      : targetKey === null && house.customBaksosFineAmount !== undefined
+      : calculatedUnpaid > 0
+      ? calculatedUnpaid
+      : (house.customBaksosFineAmount && house.customBaksosFineAmount > 0)
       ? house.customBaksosFineAmount
-      : calculatedUnpaid;
+      : 0;
 
   const hadHadir = matchingAgendas.some((a) => {
     const att = getBaksosAttendanceForHouse(a, house, residents);
@@ -2658,39 +2660,41 @@ export function computeOverallKKRecapList(
     const previousDuesArrears = unpaidPastFromPeriods + extraPriorArrears;
 
     let previousArrearsNote = '';
-    if (unpaidPastPeriodNames.length > 0) {
+    if (house.previousArrearsNote && house.previousArrearsNote.trim()) {
+      // Prioritaskan isian langsung dari Tabel Rekap Pembayaran Iuran Per KK
+      previousArrearsNote = house.previousArrearsNote.trim();
+    } else if (unpaidPastPeriodNames.length > 0) {
       previousArrearsNote = `Iuran ${unpaidPastPeriodNames.join(', ')}`;
-      if (
-        house.previousArrearsNote &&
-        !house.previousArrearsNote.toLowerCase().includes(unpaidPastPeriodNames[0].toLowerCase())
-      ) {
-        previousArrearsNote += ` (${house.previousArrearsNote})`;
-      }
-    } else if (house.previousArrearsNote) {
-      previousArrearsNote = house.previousArrearsNote;
     }
 
     // Tunggakan Denda Baksos
     const isContract = house.ownership === 'Kontrak' || house.occupancy === 'Dikontrakan';
     const unpaidBaksosList = baksosAgendas.filter((agenda) => {
       const attendance =
+        getBaksosAttendanceForHouse(agenda, house, residents) ||
         agenda.attendance?.[house.id] ||
+        (house.blockNumber ? agenda.attendance?.[house.blockNumber] : undefined) ||
         (house.occupancy === 'Kosong' ? 'Kosong' : isContract ? 'Tidak Wajib' : 'Hadir');
-      const isFinePaid = agenda.finesPaid?.[house.id];
+      const isFinePaid =
+        isBaksosFinePaidForHouse(agenda, house, residents) ||
+        Boolean(agenda.finesPaid?.[house.id]) ||
+        (house.blockNumber ? Boolean(agenda.finesPaid?.[house.blockNumber]) : false);
       return attendance === 'Tidak Hadir' && !isFinePaid;
     });
 
     const prevBaksos = house.previousBaksosArrears || 0;
+    const customBaksos = (house.customBaksosFineAmount && house.customBaksosFineAmount > 0) ? house.customBaksosFineAmount : 0;
     const unpaidAgendasBaksos = periodsDetail.reduce((sum, p) => sum + (p.baksosFineUnpaid || 0), 0);
+    const directAgendasBaksos = unpaidBaksosList.reduce((sum, a) => sum + (a.fineAmount || 10000), 0);
+    const combinedAgendasBaksos = Math.max(unpaidAgendasBaksos, directAgendasBaksos);
+
+    // Denda baksos: jika tidak hadir maka otomatis tercatat denda Rp 10.000 per ketidakhadiran
     const baksosFineArrears = isPureKosong
       ? 0
-      : house.customBaksosFineAmount !== undefined
-      ? house.customBaksosFineAmount
-      : prevBaksos + unpaidAgendasBaksos;
+      : (prevBaksos + customBaksos + combinedAgendasBaksos);
 
-    // Yang dimaksud tunggakan di Tabel Rekapitulasi Keseluruhan Kas Per Kepala Keluarga
-    // adalah iuran belum bayar di bulan-bulan sebelumnya. Denda baksos dianggap denda baksos saja bukan tunggakan.
-    const remainingArrearsTotal = isPureKosong ? 0 : previousDuesArrears;
+    // Denda baksos yang belum dibayar otomatis tercatat di tunggakan warga
+    const remainingArrearsTotal = isPureKosong ? 0 : (previousDuesArrears + baksosFineArrears);
 
     const unpaidPeriods = periodsDetail
       .filter((p) => !p.isLunasThisPeriod && !p.isPeriodVacant)
@@ -2708,7 +2712,7 @@ export function computeOverallKKRecapList(
       overallStatus = 'Kosong';
       overallBadgeClass = 'bg-black text-white border-neutral-700';
     } else if (remainingArrearsTotal > 0) {
-      // Ada tunggakan iuran dari bulan-bulan sebelumnya
+      // Ada tunggakan iuran atau denda baksos yang belum lunas
       overallStatus = 'Ada Tunggakan';
       overallBadgeClass = 'bg-rose-100 text-rose-950 border border-rose-300 font-bold';
     } else if (
@@ -2751,7 +2755,11 @@ export function computeOverallKKRecapList(
       previousDuesArrears,
       previousArrearsNote,
       previousBaksosArrears: house.previousBaksosArrears || 0,
-      previousBaksosArrearsNote: house.previousBaksosArrearsNote || '',
+      previousBaksosArrearsNote:
+        house.previousBaksosArrearsNote ||
+        (unpaidBaksosList.length > 0
+          ? `Absen: ${unpaidBaksosList.map((a) => a.title || 'Bakti Sosial').join(', ')}`
+          : ''),
       unpaidPastPeriods: unpaidPastPeriodNames,
       unpaidPeriods,
       unpaidBaksosList,

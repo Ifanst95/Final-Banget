@@ -3,6 +3,47 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
+// Intercept and suppress external browser extension errors (e.g. MetaMask / web3 injectors)
+if (typeof window !== 'undefined') {
+  const isExtensionError = (error: any, filename?: string): boolean => {
+    const msg = String(error?.message || error || '').toLowerCase();
+    const stack = String(error?.stack || '').toLowerCase();
+    const file = String(filename || '').toLowerCase();
+    return (
+      file.includes('chrome-extension://') ||
+      file.includes('moz-extension://') ||
+      file.includes('inpage.js') ||
+      stack.includes('chrome-extension://') ||
+      stack.includes('moz-extension://') ||
+      stack.includes('inpage.js') ||
+      msg.includes('metamask') ||
+      msg.includes('ethereum')
+    );
+  };
+
+  window.addEventListener(
+    'error',
+    (event) => {
+      if (isExtensionError(event.error, event.filename)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    },
+    true
+  );
+
+  window.addEventListener(
+    'unhandledrejection',
+    (event) => {
+      if (isExtensionError(event.reason)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    },
+    true
+  );
+}
+
 interface ErrorBoundaryProps {
   children: ReactNode;
 }

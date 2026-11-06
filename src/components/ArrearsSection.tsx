@@ -109,6 +109,29 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
   const [copiedBankNumber, setCopiedBankNumber] = useState(false);
   const [copiedSingleMsg, setCopiedSingleMsg] = useState(false);
 
+  // Modal Edit Keterangan Tunggakan Lalu Per Rumah (Tersinkronisasi ke Tabel Rekap Pembayaran Iuran Per KK)
+  const [editingArrearsItem, setEditingArrearsItem] = useState<{ house: ResidentHouse; duesNote: string } | null>(null);
+  const [editPrevArrearsNote, setEditPrevArrearsNote] = useState<string>('');
+  const [editPrevArrearsAmount, setEditPrevArrearsAmount] = useState<number>(0);
+
+  const handleOpenEditArrears = (house: ResidentHouse, currentNote: string, currentAmount: number) => {
+    setEditingArrearsItem({ house, duesNote: currentNote });
+    setEditPrevArrearsNote((house.previousArrearsNote || '').trim() || currentNote || '');
+    setEditPrevArrearsAmount(house.previousArrears || currentAmount || 0);
+  };
+
+  const handleSaveEditArrears = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingArrearsItem) return;
+    const updatedHouse: ResidentHouse = {
+      ...editingArrearsItem.house,
+      previousArrears: Math.max(0, Number(editPrevArrearsAmount) || 0),
+      previousArrearsNote: editPrevArrearsNote.trim(),
+    };
+    onUpdateResident(updatedHouse);
+    setEditingArrearsItem(null);
+  };
+
   const currentMonthLabel = config.duesCurrentMonth || 'Bulan Berjalan';
 
   // Rekapitulasi tunggakan bersumber langsung & terpadu dari Tabel Rekapitulasi Keseluruhan Kas Per Kepala Keluarga
@@ -125,6 +148,10 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
       const previousBaksosArrearsNote = row.previousBaksosArrearsNote || '';
       const totalArrears = duesArrears + baksosFineArrears + previousArrears;
 
+      // Keterangan tunggakan lalu langsung bersumber dari isian Tabel Rekap Pembayaran Iuran Per KK
+      const rawPrevNote = (row.house.previousArrearsNote || '').trim();
+      const previousArrearsNote = rawPrevNote || row.previousArrearsNote || '';
+
       return {
         house: row.house,
         houseMonthlyNominal: row.nominalPerMonth,
@@ -132,7 +159,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
         unpaidBaksosList: row.unpaidBaksosList,
         baksosFineArrears,
         previousArrears,
-        previousArrearsNote: row.previousArrearsNote,
+        previousArrearsNote,
         previousBaksosArrears,
         previousBaksosArrearsNote,
         totalArrears,
@@ -783,7 +810,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                 ? (item.house.duesHeadNameOverride && item.house.duesHeadNameOverride.toLowerCase().includes('kosong')
                     ? item.house.duesHeadNameOverride
                     : 'Rumah Kosong')
-                : (item.house.duesHeadNameOverride || item.house.headName);
+                : (item.house.headName?.trim() || item.house.duesHeadNameOverride || '-');
               const duesNote = item.previousArrearsNote || item.house.previousArrearsNote || '';
 
               return (
@@ -838,7 +865,14 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       </span>
                       <div className="mt-1 font-mono font-black text-sm tabular-nums">
                         {hasDebt ? (
-                          <span className="text-rose-700">{formatRupiah(item.totalArrears)}</span>
+                          <div>
+                            <span className="text-rose-700">{formatRupiah(item.totalArrears)}</span>
+                            {item.baksosFineArrears > 0 && (
+                              <span className="block text-[10px] font-sans font-bold text-amber-800">
+                                (Termasuk Denda 10 Ribu)
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-emerald-700">Rp 0</span>
                         )}
@@ -872,18 +906,25 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
 
                     <div>
                       <div className="flex items-center justify-between">
-                        <span className="text-slate-500 text-[11px] block">Denda Baksos:</span>
+                        <span className="text-slate-500 text-[11px] block font-semibold">Denda Baksos:</span>
                       </div>
                       {item.baksosFineArrears > 0 ? (
-                        <div>
-                          <strong className="text-amber-700 font-mono">
+                        <div className="mt-0.5">
+                          <strong className="text-amber-700 font-mono font-black block">
                             {formatRupiah(item.baksosFineArrears)}
                           </strong>
-                          {item.previousBaksosArrearsNote && (
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 bg-rose-100 text-rose-900 border border-rose-300 rounded font-sans text-[10px] font-bold shadow-2xs">
+                            Denda 10 Ribu (Tidak Hadir)
+                          </span>
+                          {item.unpaidBaksosList && item.unpaidBaksosList.length > 0 ? (
+                            <span className="block text-[10px] text-slate-600 font-semibold leading-tight mt-0.5">
+                              (Agenda: {item.unpaidBaksosList.map((a: any) => a.title || 'Baksos').join(', ')})
+                            </span>
+                          ) : item.previousBaksosArrearsNote ? (
                             <span className="block text-[10px] text-slate-500 italic">
                               ({item.previousBaksosArrearsNote})
                             </span>
-                          )}
+                          ) : null}
                         </div>
                       ) : (
                         <span className="text-slate-400">Rp 0</span>
@@ -906,21 +947,42 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                         </div>
                       </div>
 
-                      {duesNote && (
+                      {duesNote ? (
                         <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200 text-xs text-amber-950 leading-relaxed shadow-2xs">
-                          <div className="flex items-start gap-1.5">
-                            <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
-                            <div className="flex-1 min-w-0">
-                              <span className="text-[10px] font-bold text-rose-800 block uppercase tracking-wider">
-                                Keterangan Tunggakan Lalu:
-                              </span>
-                              <p className="font-semibold text-slate-800 whitespace-normal break-words mt-0.5 select-text">
-                                {duesNote}
-                              </p>
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div className="flex items-start gap-1.5 flex-1 min-w-0">
+                              <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <span className="text-[10px] font-bold text-rose-800 block uppercase tracking-wider">
+                                  Keterangan Tunggakan Lalu:
+                                </span>
+                                <p className="font-semibold text-slate-800 whitespace-normal break-words mt-0.5 select-text">
+                                  {duesNote}
+                                </p>
+                              </div>
                             </div>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditArrears(item.house, duesNote, item.previousArrears)}
+                                className="p-1 rounded-md text-amber-800 hover:text-amber-950 hover:bg-amber-100 transition-colors cursor-pointer shrink-0"
+                                title="Edit Keterangan Tunggakan Lalu (tersinkronisasi ke Tabel Rekap Pembayaran Iuran Per KK)"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
-                      )}
+                      ) : isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditArrears(item.house, '', item.previousArrears)}
+                          className="w-full py-1.5 px-2.5 rounded-xl bg-amber-50/60 hover:bg-amber-100/80 border border-dashed border-amber-300 text-amber-800 text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Edit2 className="w-3 h-3 text-amber-600" />
+                          <span>+ Isi Keterangan Tunggakan Lalu</span>
+                        </button>
+                      ) : null}
                     </div>
                   </div>
 
@@ -1015,7 +1077,7 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                     ? (item.house.duesHeadNameOverride && item.house.duesHeadNameOverride.toLowerCase().includes('kosong')
                         ? item.house.duesHeadNameOverride
                         : 'Rumah Kosong')
-                    : (item.house.duesHeadNameOverride || item.house.headName);
+                    : (item.house.headName?.trim() || item.house.duesHeadNameOverride || '-');
                   const duesNote = item.previousArrearsNote || item.house.previousArrearsNote || '';
 
                   return (
@@ -1098,8 +1160,8 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       </td>
                       <td className="py-3 px-3.5 whitespace-normal break-words min-w-[220px] max-w-[450px]">
                         {duesNote ? (
-                          <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-950 text-xs shadow-2xs leading-relaxed">
-                            <div className="flex items-start gap-1.5">
+                          <div className="flex items-start justify-between gap-2 p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-950 text-xs shadow-2xs leading-relaxed group">
+                            <div className="flex items-start gap-1.5 flex-1 min-w-0">
                               <FileText className="w-3.5 h-3.5 text-rose-600 shrink-0 mt-0.5" />
                               <div className="flex-1 min-w-0">
                                 <span className="text-[10px] font-bold text-rose-800 block uppercase tracking-wider">
@@ -1110,7 +1172,27 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                                 </span>
                               </div>
                             </div>
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditArrears(item.house, duesNote, item.previousArrears)}
+                                className="p-1 rounded-md text-amber-700 hover:text-amber-950 hover:bg-amber-200/60 transition-colors cursor-pointer shrink-0 opacity-70 group-hover:opacity-100"
+                                title="Edit Keterangan Tunggakan Lalu (tersinkronisasi ke Tabel Rekap Pembayaran Iuran Per KK)"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
+                        ) : isAdmin ? (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditArrears(item.house, '', item.previousArrears)}
+                            className="py-1 px-2.5 rounded-lg bg-amber-50/70 hover:bg-amber-100 border border-dashed border-amber-300 text-amber-800 text-[11px] font-medium flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Tambah Keterangan Tunggakan Lalu KK ini"
+                          >
+                            <Edit2 className="w-3 h-3 text-amber-600" />
+                            <span>+ Keterangan</span>
+                          </button>
                         ) : (
                           <span className="text-slate-400 font-mono text-[11px]">-</span>
                         )}
@@ -1121,29 +1203,43 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                           <span
                             className={
                               item.baksosFineArrears > 0
-                                ? 'text-amber-800 font-bold'
+                                ? 'text-amber-800 font-black'
                                 : 'text-slate-400'
                             }
                           >
                             {formatRupiah(item.baksosFineArrears)}
                           </span>
                         </div>
-                        {item.previousBaksosArrearsNote && (
+                        {item.baksosFineArrears > 0 && (
+                          <div className="mt-0.5">
+                            <span className="inline-block px-1.5 py-0.5 rounded bg-rose-100 text-rose-900 border border-rose-300 font-sans text-[10px] font-bold shadow-2xs whitespace-nowrap">
+                              Denda 10 Ribu (Tidak Hadir)
+                            </span>
+                          </div>
+                        )}
+                        {item.unpaidBaksosList && item.unpaidBaksosList.length > 0 ? (
                           <span
-                            className="block text-[10px] text-slate-500 italic max-w-[140px] truncate"
+                            className="block text-[10px] text-slate-600 font-semibold max-w-[200px] ml-auto leading-tight mt-0.5"
+                            title={`Absen Presensi Baksos: ${item.unpaidBaksosList.map((a: any) => a.title).join(', ')}`}
+                          >
+                            (Agenda: {item.unpaidBaksosList.map((a: any) => a.title || 'Baksos').join(', ')})
+                          </span>
+                        ) : item.previousBaksosArrearsNote ? (
+                          <span
+                            className="block text-[10px] text-slate-500 italic max-w-[140px] truncate ml-auto"
                             title={item.previousBaksosArrearsNote}
                           >
-                            {item.previousBaksosArrearsNote}
+                            ({item.previousBaksosArrearsNote})
                           </span>
-                        )}
+                        ) : null}
                       </td>
                       <td className="py-3 px-3 text-right font-mono font-black text-sm tabular-nums">
                         {hasDebt ? (
                           <div>
                             <span className="text-rose-700">{formatRupiah(item.totalArrears)}</span>
                             {item.baksosFineArrears > 0 && (
-                              <span className="block text-[10px] font-sans font-medium text-amber-700">
-                                (Inc. Denda Baksos: {formatRupiah(item.baksosFineArrears)})
+                              <span className="block text-[10px] font-sans font-bold text-amber-800">
+                                (Termasuk Denda 10 Ribu: {formatRupiah(item.baksosFineArrears)})
                               </span>
                             )}
                           </div>
@@ -2025,10 +2121,20 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
                       </strong>
                     </div>
                     <div className="p-2 rounded-xl bg-white border border-rose-100 text-center">
-                      <span className="text-[10px] text-slate-500 block font-sans">Denda Baksos:</span>
-                      <strong className="text-amber-700">
+                      <span className="text-[10px] text-slate-500 block font-sans font-semibold">Denda Baksos:</span>
+                      <strong className="text-amber-700 font-mono font-bold block">
                         {formatRupiah(singleBillingHouse.baksosFineArrears)}
                       </strong>
+                      {singleBillingHouse.baksosFineArrears > 0 && (
+                        <span className="inline-block px-1.5 py-0.5 rounded bg-rose-100 text-rose-900 border border-rose-300 text-[9px] font-bold mt-0.5 shadow-2xs">
+                          Denda 10 Ribu (Tidak Hadir)
+                        </span>
+                      )}
+                      {singleBillingHouse.unpaidBaksosList && singleBillingHouse.unpaidBaksosList.length > 0 && (
+                        <span className="block text-[9px] text-slate-600 font-semibold leading-tight mt-0.5">
+                          (Agenda: {singleBillingHouse.unpaidBaksosList.map((a: any) => a.title || 'Baksos').join(', ')})
+                        </span>
+                      )}
                     </div>
                     <div className="p-2 rounded-xl bg-white border border-rose-100 text-center">
                       <span className="text-[10px] text-slate-500 block font-sans">Tunggakan Lalu:</span>
@@ -2210,6 +2316,80 @@ export const ArrearsSection: React.FC<ArrearsSectionProps> = ({
           </div>
         );
       })()}
+
+      {/* MODAL EDIT KETERANGAN & SALDO TUNGGAKAN LALU (TERHUBUNG KE TABEL REKAP PEMBAYARAN IURAN PER KK) */}
+      {editingArrearsItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 p-4 text-white flex justify-between items-center">
+              <div>
+                <h4 className="font-bold text-sm flex items-center gap-1.5">
+                  <Edit2 className="w-4 h-4 text-amber-200" />
+                  <span>Edit Keterangan Tunggakan Lalu</span>
+                </h4>
+                <p className="text-[11px] text-amber-100">
+                  Blok {editingArrearsItem.house.blockNumber} — {editingArrearsItem.house.duesHeadNameOverride || editingArrearsItem.house.headName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingArrearsItem(null)}
+                className="p-1 text-white/80 hover:text-white rounded-lg hover:bg-white/20 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditArrears} className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Saldo Tunggakan Bulan/Tahun Lalu (Rp)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step={5000}
+                  value={editPrevArrearsAmount}
+                  onChange={(e) => setEditPrevArrearsAmount(Math.max(0, Number(e.target.value) || 0))}
+                  className="w-full px-3 py-2 text-sm font-mono font-bold bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-2xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Keterangan Tunggakan Lalu
+                </label>
+                <textarea
+                  rows={3}
+                  value={editPrevArrearsNote}
+                  onChange={(e) => setEditPrevArrearsNote(e.target.value)}
+                  placeholder="Contoh: Tunggakan Agustus 2026, Sisa iuran bulan lalu, dsb."
+                  className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 shadow-2xs resize-none"
+                />
+                <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                  Isian ini tersimpan pada profil rumah dan bersumber langsung dari serta tersinkronisasi ke <strong>Tabel Rekap Pembayaran Iuran Per KK</strong>.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingArrearsItem(null)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-bold text-xs cursor-pointer shadow-md transition-all active:scale-95"
+                >
+                  Simpan Keterangan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL EDIT TEMPLATE PESAN WHATSAPP PENAGIHAN */}
       {isWaTemplateModalOpen && (

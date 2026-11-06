@@ -521,11 +521,12 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
                       ? 'hover:bg-emerald-100/60'
                       : 'hover:bg-rose-100/60';
 
-                    const payerName = isRumahKosongHitam
-                      ? (house.duesHeadNameOverride && house.duesHeadNameOverride.toLowerCase().includes('kosong')
-                          ? house.duesHeadNameOverride
-                          : `Rumah Kosong (${house.headName || 'Tanpa Penghuni'})`)
-                      : (house.duesHeadNameOverride || house.headName || '-');
+                    // Nama Kepala Keluarga mengikuti data warga
+                    const payerName = house.headName?.trim()
+                      ? house.headName.trim()
+                      : (isRumahKosongHitam || house.occupancy === 'Kosong'
+                          ? 'Rumah Kosong'
+                          : (house.duesHeadNameOverride || '-'));
 
                     return (
                       <tr
@@ -655,10 +656,15 @@ export const BaksosSection: React.FC<BaksosSectionProps> = ({
                               <span>Denda Lunas (Tercatat di Kas)</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 text-rose-950 font-black text-xs bg-rose-200/80 px-2.5 py-1 rounded-lg border border-rose-400 shadow-2xs">
-                              <AlertCircle className="w-4 h-4 text-rose-700" />
-                              <span>Denda Rp 10.000 (Belum Bayar)</span>
-                            </span>
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className="inline-flex items-center gap-1.5 text-rose-950 font-black text-xs bg-rose-200/90 px-2.5 py-1 rounded-lg border border-rose-400 shadow-2xs">
+                                <AlertCircle className="w-4 h-4 text-rose-700" />
+                                <span>Denda Rp 10.000 (Belum Bayar)</span>
+                              </span>
+                              <span className="text-[10px] font-bold text-rose-800">
+                                Otomatis Tercatat di Tunggakan
+                              </span>
+                            </div>
                           )}
                         </td>
 

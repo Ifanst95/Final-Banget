@@ -978,10 +978,8 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
         return attendance === 'Tidak Hadir';
       });
       const calculatedBaksosFine = isEmptyHouse ? 0 : unpaidBaksosList.length * 10000;
-      const baksosFineAmount =
-        house.customBaksosFineAmount !== undefined
-          ? house.customBaksosFineAmount
-          : calculatedBaksosFine;
+      const customFine = (house.customBaksosFineAmount && house.customBaksosFineAmount > 0) ? house.customBaksosFineAmount : 0;
+      const baksosFineAmount = isEmptyHouse ? 0 : (calculatedBaksosFine + customFine);
 
       const previousArrears = isEmptyHouse ? 0 : house.previousArrears || 0;
       const totalBillRemaining = currentMonthRemaining + previousArrears + baksosFineAmount;
@@ -5616,12 +5614,38 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                                         Saldo: {formatRupiah(house.previousArrears)}
                                       </span>
                                     )}
+                                    {house.previousArrearsNote && (
+                                      <span
+                                        className="text-[9px] font-sans text-amber-900 bg-amber-50/90 px-1.5 py-0.5 rounded border border-amber-200/80 mt-0.5 max-w-[150px] truncate block text-left"
+                                        title={`Keterangan Tunggakan Lalu: ${house.previousArrearsNote}`}
+                                      >
+                                        Ket: {house.previousArrearsNote}
+                                      </span>
+                                    )}
                                   </div>
                                 ) : house.previousArrears > 0 && !isNeutralKosong ? (
                                   <div className="flex flex-col items-end">
                                     <span className="text-slate-400 font-mono text-[11px]">-</span>
                                     <span className="text-[9px] font-sans font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded border border-rose-200 mt-0.5" title={`Saldo Tunggakan Pokok: ${formatRupiah(house.previousArrears)}`}>
                                       Saldo: {formatRupiah(house.previousArrears)}
+                                    </span>
+                                    {house.previousArrearsNote && (
+                                      <span
+                                        className="text-[9px] font-sans text-amber-900 bg-amber-50/90 px-1.5 py-0.5 rounded border border-amber-200/80 mt-0.5 max-w-[150px] truncate block text-left"
+                                        title={`Keterangan Tunggakan Lalu: ${house.previousArrearsNote}`}
+                                      >
+                                        Ket: {house.previousArrearsNote}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : house.previousArrearsNote && !isNeutralKosong ? (
+                                  <div className="flex flex-col items-end">
+                                    <span className="text-slate-400 font-mono text-[11px]">-</span>
+                                    <span
+                                      className="text-[9px] font-sans text-amber-900 bg-amber-50/90 px-1.5 py-0.5 rounded border border-amber-200/80 mt-0.5 max-w-[150px] truncate block text-left"
+                                      title={`Keterangan Tunggakan Lalu: ${house.previousArrearsNote}`}
+                                    >
+                                      Ket: {house.previousArrearsNote}
                                     </span>
                                   </div>
                                 ) : (
@@ -6481,7 +6505,7 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                             )}
                           </td>
 
-                          {/* Denda Baksos (Dianggap Denda Baksos Saja, BUKAN Tunggakan) */}
+                          {/* Denda Baksos (Otomatis Masuk Rekap Tunggakan jika Belum Bayar) */}
                           <td
                             className={`py-2.5 px-3 text-center font-mono text-xs border ${
                               isRumahKosongHitam
@@ -8517,14 +8541,14 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                       )}
                     </div>
 
-                    {/* Edit Manual Saldo Pokok Tunggakan Lalu (Jika Pengurus ingin koreksi nominal dasar) */}
+                    {/* Edit Saldo Tunggakan Lalu & Keterangan Tunggakan Lalu Profil KK */}
                     <div className="pt-2 border-t border-rose-200/70">
                       <span className="block text-[11px] font-bold text-slate-700 mb-1.5">
-                        Koreksi Saldo Pokok Tunggakan Profil KK (Opsional):
+                        Tunggakan Bulan/Tahun Lalu (Profil KK):
                       </span>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[10px] text-slate-500 mb-0.5">Saldo Pokok (Rp)</label>
+                          <label className="block text-[10px] text-slate-500 mb-0.5">Saldo Tunggakan Lalu (Rp)</label>
                           <input
                             type="number"
                             min={0}
@@ -8536,17 +8560,20 @@ export const CashReportSection: React.FC<CashReportSectionProps> = ({
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] text-slate-500 mb-0.5">Keterangan Pokok</label>
+                          <label className="block text-[10px] text-slate-500 mb-0.5">Keterangan Tunggakan Lalu</label>
                           <input
                             type="text"
                             disabled={isEditingVacant}
-                            placeholder="Sisa iuran bulan lalu..."
+                            placeholder="Contoh: Tunggakan Agustus 2026, sisa bulan lalu..."
                             value={houseDuesPrevNoteInput}
                             onChange={(e) => setHouseDuesPrevNoteInput(e.target.value)}
                             className="w-full px-2.5 py-1 text-xs bg-white border border-slate-300 rounded-lg"
                           />
                         </div>
                       </div>
+                      <p className="text-[10px] text-amber-800 mt-1 italic">
+                        *Isian Keterangan Tunggakan Lalu ini otomatis tersambung ke kolom Keterangan Tunggakan Lalu pada Daftar Rincian Tunggakan Per Rumah.
+                      </p>
                     </div>
 
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-rose-200/80">

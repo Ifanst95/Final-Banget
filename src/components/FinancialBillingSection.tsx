@@ -244,10 +244,8 @@ export const FinancialBillingSection: React.FC<FinancialBillingSectionProps> = (
         return attendance === 'Tidak Hadir' && !isFinePaid;
       });
       const calculatedBaksosFine = isVacant ? 0 : unpaidBaksosList.length * 10000;
-      const baksosFineAmount =
-        house.customBaksosFineAmount !== undefined
-          ? house.customBaksosFineAmount
-          : calculatedBaksosFine;
+      const customFine = (house.customBaksosFineAmount && house.customBaksosFineAmount > 0) ? house.customBaksosFineAmount : 0;
+      const baksosFineAmount = isVacant ? 0 : (calculatedBaksosFine + customFine);
 
       // Total Tagihan Bersih
       const totalBillRemaining = remainingDues + previousArrears + baksosFineAmount;

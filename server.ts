@@ -183,24 +183,13 @@ async function getGcpAccessToken(): Promise<string | null> {
   }
 }
 
-let isCloudFirestoreQuotaExceeded = false;
-
 async function loadStateFromCloudFirestore(): Promise<RuntimeDatabasePayload | null> {
-  if (isCloudFirestoreQuotaExceeded) return null;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 4500);
     const url = `${FIRESTORE_DOC_URL}?key=${FIRESTORE_API_KEY}`;
     const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
-    if (res.status === 429 || res.status === 403) {
-      const text = await res.text();
-      if (text.includes('RESOURCE_EXHAUSTED') || text.includes('Quota')) {
-        isCloudFirestoreQuotaExceeded = true;
-        console.warn('Server: Cloud Firestore quota exceeded. Falling back to local disk persistence.');
-      }
-      return null;
-    }
     if (!res.ok) return null;
     const docJson = (await res.json()) as any;
     const rawJsonStr = docJson?.fields?.payloadJson?.stringValue;
@@ -212,7 +201,7 @@ async function loadStateFromCloudFirestore(): Promise<RuntimeDatabasePayload | n
 }
 
 async function saveStateToCloudFirestore(payload: RuntimeDatabasePayload): Promise<void> {
-  if (isCloudFirestoreQuotaExceeded || payload.isDefaultSeed) return;
+  if (payload.isDefaultSeed) return;
   try {
     const body = {
       fields: {
@@ -231,28 +220,13 @@ async function saveStateToCloudFirestore(payload: RuntimeDatabasePayload): Promi
       body: JSON.stringify(body),
       signal: controller.signal,
     });
-    if (patchRes.status === 429 || patchRes.status === 403) {
-      const text = await patchRes.text();
-      if (text.includes('RESOURCE_EXHAUSTED') || text.includes('Quota')) {
-        isCloudFirestoreQuotaExceeded = true;
-        console.warn('Server: Cloud Firestore daily write quota reached. Local disk & memory active.');
-        clearTimeout(timeout);
-        return;
-      }
-    }
     if (patchRes.status === 404) {
       const createUrl = `https://firestore.googleapis.com/v1/projects/${FIRESTORE_PROJECT_ID}/databases/${FIRESTORE_DB_ID}/documents/portal_state?documentId=main_state&key=${FIRESTORE_API_KEY}`;
-      const createRes = await fetch(createUrl, {
+      await fetch(createUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (createRes.status === 429 || createRes.status === 403) {
-        const text = await createRes.text();
-        if (text.includes('RESOURCE_EXHAUSTED') || text.includes('Quota')) {
-          isCloudFirestoreQuotaExceeded = true;
-        }
-      }
     }
     clearTimeout(timeout);
   } catch {

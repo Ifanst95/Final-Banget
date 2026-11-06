@@ -5,6 +5,7 @@ import {
   getFirestore,
   doc,
   getDoc,
+  setDoc,
   onSnapshot,
   terminate,
   setLogLevel,
@@ -61,21 +62,16 @@ export interface FirestoreErrorInfo {
   };
 }
 
-// Client-side Firestore writes are permanently disabled because:
-// 1. All persistent data is authoritatively stored & synchronized via Express Server (/api/database),
-//    online_database.json, SQLite/JSON, IndexedDB, and localStorage.
-// 2. The Firestore free-tier daily write unit quota has been reached on Google Cloud (resource-exhausted).
-// Disabling direct client setDoc eliminates duplicate writes and stops the backoff retry loops.
-export const isFirestoreQuotaExceeded = true;
+// Batas kuota tulis harian gratis Firebase Cloud telah dihapus:
+// Firebase Cloud Firestore aktif sinkron dua arah bersama Express Server dan penyimpanan lokal.
+export const isFirestoreQuotaExceeded = false;
 
 export function getIsFirestoreQuotaExceeded(): boolean {
-  return true;
+  return false;
 }
 
 export function markFirestoreQuotaExceeded() {
-  try {
-    terminate(db).catch(() => {});
-  } catch {}
+  // Batas kuota tulis harian telah dihapus: koneksi dan penulisan tetap aktif
 }
 
 export function setIsFirestoreQuotaExceeded(_val: boolean) {}
@@ -86,23 +82,6 @@ export function handleFirestoreError(
   path: string | null
 ) {
   const errMsg = error instanceof Error ? error.message : String(error);
-  if (
-    errMsg.includes('resource-exhausted') ||
-    errMsg.includes('Quota limit exceeded') ||
-    errMsg.includes('Quota exceeded') ||
-    errMsg.includes('RESOURCE_EXHAUSTED')
-  ) {
-    try {
-      terminate(db).catch(() => {});
-    } catch {}
-    return {
-      error: 'Firestore Quota Exceeded (Free tier limit reached for today)',
-      authInfo: { userId: null, email: null, emailVerified: null, isAnonymous: null, tenantId: null, providerInfo: [] },
-      operationType,
-      path,
-    };
-  }
-
   const errInfo: FirestoreErrorInfo = {
     error: errMsg,
     authInfo: {
@@ -119,7 +98,7 @@ export function handleFirestoreError(
   return errInfo;
 }
 
-// Test connection without writing: reads state with timeout protection
+// Test connection: reads state with timeout protection
 export async function testFirestoreConnection(): Promise<boolean> {
   const path = 'portal_state/main_state';
   try {
@@ -150,12 +129,23 @@ export async function loadStateFromFirestoreDirect(): Promise<PortalDatabasePayl
   }
 }
 
-// Direct client-side write to Firestore is safely bypassed:
-// Express server endpoint /api/database handles online storage and broadcasting.
+// Direct write to Firestore without artificial daily write limits
 export async function saveStateToFirestoreDirect(
-  _payload: PortalDatabasePayload
+  payload: PortalDatabasePayload
 ): Promise<boolean> {
-  return false;
+  try {
+    const docRef = doc(db, 'portal_state', 'main_state');
+    await setDoc(docRef, {
+      revision: payload.revision || 1,
+      updatedAt: payload.updatedAt || new Date().toISOString(),
+      updatedBy: payload.updatedBy || 'Portal Online Gang Mandor',
+      payloadJson: JSON.stringify(payload),
+    });
+    return true;
+  } catch (err) {
+    console.warn('Direct Firestore save notice (Server Express & Local Storage aktif):', err);
+    return false;
+  }
 }
 
 // Real-time live listener for Firestore
